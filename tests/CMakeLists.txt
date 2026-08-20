@@ -30,6 +30,7 @@ syscape_add_test(header_error header_error.cpp)
 syscape_add_test(header_execution_environment header_execution_environment.cpp)
 syscape_add_test(header_result header_result.cpp)
 syscape_add_test(header_toolchain header_toolchain.cpp)
+syscape_add_test(header_os header_os.cpp)
 syscape_add_test(foundation foundation.cpp)
 syscape_add_test(odr odr_main.cpp odr_other.cpp)
 
@@ -38,6 +39,13 @@ target_compile_definitions(force_generic PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1
 
 syscape_add_test(force_unknown force_unknown.cpp)
 target_compile_definitions(force_unknown PRIVATE SYSCAPE_FORCE_UNKNOWN_TARGET=1)
+
+syscape_add_test(os_force_generic os_force_generic.cpp)
+target_compile_definitions(os_force_generic PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    syscape_add_test(os_linux os_linux.cpp)
+endif()
 
 add_library(freestanding_headers OBJECT freestanding_headers.cpp)
 syscape_configure_test(freestanding_headers)

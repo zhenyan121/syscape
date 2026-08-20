@@ -46,9 +46,9 @@ backend.
 
 | Platform family | Representative architectures | Representative C++ toolchains | Intended profile | State |
 | --- | --- | --- | --- | --- |
-| Windows | x86, x86-64, Arm64 | MSVC, Clang/clang-cl, GCC/MinGW-w64 | Hosted Full | Not started |
-| Linux | x86, x86-64, Arm, Arm64, RISC-V, LoongArch, PowerPC, s390x, MIPS, and other maintained ports | GCC, Clang | Hosted Full | Not started |
-| macOS | x86-64, Arm64 | Apple Clang | Hosted Full | Not started |
+| Windows | x86, x86-64, Arm64 | MSVC, Clang/clang-cl, GCC/MinGW-w64 | Hosted Full | OS backend implemented; SDK compilation and runtime unverified |
+| Linux | x86, x86-64, Arm, Arm64, RISC-V, LoongArch, PowerPC, s390x, MIPS, and other maintained ports | GCC, Clang | Hosted Full | OS backend verified on Arch Linux x86-64; other modules and targets not started |
+| macOS | x86-64, Arm64 | Apple Clang | Hosted Full | OS backend implemented; SDK compilation and runtime unverified |
 | FreeBSD | x86, x86-64, Arm, Arm64, RISC-V, PowerPC, and supported release architectures | Clang, GCC | Hosted Full | Not started |
 | OpenBSD | x86-64, Arm64, and supported release architectures | Clang, GCC | Hosted Full | Not started |
 | NetBSD | x86, x86-64, Arm, Arm64, MIPS, PowerPC, SPARC, and other supported release architectures | GCC, Clang | Hosted Full | Not started |

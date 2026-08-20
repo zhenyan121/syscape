@@ -78,9 +78,9 @@ runtime-query layer.
 
 | Platform family | Initial variants | Intended platform sources | Current status |
 | --- | --- | --- | --- |
-| Linux | glibc and musl; x86, Arm, and RISC-V | POSIX APIs, Linux system calls, procfs, sysfs, netlink, and documented kernel interfaces | Not started |
-| Windows | Supported Windows client and server releases; x86, x64, and Arm64 | Win32, NT-supported public APIs, IP Helper, SetupAPI, registry APIs, and other Windows SDK facilities | Not started |
-| macOS | Supported macOS releases; x86-64 and Apple silicon | POSIX, `sysctl`, IOKit, SystemConfiguration, and other public system frameworks callable from C++ | Not started |
+| Linux | glibc and musl; x86, Arm, and RISC-V | POSIX APIs, Linux system calls, procfs, sysfs, netlink, and documented kernel interfaces | In progress; OS module verified on one host |
+| Windows | Supported Windows client and server releases; x86, x64, and Arm64 | Win32, NT-supported public APIs, IP Helper, SetupAPI, registry APIs, and other Windows SDK facilities | In progress; OS backend implemented but unverified |
+| macOS | Supported macOS releases; x86-64 and Apple silicon | POSIX, `sysctl`, IOKit, SystemConfiguration, and other public system frameworks callable from C++ | In progress; OS backend implemented but unverified |
 
 ### Tier 2: BSD and mobile platforms
 
@@ -145,7 +145,7 @@ will be no all-modules umbrella header.
 | Foundation | `error.hpp` | `syscape::errc`, error category integration, and portable error conditions | Implemented |
 | Foundation | `result.hpp` | Non-throwing `syscape::result<T>` and `result<void>` value-or-error types | Implemented |
 | Foundation | `capability.hpp` | Allocation-free capability state vocabulary for runtime and compile-time modules | Implemented |
-| 1 | `os.hpp` | OS family, product name, version, build, kernel name and version, architecture, host name, boot time, uptime, and boot identifier where appropriate | Not started |
+| 1 | `os.hpp` | Product name, version, build, kernel name and version, host name, boot time, uptime, and boot identifier where available | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `cpu.hpp` | Architecture, vendor, model, packages, physical and logical cores, topology, caches, instruction-set features, frequency, affinity, and utilization | Not started |
 | 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | Not started |
 | 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | Not started |
@@ -195,6 +195,30 @@ concepts.
 This evidence verifies only the listed compile target and host. Other enum
 values and platform branches remain unverified until tested with their real
 toolchains and targets.
+
+### Operating-system module evidence
+
+| Backend | Data sources | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results | Forced-backend standalone and runtime tests under GCC and Clang | Verified |
+| Linux | `uname`, `gethostname`, `clock_gettime`, `/etc/os-release`, `/proc/stat`, and `/proc/sys/kernel/random/boot_id` | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44; strict C++17 GCC 16.2.1 and Clang 22.1.8; runtime, parser, ODR, error, and sanitizer tests | Verified |
+| Windows | `RtlGetVersion`, `GetComputerNameExW`, and `GetTickCount64` | Backend implemented from public Windows APIs; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | `sysctlbyname`, `KERN_BOOTTIME`, and `gethostname` | Backend implemented from public Darwin APIs; no Apple SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+
+The Linux product fields follow the documented
+[`os-release`](https://www.freedesktop.org/software/systemd/man/latest/os-release.html)
+format. Boot time uses the kernel-documented
+[`btime`](https://www.kernel.org/doc/html/latest/filesystems/proc.html) value
+from `/proc/stat`, and the boot identifier uses the kernel-documented
+[`boot_id`](https://www.kernel.org/doc/html/latest/admin-guide/sysctl/kernel.html).
+The Windows implementation follows the public
+[`RtlGetVersion`](https://learn.microsoft.com/en-us/windows/win32/devnotes/rtlgetversion)
+and [system information](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/)
+APIs. The macOS implementation follows the public
+[`sysctl`](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/sysctlbyname.3.html)
+interface. Windows and macOS statuses must not advance until their headers
+compile with the official SDK and the tests execute on the real operating
+system.
 
 ### Sensitive and identifying information
 
