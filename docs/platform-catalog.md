@@ -37,7 +37,10 @@ The profiles are:
 | Freestanding Minimal | Allocation-free compile-target, architecture, byte-order, toolchain, and board-capability information only. |
 | SDK Restricted | Cataloged, but no implementation promise until the official SDK is legally available and real hardware can be used for verification. |
 
-All entries are **Not started** unless a row explicitly says **SDK restricted**.
+Platform, RTOS, and MCU backend entries are **Not started** unless a row
+explicitly says **SDK restricted**. Foundation detection evidence and toolchain
+identification may have a later state without implying a complete platform
+backend.
 
 ## Desktop, Server, and General-Purpose Systems
 
@@ -223,8 +226,8 @@ physical verification system is available.
 
 | Toolchain family | Representative variants | Catalog role | State |
 | --- | --- | --- | --- |
-| GCC | Native GCC, cross GCC, MinGW-w64 GCC, DJGPP, and vendor-packaged GCC | Hosted, RTOS, and bare-metal candidate | Not started |
-| LLVM/Clang | Upstream Clang, clang-cl, cross Clang, and vendor distributions | Hosted, RTOS, WebAssembly, and bare-metal candidate | Not started |
+| GCC | Native GCC, cross GCC, MinGW-w64 GCC, DJGPP, and vendor-packaged GCC | Hosted, RTOS, and bare-metal candidate | Detection implemented; GCC 16.2.1 verified on Linux x86-64 |
+| LLVM/Clang | Upstream Clang, clang-cl, cross Clang, and vendor distributions | Hosted, RTOS, WebAssembly, and bare-metal candidate | Detection implemented; Clang 22.1.8 verified on Linux x86-64 |
 | Apple Clang | Xcode platform toolchains | Apple hosted and sandboxed platforms | Not started |
 | Microsoft Visual C++ | MSVC and Windows SDK toolsets | Windows Hosted Full | Not started |
 | Emscripten | Clang-based WebAssembly toolchain | Browser and supported WebAssembly runtimes | Not started |
@@ -260,6 +263,19 @@ The following evidence levels must not be conflated:
 Cross-compilation and emulation may establish **Compiles**, but only execution
 on the real target establishes **Verified**. A compiler backend alone
 establishes neither state for Syscape.
+
+### Current foundation evidence
+
+| Target fact | Verified environment | State |
+| --- | --- | --- |
+| x86-64 architecture, LP64 data model, little-endian byte order | Arch Linux, Linux 7.1.8, glibc 2.44, GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux operating-system and hosted execution classification | Arch Linux, Linux 7.1.8, x86-64 | Verified |
+| GCC and Clang compiler plus libstdc++ identification | GCC 16.2.1 and Clang 22.1.8 on `x86_64-pc-linux-gnu` | Verified |
+| Generic and unknown target fallbacks | Forced test configuration on Linux x86-64 | Verified |
+| Freestanding Minimal header set | `x86_64-pc-linux-gnu` with `-ffreestanding` under GCC 16.2.1 and Clang 22.1.8 | Compiles only |
+
+All other architectures, standard libraries, compilers, operating systems,
+RTOS families, MCU families, and SDK-restricted platforms remain unverified.
 
 ## Reference Policies
 

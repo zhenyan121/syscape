@@ -33,6 +33,7 @@ separately.
 | Not started | No public API or backend has been implemented. |
 | Designing | Portable semantics and API are being specified. |
 | In progress | Code exists but the required tests or documentation are incomplete. |
+| Compiles | The declared headers compile and link for a concrete target, but runtime behavior has not been verified there. |
 | Implemented | The portable API, fallback, and at least one backend are complete. |
 | Verified | The backend has passed the required tests on the named platform. |
 | SDK restricted | The target is cataloged, but implementation and verification require lawful access to a proprietary SDK and hardware. |
@@ -42,8 +43,9 @@ separately.
 An item must not be marked **Verified** based only on successful compilation,
 cross-compilation, emulation, or similarity to another operating system.
 
-At the creation of this document, no library headers have been implemented.
-Every module and platform backend is therefore **Not started**.
+Items remain **Not started** unless their rows or the verification evidence
+below explicitly record a later state. A module-level state does not imply that
+every cataloged platform backend has the same state.
 
 ## Compatibility Profiles
 
@@ -137,12 +139,12 @@ will be no all-modules umbrella header.
 
 | Priority | Planned header or domain | Information to expose | Current status |
 | --- | --- | --- | --- |
-| Foundation | `architecture.hpp` | Freestanding-safe target architecture family, data model, pointer width, and byte order with explicit unknown values | Not started |
-| Foundation | `toolchain.hpp` | Freestanding-safe compiler, language mode, and standard-library availability facts | Not started |
-| Foundation | `execution_environment.hpp` | Freestanding-safe hosted, sandboxed, RTOS, bare-metal, compatibility, and unknown environment classification | Not started |
-| Foundation | `error.hpp` | `syscape::errc`, error category integration, and portable error conditions | Not started |
-| Foundation | `result.hpp` | Non-throwing `syscape::result<T>` value-or-error type | Not started |
-| Foundation | `capability.hpp` | Runtime and compile-time capability reporting without claiming unavailable data | Not started |
+| Foundation | `architecture.hpp` | Freestanding-safe target architecture family, data model, pointer width, and byte order with explicit unknown values | Implemented |
+| Foundation | `toolchain.hpp` | Freestanding-safe compiler, language mode, and standard-library availability facts | Implemented |
+| Foundation | `execution_environment.hpp` | Freestanding-safe hosted, sandboxed, RTOS, bare-metal, compatibility, and unknown environment classification | Implemented |
+| Foundation | `error.hpp` | `syscape::errc`, error category integration, and portable error conditions | Implemented |
+| Foundation | `result.hpp` | Non-throwing `syscape::result<T>` and `result<void>` value-or-error types | Implemented |
+| Foundation | `capability.hpp` | Allocation-free capability state vocabulary for runtime and compile-time modules | Implemented |
 | 1 | `os.hpp` | OS family, product name, version, build, kernel name and version, architecture, host name, boot time, uptime, and boot identifier where appropriate | Not started |
 | 1 | `cpu.hpp` | Architecture, vendor, model, packages, physical and logical cores, topology, caches, instruction-set features, frequency, affinity, and utilization | Not started |
 | 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | Not started |
@@ -180,6 +182,19 @@ do not include Hosted Full error or string facilities. Compile-target
 information remains separate from runtime host information because a
 cross-compiled binary's build target and runtime environment are different
 concepts.
+
+### Foundation implementation evidence
+
+| Component | Target and environment | Toolchain | Evidence | State |
+| --- | --- | --- | --- | --- |
+| Freestanding Minimal public headers | `x86_64-pc-linux-gnu`, `-ffreestanding` | GCC 16.2.1 and Clang 22.1.8 | Strict C++17 compilation without Hosted Full headers | Compiles |
+| Architecture, toolchain, and execution-environment detection | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44 | GCC 16.2.1 with libstdc++ | Standalone headers, forced unknown target, forced generic backend, runtime assertions | Verified |
+| Architecture, toolchain, and execution-environment detection | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44 | Clang 22.1.8 with libstdc++ | Standalone headers, forced unknown target, forced generic backend, runtime assertions | Verified |
+| Hosted error, result, capability, and UTF conversion foundation | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44 | GCC 16.2.1 and Clang 22.1.8 | Strict C++17 unit, error mapping, invalid encoding, multi-translation-unit ODR, and sanitizer tests | Verified |
+
+This evidence verifies only the listed compile target and host. Other enum
+values and platform branches remain unverified until tested with their real
+toolchains and targets.
 
 ### Sensitive and identifying information
 
