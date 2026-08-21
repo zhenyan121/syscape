@@ -86,9 +86,9 @@ error, string, or runtime-query layer.
 
 | Platform family | Initial variants | Intended platform sources | Current status |
 | --- | --- | --- | --- |
-| Linux | glibc and musl; x86, Arm, and RISC-V | POSIX APIs, Linux system calls, procfs, sysfs, netlink, and documented kernel interfaces | In progress; OS module verified on one host |
-| Windows | Supported Windows client and server releases; x86, x64, and Arm64 | Win32, NT-supported public APIs, IP Helper, SetupAPI, registry APIs, and other Windows SDK facilities | In progress; OS backend implemented but unverified |
-| macOS | Supported macOS releases; x86-64 and Apple silicon | POSIX, `sysctl`, IOKit, SystemConfiguration, and other public system frameworks callable from C++ | In progress; OS backend implemented but unverified |
+| Linux | glibc and musl; x86, Arm, and RISC-V | POSIX APIs, Linux system calls, procfs, sysfs, netlink, and documented kernel interfaces | In progress; OS and initial CPU identity/topology queries verified on one host |
+| Windows | Supported Windows client and server releases; x86, x64, and Arm64 | Win32, NT-supported public APIs, IP Helper, SetupAPI, registry APIs, and other Windows SDK facilities | In progress; OS and initial CPU topology backends implemented but unverified |
+| macOS | Supported macOS releases; x86-64 and Apple silicon | POSIX, `sysctl`, IOKit, SystemConfiguration, and other public system frameworks callable from C++ | In progress; OS and initial CPU-count backends implemented but unverified |
 
 ### Tier 2: BSD and mobile platforms
 
@@ -154,7 +154,7 @@ will be no all-modules umbrella header.
 | Foundation | `result.hpp` | Non-throwing `syscape::result<T>` and `result<void>` value-or-error types | Implemented |
 | Foundation | `capability.hpp` | Allocation-free capability state vocabulary for runtime and compile-time modules | Implemented |
 | 1 | `os.hpp` | Product name, version, build, kernel name and version, host name, boot time, uptime, and boot identifier where available | Implemented; Linux verified, Windows and macOS unverified |
-| 1 | `cpu.hpp` | Architecture, vendor, model, packages, physical and logical cores, topology, caches, instruction-set features, frequency, affinity, and utilization | Not started |
+| 1 | `cpu.hpp` | Architecture, vendor, model, packages, physical and logical cores, topology, caches, instruction-set features, frequency, affinity, and utilization | In progress; vendor identifiers, model labels, and online logical, physical-core, and package counts implemented where documented sources exist |
 | 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | Not started |
 | 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | Not started |
 | 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | Not started |
@@ -227,6 +227,30 @@ APIs. The macOS implementation follows the public
 interface. Windows and macOS statuses must not advance until their headers
 compile with the official SDK and the tests execute on the real operating
 system.
+
+### CPU identity and online-topology evidence
+
+This first CPU slice exposes distinct platform-provided vendor identifiers and
+model labels plus system-wide counts of online logical processors, physical
+cores, and CPU packages. The counts intentionally do not apply process affinity
+or container CPU quotas. Cache topology, instruction-set features, frequencies,
+affinity, and utilization remain not started.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every CPU query | Forced-backend standalone, runtime, C++11-rejection, and ODR tests under GCC and Clang | Verified |
+| Linux | `_SC_NPROCESSORS_ONLN`, architecture-specific `/proc/cpuinfo` identifiers and labels, `/sys/devices/system/cpu/online`, and per-CPU sysfs package/core IDs; identity queries may return `not_found` on architectures that expose no recognized field | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44; strict C++17 GCC 16.2.1 and Clang 22.1.8; parser, malformed-data, UTF-8, topology-invariant, standalone, runtime, ODR, AddressSanitizer, and UndefinedBehaviorSanitizer tests | Verified for this slice on the listed host |
+| Windows | `GetActiveProcessorCount` and `GetLogicalProcessorInformationEx`; vendor identifiers and model labels return `not_supported`; requires Windows 7 or later processor-group declarations | Backend implemented from public Windows APIs; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | Documented `hw.logicalcpu` and `hw.physicalcpu` `sysctlbyname` values; package count, vendor identifiers, and model labels return `not_supported` | Backend implemented from public Apple APIs; no Apple SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+
+Linux physical topology follows the kernel's documented
+[CPU topology sysfs interface](https://docs.kernel.org/admin-guide/cputopology.html).
+The Windows implementation follows the documented
+[`GetActiveProcessorCount`](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getactiveprocessorcount)
+and
+[`GetLogicalProcessorInformationEx`](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex)
+APIs. The macOS counts follow Apple's documented
+[system capability parameters](https://developer.apple.com/documentation/kernel/1387446-sysctlbyname/determining_system_capabilities).
 
 ### Sensitive and identifying information
 

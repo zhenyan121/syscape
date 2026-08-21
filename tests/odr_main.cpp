@@ -1,6 +1,7 @@
 #include <system_error>
 
 #include <syscape/architecture.hpp>
+#include <syscape/cpu.hpp>
 #include <syscape/error.hpp>
 #include <syscape/os.hpp>
 #include <syscape/result.hpp>
@@ -8,6 +9,7 @@
 const std::error_category* other_error_category();
 syscape::architecture other_architecture();
 bool other_os_backend_callable();
+bool other_cpu_backend_callable();
 
 int main() {
     if (other_error_category() != &syscape::error_category()) {
@@ -19,6 +21,9 @@ int main() {
     if (!other_os_backend_callable()) {
         return 3;
     }
+    if (!other_cpu_backend_callable()) {
+        return 4;
+    }
     const syscape::result<int> value(7);
-    return value && *value == 7 ? 0 : 4;
+    return value && *value == 7 ? 0 : 5;
 }

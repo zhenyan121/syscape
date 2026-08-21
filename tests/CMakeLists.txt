@@ -66,14 +66,27 @@ syscape_add_test(header_error 11 syscape::syscape header_error.cpp)
 # Hosted Full headers and runtime queries retain their C++17 contract.
 syscape_add_test(header_result 17 syscape::hosted header_result.cpp)
 syscape_add_test(header_os 17 syscape::hosted header_os.cpp)
+syscape_add_test(header_cpu 17 syscape::hosted header_cpu.cpp)
 syscape_add_test(foundation 17 syscape::hosted foundation.cpp)
 syscape_add_test(odr 17 syscape::hosted odr_main.cpp odr_other.cpp)
 
 syscape_add_test(os_force_generic 17 syscape::hosted os_force_generic.cpp)
 target_compile_definitions(os_force_generic PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
 
+syscape_add_test(cpu_force_generic 17 syscape::hosted cpu_force_generic.cpp)
+target_compile_definitions(cpu_force_generic PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(os_linux 17 syscape::hosted os_linux.cpp)
+    syscape_add_test(cpu_linux 17 syscape::hosted cpu_linux.cpp)
+endif()
+
+if(WIN32)
+    syscape_add_test(cpu_windows 17 syscape::hosted cpu_windows.cpp)
+endif()
+
+if(APPLE)
+    syscape_add_test(cpu_macos 17 syscape::hosted cpu_macos.cpp)
 endif()
 
 # These smoke tests verify the language requirements propagated by each public
@@ -129,3 +142,6 @@ syscape_expect_cpp11_rejection(
 syscape_expect_cpp11_rejection(
     "syscape/os.hpp"
     "syscape/os.hpp requires C++17 or later")
+syscape_expect_cpp11_rejection(
+    "syscape/cpu.hpp"
+    "syscape/cpu.hpp requires C++17 or later")

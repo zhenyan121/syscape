@@ -5,7 +5,6 @@
 #include <charconv>
 #include <chrono>
 #include <cstddef>
-#include <fcntl.h>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -16,58 +15,12 @@
 #include <utility>
 #include <vector>
 
+#include <syscape/detail/linux/file.hpp>
 #include <syscape/result.hpp>
 
 namespace syscape {
 namespace detail {
 namespace os_backend {
-
-class file_descriptor {
-public:
-    explicit file_descriptor(int value) noexcept : value_(value) {}
-    file_descriptor(const file_descriptor&) = delete;
-    file_descriptor& operator=(const file_descriptor&) = delete;
-    ~file_descriptor() { if (value_ >= 0) { ::close(value_); } }
-
-private:
-    int value_;
-};
-
-inline result<std::string> read_text_file(const char* path) {
-    const int descriptor = ::open(path, O_RDONLY | O_CLOEXEC);
-    if (descriptor < 0) {
-        return fail(std::error_code(errno, std::generic_category()));
-    }
-    const file_descriptor owned_descriptor(descriptor);
-    static_cast<void>(owned_descriptor);
-
-    constexpr std::size_t maximum_size = 1024U * 1024U;
-    char buffer[4096];
-    std::string output;
-    for (;;) {
-        const ssize_t count = ::read(descriptor, buffer, sizeof(buffer));
-        if (count > 0) {
-            const std::size_t size = static_cast<std::size_t>(count);
-            if (output.size() > maximum_size - size) {
-                return fail(errc::value_too_large);
-            }
-            output.append(buffer, size);
-            continue;
-        }
-        if (count == 0) {
-            return output;
-        }
-        if (errno != EINTR) {
-            return fail(std::error_code(errno, std::generic_category()));
-        }
-    }
-}
-
-inline void trim_line_end(std::string& value) {
-    while (!value.empty() && (value.back() == '\n' || value.back() == '\r')) {
-        value.pop_back();
-    }
-}
 
 struct release_information {
     std::string name;
@@ -141,9 +94,10 @@ inline result<release_information> parse_os_release(std::string_view input) {
 }
 
 inline result<release_information> read_os_release() {
-    result<std::string> content = read_text_file("/etc/os-release");
+    result<std::string> content =
+        linux_platform::read_text_file("/etc/os-release");
     if (!content && content.error() == std::errc::no_such_file_or_directory) {
-        content = read_text_file("/usr/lib/os-release");
+        content = linux_platform::read_text_file("/usr/lib/os-release");
     }
     if (!content) { return fail(content.error()); }
     return parse_os_release(*content);
@@ -213,9 +167,10 @@ inline result<std::string> host_name() {
 }
 
 inline result<std::string> boot_identifier() {
-    result<std::string> value = read_text_file("/proc/sys/kernel/random/boot_id");
+    result<std::string> value =
+        linux_platform::read_text_file("/proc/sys/kernel/random/boot_id");
     if (!value) { return fail(value.error()); }
-    trim_line_end(*value);
+    linux_platform::trim_line_end(*value);
     return value->empty() ? result<std::string>(fail(errc::malformed_data))
                           : value;
 }
@@ -242,7 +197,8 @@ inline result<std::chrono::milliseconds> uptime() {
 }
 
 inline result<std::chrono::system_clock::time_point> boot_time() {
-    const result<std::string> statistics = read_text_file("/proc/stat");
+    const result<std::string> statistics =
+        linux_platform::read_text_file("/proc/stat");
     if (!statistics) { return fail(statistics.error()); }
 
     std::size_t offset = 0U;
