@@ -3,7 +3,13 @@
 
 /// @file
 /// @brief A C++17 value-or-error type for Hosted Full queries.
-/// @note Minimum compatibility profile: Hosted Full.
+/// @note Minimum compatibility profile: Hosted Full with C++17.
+
+#include <syscape/detail/config.hpp>
+
+#if SYSCAPE_DETAIL_CPLUSPLUS < 201703L
+#error "syscape/result.hpp requires C++17 or later"
+#endif
 
 #include <stdexcept>
 #include <system_error>

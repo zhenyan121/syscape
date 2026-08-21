@@ -5,8 +5,8 @@
 
 static_assert(syscape::target_data_model_info().pointer_bits > 0U,
               "Pointer width must be observable without hosted facilities");
-static_assert(syscape::target_cpp_version() >= 201703L,
-              "The language version must be C++17 or later");
+static_assert(syscape::target_cpp_version() >= 201103L,
+              "The language version must be C++11 or later");
 
 int syscape_freestanding_compile_test() {
     const syscape::capability value(syscape::capability_state::unknown);

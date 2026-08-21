@@ -3,7 +3,9 @@
 
 /// @file
 /// @brief Portable Hosted Full error codes and standard error integration.
-/// @note Minimum compatibility profile: Hosted Full.
+/// @note Shared hosted foundation component requiring C++11 and the hosted
+/// standard-library error and string facilities. Hosted Full query headers
+/// require C++17.
 
 #include <string>
 #include <system_error>

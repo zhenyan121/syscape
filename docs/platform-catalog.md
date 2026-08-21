@@ -1,6 +1,6 @@
 # Syscape Platform, Architecture, and Toolchain Catalog
 
-Last reviewed: 2026-08-20
+Last reviewed: 2026-08-21
 
 ## Purpose
 
@@ -31,10 +31,10 @@ The profiles are:
 
 | Profile | Contract |
 | --- | --- |
-| Hosted Full | Complete hosted C++17 standard library and the full portable query API. |
-| Sandboxed/Restricted | Hosted or hosted-like C++17 with only information allowed by the sandbox and public platform APIs. |
-| RTOS/Constrained | A selectable runtime subset backed by public RTOS APIs and explicit board providers. |
-| Freestanding Minimal | Allocation-free compile-target, architecture, byte-order, toolchain, and board-capability information only. |
+| Hosted Full | Strict C++17, the complete hosted standard library, and the full portable query API. |
+| Sandboxed/Restricted | Hosted or hosted-like strict C++17 with only information allowed by the sandbox and public platform APIs. |
+| RTOS/Constrained | A selectable runtime subset backed by public RTOS APIs and explicit board providers; headers declare requirements no lower than strict C++11. |
+| Freestanding Minimal | Strict C++11 allocation-free compile-target, architecture, byte-order, toolchain, and board-capability information only. |
 | SDK Restricted | Cataloged, but no implementation promise until the official SDK is legally available and real hardware can be used for verification. |
 
 Platform, RTOS, and MCU backend entries are **Not started** unless a row
@@ -71,8 +71,8 @@ backend.
 | RISC OS | Arm | GCCSDK and other platform toolchains | RTOS/Constrained | Not started |
 
 Release, architecture, and compiler availability changes over time. A row lists
-catalog candidates, not a promise that every named combination provides a
-conforming C++17 standard library.
+catalog candidates, not a promise that every named combination provides the
+strict language mode and library facilities required by its intended profile.
 
 ## Compatibility Environments and Product Variants
 
@@ -150,9 +150,10 @@ by the applicable platform terms.
 | Mbed OS | Public OS and target APIs | RTOS/Constrained | Not started |
 | RIOT | Public OS APIs and documented C++ interoperability where available | RTOS/Constrained | Not started |
 
-An RTOS name does not imply that every configuration enables C++17, the same
-standard-library facilities, networking, a filesystem, dynamic allocation, or
-device discovery. Each backend and header must state its requirements.
+An RTOS name does not imply that every configuration enables conforming C++11,
+the same standard-library facilities, networking, a filesystem, dynamic
+allocation, or device discovery. Each backend and header must state its
+requirements.
 
 ## MCU, SoC, and Board Families
 
@@ -215,12 +216,14 @@ assume the runtime host matches a cross-compilation target.
 - M32C, M32R, FR30, and FR-V;
 - MMIX, Stormy16, Visium, and Epiphany;
 - IQ2000, LM32, MeP, MCore, MN10300, Moxie, and NDS32/ND32; and
-- any additional target for which a strict C++17 compiler can build the
-  relevant Syscape profile.
+- any additional target for which a strict C++11-or-later compiler can build
+  the relevant Syscape profile.
 
 Legacy and research entries are detection candidates only. Their presence does
-not claim that a current compiler, C++17 language mode, standard library, or
-physical verification system is available.
+not claim that a current compiler, conforming C++11 language mode, required
+standard library, or physical verification system is available. C++03 and
+earlier toolchains may be cataloged, but they are outside Syscape's compilation
+contract.
 
 ## Toolchain Catalog
 
@@ -245,8 +248,9 @@ physical verification system is available.
 
 The library remains zero-dependency when it supports a toolchain: compilers,
 standard libraries, operating-system SDKs, and vendor SDKs are build
-environments, not bundled library dependencies. Syscape source must still use
-strict C++17 and must not require a compiler language extension.
+environments, not bundled library dependencies. Syscape source must use the
+strict standard declared by each header—C++11 at minimum and C++17 for Hosted
+Full—and must not require a compiler language extension.
 
 ## Evidence and Status Rules
 
@@ -272,7 +276,7 @@ establishes neither state for Syscape.
 | Linux operating-system and hosted execution classification | Arch Linux, Linux 7.1.8, x86-64 | Verified |
 | GCC and Clang compiler plus libstdc++ identification | GCC 16.2.1 and Clang 22.1.8 on `x86_64-pc-linux-gnu` | Verified |
 | Generic and unknown target fallbacks | Forced test configuration on Linux x86-64 | Verified |
-| Freestanding Minimal header set | `x86_64-pc-linux-gnu` with `-ffreestanding` under GCC 16.2.1 and Clang 22.1.8 | Compiles only |
+| Freestanding Minimal header set | `x86_64-pc-linux-gnu` in strict C++11, C++14, and C++17 modes, including C++11 with `-ffreestanding`, under GCC 16.2.1 and Clang 22.1.8 | Compiles only |
 
 All other architectures, standard libraries, compilers, operating systems,
 RTOS families, MCU families, and SDK-restricted platforms remain unverified.

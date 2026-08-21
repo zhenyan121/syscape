@@ -3,12 +3,18 @@
 
 /// @file
 /// @brief Hosted operating-system identity and boot information queries.
-/// @note Minimum compatibility profile: Hosted Full.
+/// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note Linux, Windows, and macOS have native backends. Other targets use the
 /// generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows Vista or later SDK declarations.
+
+#include <syscape/detail/config.hpp>
+
+#if SYSCAPE_DETAIL_CPLUSPLUS < 201703L
+#error "syscape/os.hpp requires C++17 or later"
+#endif
 
 #include <chrono>
 #include <string>

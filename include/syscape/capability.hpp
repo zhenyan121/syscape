@@ -4,6 +4,7 @@
 /// @file
 /// @brief Allocation-free capability status types shared by Syscape modules.
 /// @note Minimum compatibility profile: Freestanding Minimal.
+/// @note Minimum language version: C++11; no hosted library is required.
 
 #include <syscape/detail/config.hpp>
 
@@ -49,7 +50,8 @@ private:
 };
 
 /// Returns a stable English name for a capability state.
-constexpr const char* capability_state_name(capability_state value) noexcept {
+SYSCAPE_DETAIL_CONSTEXPR14 const char* capability_state_name(
+    capability_state value) noexcept {
     switch (value) {
     case capability_state::unsupported: return "unsupported";
     case capability_state::available: return "available";

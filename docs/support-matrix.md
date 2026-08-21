@@ -1,6 +1,6 @@
 # Syscape Support Matrix and Information Catalog
 
-Last reviewed: 2026-08-20
+Last reviewed: 2026-08-21
 
 ## Purpose
 
@@ -11,13 +11,15 @@ architectures, toolchains, RTOS families, MCU families, WebAssembly hosts, and
 SDK-restricted platforms is maintained in
 [platform-catalog.md](platform-catalog.md).
 
-Syscape uses layered C++17 compatibility profiles. A platform does not need to
-expose every item in this catalog, and a minimal target does not need to compile
-headers declared for a larger profile. Every header must compile on an unknown
-target that satisfies its declared profile. An unavailable Hosted Full query
-returns an error such as `syscape::errc::not_supported`; an unrecognized
-Freestanding Minimal compile target reports an explicit `unknown` enum value.
-Syscape never invents a value to make a platform appear supported.
+Syscape uses layered language and compatibility profiles. Freestanding Minimal
+requires strict C++11, while Hosted Full requires strict C++17. A platform does
+not need to expose every item in this catalog, and a minimal target does not
+need to compile headers declared for a larger profile. Every header must
+compile on an unknown target that satisfies its declared language version and
+profile. An unavailable Hosted Full query returns an error such as
+`syscape::errc::not_supported`; an unrecognized Freestanding Minimal compile
+target reports an explicit `unknown` enum value. Syscape never invents a value
+to make a platform appear supported.
 
 The catalog is intentionally broader than the first implementation milestones.
 New information categories may be added when a documented in-process system
@@ -49,17 +51,23 @@ every cataloged platform backend has the same state.
 
 ## Compatibility Profiles
 
-| Profile | Minimum contract | Error and text model |
+| Profile | Language and minimum contract | Error and text model |
 | --- | --- | --- |
-| Hosted Full | Complete hosted C++17 standard library and the full portable query API | `syscape::result<T>`, `std::error_code`, and UTF-8 `std::string` |
-| Sandboxed/Restricted | Hosted or hosted-like C++17 with only publicly permitted information | Hosted error and text model; unavailable or denied data remains an explicit error |
-| RTOS/Constrained | Per-header subset using official RTOS APIs and explicit board providers | Declared by each header according to available standard-library facilities |
-| Freestanding Minimal | Allocation-free target, architecture, byte-order, toolchain, execution-environment, and board-capability facts | Enums, scalar values, compile-time constants, and caller-owned storage; no required `std::string` or `std::error_code` |
+| Hosted Full | Strict C++17, the complete hosted standard library, and the full portable query API | `syscape::result<T>`, `std::error_code`, and UTF-8 `std::string` |
+| Sandboxed/Restricted | Hosted or hosted-like strict C++17 with only publicly permitted information | Hosted error and text model; unavailable or denied data remains an explicit error |
+| RTOS/Constrained | A per-header subset using official RTOS APIs and explicit board providers; every header declares its requirements, never below strict C++11 | Declared by each header according to available standard-library facilities |
+| Freestanding Minimal | Strict C++11 allocation-free target, architecture, byte-order, toolchain, execution-environment, and board-capability facts | Enums, scalar values, compile-time constants, and caller-owned storage; no required `std::string` or `std::error_code` |
 | SDK Restricted | Catalog entry only until lawful SDK access and permitted hardware verification exist | No API promise |
 
 Profiles describe API availability, while implementation statuses describe
 project progress. A target can be cataloged for Freestanding Minimal while all
 of its Syscape modules remain Not started.
+
+The CMake target `syscape::syscape` exposes the C++11 foundation without
+raising a consumer to C++17. Applications using Hosted Full headers link
+`syscape::hosted`, which links the foundation and propagates the C++17
+requirement. A public header remains authoritative about its own minimum
+language and library requirements regardless of the build-system integration.
 
 ## Platform Roadmap
 
@@ -69,10 +77,10 @@ documentation rules as every other backend.
 
 ### Foundation track: Hosted and freestanding foundations
 
-Before platform backends, Syscape will design both the Hosted Full foundation
-and the independent Freestanding Minimal compile-target foundation. The
-minimal foundation must not include or depend on the hosted error, string, or
-runtime-query layer.
+Before platform backends, Syscape will design both the C++17 Hosted Full
+foundation and the independent C++11 Freestanding Minimal compile-target
+foundation. The minimal foundation must not include or depend on the hosted
+error, string, or runtime-query layer.
 
 ### Tier 1: Primary desktop and server platforms
 
@@ -114,7 +122,7 @@ runtime-query layer.
 | QNX Neutrino and VxWorks | Hosted or constrained modules using documented native and POSIX APIs | Not started |
 | FreeRTOS, Zephyr, RTEMS, ThreadX, NuttX, and other cataloged RTOS families | Selective runtime modules through official APIs and explicit board providers | Not started |
 | Arduino, AVR, ESP, STM32, RP-series, Nordic, TI, NXP, Renesas, Microchip, RISC-V MCU, GD32, CH32, and BL-series families | Freestanding Minimal plus board-provider capabilities | Not started |
-| DOS, FreeDOS, OS/2, ArcaOS, and other legacy environments | The largest profile supported by a strict C++17 toolchain and available runtime | Not started |
+| DOS, FreeDOS, OS/2, ArcaOS, and other legacy environments | The largest profile supported by a strict C++11-or-later toolchain and available runtime | Not started |
 
 ### SDK-restricted targets
 
@@ -176,18 +184,18 @@ will be no all-modules umbrella header.
 ### Compile-time environment information
 
 The planned `architecture.hpp`, `toolchain.hpp`, and
-`execution_environment.hpp` headers form the Freestanding Minimal foundation.
-They use allocation-free enums, integers, and compile-time constants, and they
-do not include Hosted Full error or string facilities. Compile-target
-information remains separate from runtime host information because a
-cross-compiled binary's build target and runtime environment are different
-concepts.
+`execution_environment.hpp` headers form the strict C++11 Freestanding Minimal
+foundation. They use allocation-free enums, integers, and compile-time
+constants, and they do not include Hosted Full error or string facilities.
+Compile-target information remains separate from runtime host information
+because a cross-compiled binary's build target and runtime environment are
+different concepts.
 
 ### Foundation implementation evidence
 
 | Component | Target and environment | Toolchain | Evidence | State |
 | --- | --- | --- | --- | --- |
-| Freestanding Minimal public headers | `x86_64-pc-linux-gnu`, `-ffreestanding` | GCC 16.2.1 and Clang 22.1.8 | Strict C++17 compilation without Hosted Full headers | Compiles |
+| Freestanding Minimal public headers | `x86_64-pc-linux-gnu`, including `-ffreestanding` | GCC 16.2.1 and Clang 22.1.8 | Strict C++11, C++14, and C++17 standalone, repeated-include, forced-fallback, and ODR checks without Hosted Full headers | Compiles |
 | Architecture, toolchain, and execution-environment detection | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44 | GCC 16.2.1 with libstdc++ | Standalone headers, forced unknown target, forced generic backend, runtime assertions | Verified |
 | Architecture, toolchain, and execution-environment detection | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44 | Clang 22.1.8 with libstdc++ | Standalone headers, forced unknown target, forced generic backend, runtime assertions | Verified |
 | Hosted error, result, capability, and UTF conversion foundation | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44 | GCC 16.2.1 and Clang 22.1.8 | Strict C++17 unit, error mapping, invalid encoding, multi-translation-unit ODR, and sanitizer tests | Verified |
@@ -302,8 +310,8 @@ configuration, machine, account, board, or SDK.
 4. **BSD and mobile:** port core modules to BSD, Android, Apple mobile, and
    HarmonyOS/OpenHarmony, respecting sandbox and permission limits.
 5. **Other hosted and compatibility environments:** add public Unix-like,
-   legacy, compatibility-runtime, and WebAssembly backends where strict C++17
-   and acceptable platform sources exist.
+   legacy, compatibility-runtime, and WebAssembly backends where the selected
+   profile's language requirements and acceptable platform sources exist.
 6. **RTOS and providers:** add RTOS subsets through official APIs and explicit
    provider boundaries for board-specific information.
 7. **Freestanding targets:** expand minimal architecture, toolchain, MCU, and
@@ -327,5 +335,5 @@ The change must:
 4. record runtime restrictions, permissions, and unavailable fields; and
 5. update `platform-catalog.md` when a platform, architecture, runtime,
    toolchain, RTOS, MCU family, or classification changes; and
-6. preserve the Hosted Full and Freestanding Minimal boundaries without
-   weakening either profile's fallback contract.
+6. preserve the Hosted Full and Freestanding Minimal language and capability
+   boundaries without weakening either profile's fallback contract.

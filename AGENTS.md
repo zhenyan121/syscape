@@ -2,11 +2,12 @@
 
 ## Project Mission
 
-Syscape is an MIT-licensed, zero-dependency, header-only C++17 library for
-querying information exposed by the execution platform. The long-term goal is
-to cover every useful category that a C++17 environment can honestly expose,
-from hosted operating systems to constrained RTOS and bare-metal targets,
-through explicitly documented compatibility profiles.
+Syscape is an MIT-licensed, zero-dependency, header-only C++ library for
+querying information exposed by the execution platform. The Freestanding
+Minimal foundation targets strict C++11, while Hosted Full targets strict
+C++17. The long-term goal is to cover every useful category that each declared
+compatibility profile can honestly expose, from hosted operating systems to
+constrained RTOS and bare-metal targets.
 
 These instructions apply to the entire repository. Follow them for every
 change unless a more specific `AGENTS.md` in a subdirectory adds stricter
@@ -14,12 +15,12 @@ requirements.
 
 ## Non-Negotiable Constraints
 
-- Target strict C++17 within the compatibility profiles defined in
-  `docs/support-matrix.md`. Do not assume that a freestanding or constrained
-  profile provides the complete hosted standard library.
-- Use only the C++17 facilities guaranteed by a header's declared profile and
-  documented APIs supplied by the target operating system, RTOS, board support
-  package, or platform SDK.
+- Target strict C++11 for Freestanding Minimal and strict C++17 for Hosted Full
+  as defined in `docs/support-matrix.md`. RTOS/Constrained headers must declare
+  their exact minimum language and library requirements, never below C++11.
+- Use only the language and standard-library facilities guaranteed by a
+  header's declared profile and documented APIs supplied by the target
+  operating system, RTOS, board support package, or platform SDK.
 - Do not add third-party library dependencies anywhere, including tests,
   examples, documentation tooling, and the build process.
 - Do not use compiler language extensions, compiler builtins, non-standard
@@ -55,8 +56,9 @@ that provides them.
 - Every public header must be self-contained: it must include everything it
   needs and compile when it is the first project header in a translation unit
   that satisfies its declared compatibility profile.
-- Every public header must document its minimum compatibility profile and any
-  required standard-library, RTOS, SDK, permission, or hardware facilities.
+- Every public header must document its minimum language version,
+  compatibility profile, and any required standard-library, RTOS, SDK,
+  permission, or hardware facilities.
 - Use conventional, unique include guards. Do not use `#pragma once`.
 - Include only what a header uses and avoid exposing platform SDK headers or
   macros through the public interface when an internal boundary can contain
@@ -114,8 +116,8 @@ named platform-specific domain beneath `syscape` without leaking native types.
 ## Header-Only and Runtime Behavior
 
 - Every non-template function and variable definition in a shipped header must
-  be ODR-safe. Use `inline`, `constexpr`, templates, or another standard C++17
-  mechanism as appropriate.
+  be ODR-safe. Use `inline`, `constexpr`, templates, or another mechanism from
+  the header's declared C++ standard as appropriate.
 - Do not rely on a separately compiled library, generated source file, or
   hidden link dependency.
 - Avoid mutable global state, global constructors, implicit background work,
@@ -143,11 +145,13 @@ Hosted Full API to the smallest freestanding environment.
   only information allowed by public APIs, permissions, entitlements, and the
   application sandbox.
 - **RTOS/Constrained:** provides a documented module subset backed by public
-  RTOS APIs. Board-specific facts come from an explicit provider or adapter;
-  the library must not guess them.
-- **Freestanding Minimal:** provides allocation-free compile-target,
-  architecture, byte-order, toolchain, execution-environment, and explicit
-  board-capability information. It does not promise Hosted Full query headers.
+  RTOS APIs. Each header declares its language and library requirements, with
+  strict C++11 as the lowest supported language version. Board-specific facts
+  come from an explicit provider or adapter; the library must not guess them.
+- **Freestanding Minimal:** requires strict C++11 and provides allocation-free
+  compile-target, architecture, byte-order, toolchain, execution-environment,
+  and explicit board-capability information. It does not promise Hosted Full
+  query headers.
 - **SDK Restricted:** catalogs a proprietary target without promising a
   backend until lawful SDK access and permitted real-hardware verification are
   available.
@@ -192,8 +196,8 @@ Hosted Full API to the smallest freestanding environment.
   change, relevant platform availability, and the meaningful error conditions.
 - Mark implementation limitations precisely. Do not claim universal support
   from testing a single operating-system version or architecture.
-- Keep examples minimal and compilable under C++17 with no dependency beyond
-  Syscape and the platform SDK.
+- Keep examples minimal and compilable under the documented minimum language
+  version with no dependency beyond Syscape and the platform SDK.
 - Update documentation and examples in the same change as any public behavior
   change.
 
@@ -201,10 +205,12 @@ Hosted Full API to the smallest freestanding environment.
 
 Use strict standard-conformance settings. At minimum:
 
-- Compile GCC and Clang checks with C++17 and `-pedantic-errors`, together with
-  appropriate high-signal warnings.
-- Compile MSVC checks as C++17 with its standard-conformance mode enabled, such
-  as `/permissive-`.
+- Compile Freestanding Minimal checks with GCC and Clang in C++11, C++14, and
+  C++17 modes, including C++11 with `-pedantic-errors` and `-ffreestanding`.
+- Compile Hosted Full checks with GCC and Clang in C++17 mode and
+  `-pedantic-errors`, together with appropriate high-signal warnings.
+- Compile MSVC checks at each header's declared minimum standard with its
+  standard-conformance mode enabled, such as `/permissive-`.
 - Compile every public header in isolation.
 - Compile each header against its minimum declared compatibility profile. Do
   not include Hosted Full facilities in Freestanding Minimal compile tests.
@@ -234,8 +240,9 @@ platform-specific test merely to make another platform pass.
 
 Before implementing a new module:
 
-1. Define the minimum compatibility profile, portable meaning, data types,
-   units, encoding, allocation behavior, and error behavior.
+1. Define the minimum language version, compatibility profile, portable
+   meaning, data types, units, encoding, allocation behavior, and error
+   behavior.
 2. Identify documented platform sources and the runtime capabilities they
    require.
 3. Add the focused public header and internal backend boundaries.
@@ -246,9 +253,10 @@ Before implementing a new module:
 7. Add or update English API documentation and examples.
 
 A module is complete only when its public header is self-contained, its
-definitions are ODR-safe, its minimum profile is documented, unavailable
-capabilities produce an honest result for that profile, resources and text
-encodings are handled correctly, and all applicable strict C++17 tests pass.
+definitions are ODR-safe, its minimum language and profile are documented,
+unavailable capabilities produce an honest result for that profile, resources
+and text encodings are handled correctly, and all applicable strict-standard
+tests pass.
 
 ## Change Discipline
 

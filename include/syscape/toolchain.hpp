@@ -4,6 +4,7 @@
 /// @file
 /// @brief Allocation-free compiler and standard-library identification.
 /// @note Minimum compatibility profile: Freestanding Minimal.
+/// @note Minimum language version: C++11; no hosted library is required.
 
 #include <cstddef>
 
@@ -148,7 +149,7 @@ constexpr standard_library target_standard_library() noexcept {
 }
 
 /// Returns a stable English name for a compiler value.
-constexpr const char* compiler_name(compiler value) noexcept {
+SYSCAPE_DETAIL_CONSTEXPR14 const char* compiler_name(compiler value) noexcept {
     switch (value) {
     case compiler::gcc: return "gcc";
     case compiler::clang: return "clang";
@@ -174,7 +175,8 @@ constexpr const char* compiler_name(compiler value) noexcept {
 }
 
 /// Returns a stable English name for a standard-library value.
-constexpr const char* standard_library_name(standard_library value) noexcept {
+SYSCAPE_DETAIL_CONSTEXPR14 const char* standard_library_name(
+    standard_library value) noexcept {
     switch (value) {
     case standard_library::libstdcxx: return "libstdc++";
     case standard_library::libcxx: return "libc++";

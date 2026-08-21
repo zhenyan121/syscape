@@ -4,6 +4,7 @@
 /// @file
 /// @brief Allocation-free compile-target operating-system and environment facts.
 /// @note Minimum compatibility profile: Freestanding Minimal.
+/// @note Minimum language version: C++11; no hosted library is required.
 
 #include <syscape/detail/config.hpp>
 
@@ -140,7 +141,8 @@ constexpr execution_environment target_execution_environment() noexcept {
 }
 
 /// Returns a stable English name for an operating-system value.
-constexpr const char* operating_system_name(operating_system value) noexcept {
+SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
+    operating_system value) noexcept {
     switch (value) {
     case operating_system::windows: return "windows";
     case operating_system::linux_os: return "linux";
@@ -176,7 +178,7 @@ constexpr const char* operating_system_name(operating_system value) noexcept {
 }
 
 /// Returns a stable English name for an execution-environment value.
-constexpr const char* execution_environment_name(
+SYSCAPE_DETAIL_CONSTEXPR14 const char* execution_environment_name(
     execution_environment value) noexcept {
     switch (value) {
     case execution_environment::hosted: return "hosted";

@@ -4,6 +4,7 @@
 /// @file
 /// @brief Allocation-free compile-target architecture information.
 /// @note Minimum compatibility profile: Freestanding Minimal.
+/// @note Minimum language version: C++11; no hosted library is required.
 
 #include <climits>
 
@@ -242,7 +243,7 @@ constexpr data_model_info target_data_model_info() noexcept {
 }
 
 /// Returns the conventional name of the compilation target's data model.
-constexpr data_model target_data_model() noexcept {
+SYSCAPE_DETAIL_CONSTEXPR14 data_model target_data_model() noexcept {
     const data_model_info value = target_data_model_info();
     if (value.int_bits == 16 && value.long_bits == 32 &&
         value.pointer_bits == 32) {
@@ -268,7 +269,8 @@ constexpr data_model target_data_model() noexcept {
 }
 
 /// Returns a stable English name for an architecture value.
-constexpr const char* architecture_name(architecture value) noexcept {
+SYSCAPE_DETAIL_CONSTEXPR14 const char* architecture_name(
+    architecture value) noexcept {
     switch (value) {
     case architecture::x86: return "x86";
     case architecture::x86_64: return "x86-64";
@@ -328,7 +330,7 @@ constexpr const char* architecture_name(architecture value) noexcept {
 }
 
 /// Returns a stable English name for a byte-order value.
-constexpr const char* byte_order_name(byte_order value) noexcept {
+SYSCAPE_DETAIL_CONSTEXPR14 const char* byte_order_name(byte_order value) noexcept {
     switch (value) {
     case byte_order::little_endian: return "little-endian";
     case byte_order::big_endian: return "big-endian";
@@ -339,7 +341,7 @@ constexpr const char* byte_order_name(byte_order value) noexcept {
 }
 
 /// Returns a stable English name for a data-model value.
-constexpr const char* data_model_name(data_model value) noexcept {
+SYSCAPE_DETAIL_CONSTEXPR14 const char* data_model_name(data_model value) noexcept {
     switch (value) {
     case data_model::lp32: return "LP32";
     case data_model::ilp32: return "ILP32";
