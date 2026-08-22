@@ -5,6 +5,7 @@
 #include <syscape/error.hpp>
 #include <syscape/filesystem.hpp>
 #include <syscape/memory.hpp>
+#include <syscape/network.hpp>
 #include <syscape/os.hpp>
 #include <syscape/process.hpp>
 #include <syscape/result.hpp>
@@ -87,4 +88,10 @@ bool other_filesystem_backend_callable() {
     static_cast<void>(capacity);
     return (mounted && !mounted->empty()) ||
            mounted.error() == std::errc::operation_not_supported;
+}
+
+bool other_network_backend_callable() {
+    const syscape::result<std::vector<syscape::network::interface_entry>>
+        interfaces = syscape::network::interfaces();
+    return interfaces.has_value() != static_cast<bool>(interfaces.error());
 }

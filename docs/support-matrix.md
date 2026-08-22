@@ -159,7 +159,7 @@ will be no all-modules umbrella header.
 | 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | In progress; process identity and execution context implemented where documented platform sources exist. Later process attributes remain not started |
 | 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | In progress; real/effective user and group identifiers, login name, home directory, and recorded shell implemented where documented platform sources exist. Supplementary groups, elevation, and login session remain not started |
 | 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | In progress; mounted-filesystem enumeration plus per-path capacity, free, available, block-size, and read-only queries implemented where documented platform sources exist. Path limits and volume metadata beyond mount-table entries remain not started |
-| 1 | `network.hpp` | Network interfaces, addresses, prefix lengths, MAC addresses, MTU, state, routes, default gateways, DNS configuration, and host/domain names | Not started |
+| 1 | `network.hpp` | Network interfaces, addresses, prefix lengths, MAC addresses, MTU, state, routes, default gateways, DNS configuration, and host/domain names | In progress; interface enumeration with names, indices, operational state, loopback classification, link-layer addresses, and unicast IPv4/IPv6 addresses with prefix lengths implemented where documented platform sources exist. MTU, routes, default gateways, DNS configuration, host and domain names, and IPv6 zone identifiers remain not started |
 | 1 | `locale.hpp` | Locale, preferred languages, country or region, text encoding, time zone, and UTC offset | Not started |
 | 2 | `storage.hpp` | Physical drives, partitions, bus and media type, model, firmware, capacity, logical and physical sector sizes, rotational state, removable state, and health data exposed by the OS | Not started |
 | 2 | `power.hpp` | Batteries, charge, health, charging state, power source, estimated remaining time, and system power capabilities | Not started |
@@ -367,6 +367,26 @@ The macOS implementation follows Darwin's documented
 interface. Windows and macOS statuses must not advance until their headers
 compile with the official SDK and the tests execute on the real operating
 systems.
+
+### Network interface evidence
+
+This first network slice exposes the platform's network interfaces with
+their names, indices, operational state, loopback classification, link-layer
+addresses, and unicast IPv4/IPv6 addresses with prefix lengths, as observed
+during the enumeration call. MTU, routes, default gateways, DNS
+configuration, host and domain names, and IPv6 zone identifiers remain not
+started. Interface rows of families outside this slice are skipped without
+failing the query, and an interface without unicast addresses is valid data.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every network query | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | Documented [`getifaddrs`](https://www.man7.org/linux/man-pages/man3/getifaddrs.3.html) enumeration with POSIX `if_nametoindex` indices; documented [packet socket](https://www.man7.org/linux/man-pages/man7/packet.7.html) AF_PACKET rows supply link-layer addresses; a netmask with one bits after zero bits and an IPv4 row with a foreign netmask family are malformed platform data; a recorded hardware length beyond the eight-byte `sockaddr_ll` storage cannot be represented by this source and fails the snapshot with `not_supported` instead of being truncated; administratively up interfaces without running traffic report explicit unknown state | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; synthetic-chain grouping, ordering, contiguous-prefix, boundary-prefix, non-contiguous-mask, mask-family-mismatch, flags-only-row, unknown-family, hardware-length, index-resolution-failure, and boundary-validation tests; live enumeration cross-checked against an independent `getifaddrs` walk including loopback-address checks; forced-fallback, C++11-rejection, repeated-inclusion, two-translation-unit ODR, AddressSanitizer, and UndefinedBehaviorSanitizer tests passed | Verified for this slice on the listed host |
+| Windows | Documented [`GetAdaptersAddresses`](https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses) enumeration with `GAA_FLAG_INCLUDE_PREFIX`, documented buffer-growth retries capped before unbounded growth, friendly-name UTF-16 to UTF-8 conversion with ANSI identifier fallback, IPv4 `IfIndex` with `Ipv6IfIndex` fallback for IPv6-only adapters, `OperStatus`, `IfType`, physical address, and `OnLinkPrefixLength` mapping, and injectable enumeration seams covered by synthetic-data tests; an adapter with both protocol indices zero cannot satisfy the portable nonzero-index contract and produces explicit `not_supported`; requires Windows Vista or later and linking the Iphlpapi import library, which the public header documents | Backend written from public Microsoft APIs; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | Shared POSIX `getifaddrs` backend reading Darwin's documented [`sockaddr_dl`](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/sockaddr_dl.3.html) AF_LINK rows, preserving link-layer addresses longer than six bytes through recorded length fields | Backend written from public Darwin APIs with synthetic AF_LINK conversion tests; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
+
+Windows and macOS statuses must not advance until their headers compile with
+the official SDK and the tests execute on the real operating systems.
 
 ### Sensitive and identifying information
 
