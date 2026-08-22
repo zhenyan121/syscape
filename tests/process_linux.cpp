@@ -1,5 +1,6 @@
 #include <cerrno>
 #include <chrono>
+#include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -298,12 +299,13 @@ void test_tick_conversion() {
                negative_rate.error() == syscape::errc::not_supported,
            "A nonpositive tick rate must report unusable granularity");
 
-    const auto oversized_rate =
-        ticks_to_nanoseconds(1U, 20000000000L);
-    expect(!oversized_rate && oversized_rate.error() ==
-                                  syscape::errc::not_supported,
-           "A tick rate too large for exact arithmetic must report "
-           "unusable granularity");
+#if LONG_MAX > 18446744073LL
+    const auto oversized_rate = ticks_to_nanoseconds(1U, 20000000000L);
+    expect(!oversized_rate &&
+               oversized_rate.error() == syscape::errc::not_supported,
+           "A representable tick rate too large for exact arithmetic must "
+           "report unusable granularity");
+#endif
 
     const auto overflowing_ticks =
         ticks_to_nanoseconds(9223372037ULL * 100ULL, 100L);

@@ -312,7 +312,7 @@ inline result<std::uint64_t> sum_address_space(QueryRegion query_region,
             }
             total += region->size_bytes;
         }
-        if (address > maximum_address - region->size_bytes) { break; }
+        if (region->size_bytes > maximum_address - address) { break; }
         address += region->size_bytes;
     }
     return total;

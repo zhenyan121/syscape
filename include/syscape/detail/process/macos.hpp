@@ -132,11 +132,16 @@ timeval_components_to_time_point(std::int64_t seconds,
         std::chrono::duration_cast<std::chrono::seconds>(
             clock::duration::max()).count();
     if (seconds > maximum_seconds) { return fail(errc::value_too_large); }
-    return clock::time_point(
+    const clock::duration whole =
         std::chrono::duration_cast<clock::duration>(
-            std::chrono::seconds(seconds)) +
+            std::chrono::seconds(seconds));
+    const clock::duration fraction =
         std::chrono::duration_cast<clock::duration>(
-            std::chrono::microseconds(microseconds)));
+            std::chrono::microseconds(microseconds));
+    if (fraction > clock::duration::max() - whole) {
+        return fail(errc::value_too_large);
+    }
+    return clock::time_point(whole + fraction);
 }
 
 /// Parsed runtime-attribute fields of one PROC_PIDTASKINFO snapshot.
@@ -152,6 +157,12 @@ struct task_statistics {
     /// Number of live threads. Always at least one.
     std::uint32_t threads = 0U;
 };
+
+/// Validates and converts the signed thread count reported by proc_taskinfo.
+inline result<std::uint32_t> task_thread_count(std::int32_t count) {
+    if (count <= 0) { return fail(errc::malformed_data); }
+    return static_cast<std::uint32_t>(count);
+}
 
 /// Reads the documented proc_taskinfo fields for the calling process.
 inline result<task_statistics> read_task_statistics() {
@@ -174,8 +185,10 @@ inline result<task_statistics> read_task_statistics() {
     statistics.system_nanoseconds = info.pti_total_system;
     statistics.resident_bytes = info.pti_resident_size;
     statistics.virtual_bytes = info.pti_virtual_size;
-    if (info.pti_threadnum == 0U) { return fail(errc::malformed_data); }
-    statistics.threads = info.pti_threadnum;
+    const result<std::uint32_t> threads =
+        task_thread_count(info.pti_threadnum);
+    if (!threads) { return fail(threads.error()); }
+    statistics.threads = *threads;
     return statistics;
 }
 

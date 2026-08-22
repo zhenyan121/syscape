@@ -284,7 +284,8 @@ This first process slice exposes the current process ID, parent process ID,
 executable path, command-line argument values, and current working directory.
 Start time, CPU time, memory use, priority, affinity, thread count, and
 resource limits are outside this slice; the runtime-attribute section below
-covers the first five of them. An empty argument list is valid data where
+covers start time, CPU time, memory use, and thread count. An empty
+argument list is valid data where
 the operating system permits execution without arguments; ordinary executions
 normally contain at least argv[0].
 

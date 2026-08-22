@@ -116,6 +116,22 @@ void test_address_space_walk() {
                               syscape::errc::malformed_data,
            "A zero-sized region cannot make progress and is malformed");
 
+    std::uint32_t oversized_query_count = 0U;
+    const auto oversized_region = sum_address_space(
+        [&oversized_query_count](std::uintptr_t) ->
+            syscape::result<region_description> {
+            ++oversized_query_count;
+            syscape::result<region_description> described;
+            described.value().size_bytes =
+                (std::numeric_limits<std::uint64_t>::max)();
+            return described;
+        },
+        100U, 1000U);
+    expect(oversized_region && *oversized_region == 0U &&
+               oversized_query_count == 1U,
+           "A region larger than the remaining address range must stop the "
+           "walk without wrapping the next address");
+
     const auto failing = sum_address_space(
         [](std::uintptr_t address) ->
             syscape::result<region_description> {

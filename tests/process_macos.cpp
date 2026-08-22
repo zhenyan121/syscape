@@ -21,6 +21,7 @@ void expect(bool condition, const char* message) {
 
 void test_conversion_helpers() {
     using syscape::detail::process_backend::nanoseconds_amount;
+    using syscape::detail::process_backend::task_thread_count;
     using syscape::detail::process_backend::timeval_components_to_time_point;
 
     const auto amount = nanoseconds_amount(5U);
@@ -56,6 +57,27 @@ void test_conversion_helpers() {
     expect(!out_of_range_micros && out_of_range_micros.error() ==
                                        syscape::errc::malformed_data,
            "Microsecond fields outside one second are malformed data");
+
+    using clock = std::chrono::system_clock;
+    const auto maximum_seconds =
+        std::chrono::duration_cast<std::chrono::seconds>(
+            clock::duration::max()).count();
+    const auto overflowing_fraction =
+        timeval_components_to_time_point(maximum_seconds, 999999);
+    expect(!overflowing_fraction && overflowing_fraction.error() ==
+                                        syscape::errc::value_too_large,
+           "A fractional component beyond the clock maximum must be "
+           "reported as too large");
+
+    const auto positive_threads = task_thread_count(5);
+    expect(positive_threads && *positive_threads == 5U,
+           "A positive native thread count must be preserved");
+    const auto zero_threads = task_thread_count(0);
+    const auto negative_threads = task_thread_count(-1);
+    expect(!zero_threads && !negative_threads &&
+               zero_threads.error() == syscape::errc::malformed_data &&
+               negative_threads.error() == syscape::errc::malformed_data,
+           "Nonpositive native thread counts must be malformed data");
 }
 
 } // namespace

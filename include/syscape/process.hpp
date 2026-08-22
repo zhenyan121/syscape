@@ -191,9 +191,9 @@ struct memory_usage_info {
 /// execution. They describe only the calling process, not system-wide
 /// memory; use syscape::memory queries for that.
 /// @return A snapshot in bytes, not_supported when the platform exposes no
-/// acceptable source, not_found when the platform source omits either field,
-/// malformed_data for inconsistent platform data, value_too_large for an
-/// unrepresentable product, or a native platform error.
+/// acceptable source, malformed_data when required platform fields are missing
+/// or inconsistent, value_too_large for an unrepresentable product, or a
+/// native platform error.
 inline result<memory_usage_info> memory_usage() {
     const result<detail::process_common::memory_usage_snapshot> usage =
         detail::process_backend::memory_usage();
