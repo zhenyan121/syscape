@@ -1,7 +1,10 @@
 #ifndef SYSCAPE_DETAIL_PROCESS_LINUX_HPP
 #define SYSCAPE_DETAIL_PROCESS_LINUX_HPP
 
+#include <array>
 #include <cerrno>
+#include <charconv>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -12,6 +15,8 @@
 #include <vector>
 
 #include <syscape/detail/linux/file.hpp>
+#include <syscape/detail/os/linux.hpp>
+#include <syscape/detail/process/common.hpp>
 #include <syscape/result.hpp>
 
 namespace syscape {
@@ -121,6 +126,247 @@ inline result<std::string> working_directory() {
                           ? buffer.size() * 2U
                           : maximum_size);
     }
+}
+
+/// Parsed runtime-attribute fields of one /proc/self/stat snapshot.
+///
+/// Time fields keep their raw clock-tick counts until the caller converts
+/// them with a validated clock-ticks-per-second value.
+struct runtime_statistics {
+    /// Field 14: user-mode time in clock ticks.
+    std::uint64_t user_ticks = 0U;
+    /// Field 15: kernel-mode time in clock ticks.
+    std::uint64_t system_ticks = 0U;
+    /// Field 20: number of live threads. Always at least one.
+    std::uint32_t threads = 0U;
+    /// Field 22: clock ticks after system boot when the process started.
+    std::uint64_t start_ticks = 0U;
+    /// Field 23: total virtual address-space size in bytes.
+    std::uint64_t virtual_size_bytes = 0U;
+    /// Field 24: resident-set size in pages of the running page size.
+    std::uint64_t resident_pages = 0U;
+};
+
+inline bool stat_separator(char value) noexcept {
+    return value == ' ' || value == '\t' || value == '\n' || value == '\r' ||
+           value == '\f' || value == '\v';
+}
+
+inline result<std::uint64_t> parse_stat_field(std::string_view token) {
+    if (token.empty()) { return fail(errc::malformed_data); }
+    std::uint64_t value = 0U;
+    const char* first = token.data();
+    const char* last = first + token.size();
+    const std::from_chars_result parsed = std::from_chars(first, last, value);
+    if (parsed.ec == std::errc::result_out_of_range) {
+        return fail(errc::value_too_large);
+    }
+    if (parsed.ec != std::errc() || parsed.ptr != last) {
+        return fail(errc::malformed_data);
+    }
+    return value;
+}
+
+/// Converts clock ticks to nanoseconds using a positive ticks-per-second
+/// rate.
+///
+/// The rate is validated so the remainder multiplication cannot overflow.
+/// A rate too large for exact integer arithmetic, or any nonpositive rate,
+/// reports that the platform granularity is unusable rather than guessing.
+inline result<std::chrono::nanoseconds> ticks_to_nanoseconds(
+    std::uint64_t ticks, long ticks_per_second) {
+    if (ticks_per_second <= 0 ||
+        static_cast<std::uint64_t>(ticks_per_second) >
+            (std::numeric_limits<std::uint64_t>::max)() / 1000000000ULL) {
+        return fail(errc::not_supported);
+    }
+    const std::uint64_t rate = static_cast<std::uint64_t>(ticks_per_second);
+    const std::uint64_t whole_seconds = ticks / rate;
+    constexpr std::uint64_t maximum_whole_seconds = static_cast<std::uint64_t>(
+        (std::chrono::nanoseconds::max)().count() / 1000000000);
+    if (whole_seconds > maximum_whole_seconds) {
+        return fail(errc::value_too_large);
+    }
+    const std::uint64_t remainder_ticks = ticks % rate;
+    const std::uint64_t remainder_nanoseconds =
+        remainder_ticks * 1000000000ULL / rate;
+    const std::uint64_t whole_nanoseconds = whole_seconds * 1000000000ULL;
+    constexpr std::uint64_t maximum_nanoseconds = static_cast<std::uint64_t>(
+        (std::chrono::nanoseconds::max)().count());
+    if (whole_nanoseconds > maximum_nanoseconds - remainder_nanoseconds) {
+        return fail(errc::value_too_large);
+    }
+    return std::chrono::nanoseconds(whole_nanoseconds + remainder_nanoseconds);
+}
+
+/// Converts a resident page count to bytes using the running page size.
+inline result<std::uint64_t> scale_resident_bytes(
+    std::uint64_t pages, std::uint64_t page_size) {
+    if (page_size == 0U) { return fail(errc::malformed_data); }
+    if (pages > (std::numeric_limits<std::uint64_t>::max)() / page_size) {
+        return fail(errc::value_too_large);
+    }
+    return pages * page_size;
+}
+
+/// Adds a process age to the system boot time.
+inline result<std::chrono::system_clock::time_point> compose_start_time(
+    std::chrono::system_clock::time_point boot_time_value,
+    std::chrono::nanoseconds age) {
+    using clock = std::chrono::system_clock;
+    const std::chrono::nanoseconds boot_nanoseconds =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            boot_time_value.time_since_epoch());
+    if (age > (std::chrono::nanoseconds::max)() - boot_nanoseconds) {
+        return fail(errc::value_too_large);
+    }
+    return boot_time_value +
+           std::chrono::duration_cast<clock::duration>(age);
+}
+
+/// Parses the documented fields of one /proc/self/stat snapshot.
+///
+/// The kernel wraps the process name in parentheses and the name itself may
+/// contain spaces and parentheses, so the value boundary is the first '('
+/// and the last ')'. Fields after the name are whitespace-separated; index
+/// zero is field three (state) of the proc(5) table. At least the first 22
+/// post-name fields must be present; later fields are ignored.
+inline result<runtime_statistics> parse_stat(std::string_view input) {
+    constexpr std::size_t required_fields = 22U;
+    const std::size_t name_begin = input.find('(');
+    const std::size_t name_end = input.rfind(')');
+    if (name_begin == std::string_view::npos ||
+        name_end == std::string_view::npos || name_end < name_begin) {
+        return fail(errc::malformed_data);
+    }
+    const std::string_view remainder = input.substr(name_end + 1U);
+
+    std::array<std::string_view, required_fields> fields {};
+    std::size_t found = 0U;
+    std::size_t position = 0U;
+    while (position < remainder.size() && found < required_fields) {
+        while (position < remainder.size() &&
+               stat_separator(remainder[position])) {
+            ++position;
+        }
+        if (position >= remainder.size()) { break; }
+        const std::size_t start = position;
+        while (position < remainder.size() &&
+               !stat_separator(remainder[position])) {
+            ++position;
+        }
+        fields[found] = remainder.substr(start, position - start);
+        ++found;
+    }
+    if (found < required_fields) { return fail(errc::malformed_data); }
+
+    runtime_statistics statistics;
+    const result<std::uint64_t> user_ticks = parse_stat_field(fields[11]);
+    if (!user_ticks) { return fail(user_ticks.error()); }
+    const result<std::uint64_t> system_ticks = parse_stat_field(fields[12]);
+    if (!system_ticks) { return fail(system_ticks.error()); }
+    const result<std::uint64_t> threads = parse_stat_field(fields[17]);
+    if (!threads) { return fail(threads.error()); }
+    if (*threads == 0U) { return fail(errc::malformed_data); }
+    if (*threads > (std::numeric_limits<std::uint32_t>::max)()) {
+        return fail(errc::value_too_large);
+    }
+    const result<std::uint64_t> start_ticks = parse_stat_field(fields[19]);
+    if (!start_ticks) { return fail(start_ticks.error()); }
+    const result<std::uint64_t> virtual_size = parse_stat_field(fields[20]);
+    if (!virtual_size) { return fail(virtual_size.error()); }
+    const result<std::uint64_t> resident_pages = parse_stat_field(fields[21]);
+    if (!resident_pages) { return fail(resident_pages.error()); }
+
+    statistics.user_ticks = *user_ticks;
+    statistics.system_ticks = *system_ticks;
+    statistics.threads = static_cast<std::uint32_t>(*threads);
+    statistics.start_ticks = *start_ticks;
+    statistics.virtual_size_bytes = *virtual_size;
+    statistics.resident_pages = *resident_pages;
+    return statistics;
+}
+
+inline result<runtime_statistics> read_runtime_statistics() {
+    const result<std::string> content =
+        linux_platform::read_text_file("/proc/self/stat");
+    if (!content) { return fail(content.error()); }
+    return parse_stat(*content);
+}
+
+inline result<long> clock_ticks_per_second() {
+    errno = 0;
+    const long value = ::sysconf(_SC_CLK_TCK);
+    if (value <= 0) {
+        return errno == 0
+                   ? result<long>(fail(errc::not_supported))
+                   : result<long>(
+                         fail(std::error_code(errno, std::generic_category())));
+    }
+    return value;
+}
+
+inline result<std::uint64_t> page_size_bytes() {
+    errno = 0;
+    const long value = ::sysconf(_SC_PAGESIZE);
+    if (value <= 0) {
+        return errno == 0
+                   ? result<std::uint64_t>(fail(errc::not_supported))
+                   : result<std::uint64_t>(fail(std::error_code(
+                         errno, std::generic_category())));
+    }
+    return static_cast<std::uint64_t>(value);
+}
+
+inline result<process_common::cpu_time_usage> cpu_time() {
+    const result<runtime_statistics> statistics = read_runtime_statistics();
+    if (!statistics) { return fail(statistics.error()); }
+    const result<long> rate = clock_ticks_per_second();
+    if (!rate) { return fail(rate.error()); }
+    const result<std::chrono::nanoseconds> user =
+        ticks_to_nanoseconds(statistics->user_ticks, *rate);
+    if (!user) { return fail(user.error()); }
+    const result<std::chrono::nanoseconds> system =
+        ticks_to_nanoseconds(statistics->system_ticks, *rate);
+    if (!system) { return fail(system.error()); }
+    process_common::cpu_time_usage usage;
+    usage.user = *user;
+    usage.system = *system;
+    return usage;
+}
+
+inline result<std::chrono::system_clock::time_point> start_time() {
+    const result<runtime_statistics> statistics = read_runtime_statistics();
+    if (!statistics) { return fail(statistics.error()); }
+    const result<long> rate = clock_ticks_per_second();
+    if (!rate) { return fail(rate.error()); }
+    const result<std::chrono::nanoseconds> age =
+        ticks_to_nanoseconds(statistics->start_ticks, *rate);
+    if (!age) { return fail(age.error()); }
+    const result<std::chrono::system_clock::time_point> boot =
+        os_backend::boot_time();
+    if (!boot) { return fail(boot.error()); }
+    return compose_start_time(*boot, *age);
+}
+
+inline result<std::uint32_t> thread_count() {
+    const result<runtime_statistics> statistics = read_runtime_statistics();
+    if (!statistics) { return fail(statistics.error()); }
+    return statistics->threads;
+}
+
+inline result<process_common::memory_usage_snapshot> memory_usage() {
+    const result<runtime_statistics> statistics = read_runtime_statistics();
+    if (!statistics) { return fail(statistics.error()); }
+    const result<std::uint64_t> page = page_size_bytes();
+    if (!page) { return fail(page.error()); }
+    const result<std::uint64_t> resident =
+        scale_resident_bytes(statistics->resident_pages, *page);
+    if (!resident) { return fail(resident.error()); }
+    process_common::memory_usage_snapshot usage;
+    usage.resident_bytes = *resident;
+    usage.virtual_bytes = statistics->virtual_size_bytes;
+    return usage;
 }
 
 } // namespace process_backend

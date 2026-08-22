@@ -8,6 +8,10 @@
 /// the generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
+/// @note The Windows backend requires Windows Vista or later SDK declarations;
+/// its memory query uses the process-memory APIs declared in @<psapi.h@>,
+/// which map into kernel32.dll on Windows 7 and later SDKs or require linking
+/// the Psapi import library on older declarations.
 
 #include <syscape/detail/config.hpp>
 
@@ -15,6 +19,7 @@
 #error "syscape/process.hpp requires C++17 or later"
 #endif
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -111,6 +116,105 @@ inline result<std::vector<std::string>> command_line() {
 inline result<std::string> working_directory() {
     return detail::process_common::validate_utf8_path(
         detail::process_backend::working_directory());
+}
+
+/// CPU execution-time amounts consumed by the calling process.
+///
+/// Both durations measure only the calling process and exclude reaped child
+/// processes. They never decrease during the process lifetime and grow only
+/// while the operating system schedules the process. The platform limits the
+/// resolution: Linux reports clock ticks (commonly ten milliseconds), Windows
+/// reports hundred-nanosecond units, and macOS reports nanosecond counts
+/// derived from finer scheduler samples.
+struct cpu_times {
+    /// Time spent executing in user mode. Never negative.
+    std::chrono::nanoseconds user;
+    /// Time spent executing in kernel mode on behalf of the process. Never
+    /// negative.
+    std::chrono::nanoseconds system;
+};
+
+/// Returns the user- and kernel-mode execution time of the calling process.
+///
+/// The values are a snapshot taken by the query and change continuously while
+/// the process runs or its threads execute. Child processes reaped before the
+/// call are never included.
+/// @return A snapshot with nonnegative durations, not_supported when the
+/// platform exposes no acceptable source, malformed_data for invalid platform
+/// data, value_too_large when the platform amount cannot be represented as a
+/// duration, or a native platform error.
+inline result<cpu_times> cpu_time() {
+    const result<detail::process_common::cpu_time_usage> usage =
+        detail::process_backend::cpu_time();
+    if (!usage) { return fail(usage.error()); }
+    return cpu_times{usage->user, usage->system};
+}
+
+/// Returns the best available wall-clock instant at which the current
+/// process started.
+///
+/// Windows and macOS report the process creation time recorded by the
+/// operating system. Linux derives the instant from the kernel's boot-time
+/// record plus the documented start offset in clock ticks, so suspend
+/// periods and system-clock adjustments can shift it relative to real wall-
+/// clock time; treat the Linux result as an estimate.
+/// @return A system-clock time point no later than the moment of the query,
+/// not_supported when the platform exposes no acceptable source,
+/// malformed_data for inconsistent platform data, value_too_large for an
+/// unrepresentable value, or a native platform error.
+inline result<std::chrono::system_clock::time_point> start_time() {
+    return detail::process_backend::start_time();
+}
+
+/// Resident and virtual memory extents of the calling process at the moment
+/// of the query.
+///
+/// resident_bytes is physical memory currently occupied by the process as
+/// defined by the platform's resident-set concept. virtual_bytes is the
+/// platform's reported virtual-memory extent: Linux reports the total virtual
+/// address-space size, macOS reports the Mach task's virtual size, and
+/// Windows sums reserved and committed address-space regions. The precise
+/// meaning therefore differs between platforms and the values are not
+/// comparable across them; each remains meaningful on its own platform.
+struct memory_usage_info {
+    /// Physical memory currently occupied by the process in bytes. Zero is
+    /// valid only where the platform defines it.
+    std::uint64_t resident_bytes;
+    /// Virtual-memory extent of the process in bytes as defined by the
+    /// running platform source.
+    std::uint64_t virtual_bytes;
+};
+
+/// Returns the resident and virtual memory extents of the calling process.
+///
+/// The values are a snapshot taken by the query and change continuously with
+/// execution. They describe only the calling process, not system-wide
+/// memory; use syscape::memory queries for that.
+/// @return A snapshot in bytes, not_supported when the platform exposes no
+/// acceptable source, not_found when the platform source omits either field,
+/// malformed_data for inconsistent platform data, value_too_large for an
+/// unrepresentable product, or a native platform error.
+inline result<memory_usage_info> memory_usage() {
+    const result<detail::process_common::memory_usage_snapshot> usage =
+        detail::process_backend::memory_usage();
+    if (!usage) { return fail(usage.error()); }
+    return memory_usage_info{usage->resident_bytes, usage->virtual_bytes};
+}
+
+/// Returns the number of threads currently alive in the calling process.
+///
+/// The count includes the calling thread and is therefore always positive on
+/// success. It is a snapshot taken by the query: other threads may start or
+/// exit concurrently and make the next call observe a different value. The
+/// Windows implementation enumerates a system thread snapshot, which can be
+/// comparatively expensive on systems with many threads.
+/// @return A positive thread count, not_supported when the platform exposes
+/// no acceptable source, not_found when the platform source records no
+/// thread for the live calling process, malformed_data for inconsistent
+/// platform data, value_too_large for an unrepresentable count, or a native
+/// platform error.
+inline result<std::uint32_t> thread_count() {
+    return detail::process_backend::thread_count();
 }
 
 } // namespace process

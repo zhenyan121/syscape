@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <system_error>
@@ -15,7 +16,11 @@ int main() {
                    unsupported(syscape::process::parent_process_id()) &&
                    unsupported(syscape::process::executable_path()) &&
                    unsupported(syscape::process::command_line()) &&
-                   unsupported(syscape::process::working_directory())
+                   unsupported(syscape::process::working_directory()) &&
+                   unsupported(syscape::process::cpu_time()) &&
+                   unsupported(syscape::process::start_time()) &&
+                   unsupported(syscape::process::memory_usage()) &&
+                   unsupported(syscape::process::thread_count())
                ? 0
                : 1;
 }
