@@ -156,7 +156,7 @@ will be no all-modules umbrella header.
 | 1 | `os.hpp` | Product name, version, build, kernel name and version, host name, boot time, uptime, and boot identifier where available | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `cpu.hpp` | Architecture, vendor, model, packages, physical and logical cores, topology, caches, instruction-set features, frequency, affinity, and utilization | In progress; vendor identifiers, model labels, and online logical, physical-core, and package counts implemented where documented sources exist |
 | 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | In progress; page size, physical memory, the available-memory estimate, and swap or pagefile usage implemented where documented sources exist |
-| 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | Not started |
+| 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | In progress; process identity and execution context implemented where documented platform sources exist. Later process attributes remain not started |
 | 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | Not started |
 | 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | Not started |
 | 1 | `network.hpp` | Network interfaces, addresses, prefix lengths, MAC addresses, MTU, state, routes, default gateways, DNS configuration, and host/domain names | Not started |
@@ -277,6 +277,35 @@ and the binary `xsw_usage` structure published by the `vm.swapusage` sysctl.
 
 Windows and macOS statuses must not advance until their headers compile with
 the official SDK and the tests execute on the real operating system.
+
+### Process identity and execution-context evidence
+
+This first process slice exposes the current process ID, parent process ID,
+executable path, command-line argument values, and current working directory.
+Start time, CPU time, memory use, priority, affinity, thread count, and
+resource limits remain not started. An empty argument list is valid data where
+the operating system permits execution without arguments; ordinary executions
+normally contain at least argv[0].
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every process query | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | POSIX `getpid` and `getppid`; kernel-documented `/proc/self/exe` through `readlink`; NUL-framed `/proc/self/cmdline`; POSIX `getcwd`. The executable path is not canonicalized and may refer to a file that was later renamed or unlinked | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; command-line framing, empty arguments, missing terminator, invalid UTF-8, executable-path buffer growth and `EINTR`, standalone repeated inclusion, forced fallback, C++11 rejection, live-query, and two-translation-unit ODR tests passed | Verified for this slice on the listed host |
+| Windows | `GetCurrentProcessId`; parent ID by scanning a `CreateToolhelp32Snapshot` process snapshot with `Process32FirstW`/`Process32NextW` (snapshot enumeration can be expensive); `GetModuleFileNameW(NULL)`; `GetCommandLineW` plus `CommandLineToArgvW` with `LocalFree`; two-stage `GetCurrentDirectoryW`; UTF-16 to UTF-8 conversion at the boundary | Backend written from public Microsoft APIs; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | POSIX `getpid` and `getppid`; `_NSGetExecutablePath` reported verbatim and not canonicalized; `_NSGetArgc`/`_NSGetArgv`; POSIX `getcwd` | Backend written from public Darwin APIs; no Apple SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+
+The Linux executable source follows the kernel's documented
+[`proc`](https://docs.kernel.org/filesystems/proc.html) interface. The Windows
+implementation follows public documentation for
+[process identifiers](https://learn.microsoft.com/en-us/windows/win32/procthread/process-identifiers),
+[tool-help snapshots](https://learn.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-createtoolhelp32snapshot),
+[module files](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamew),
+[command lines](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-commandlinetoargvw),
+and [current directories](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getcurrentdirectoryw).
+The macOS implementation follows Darwin's public dynamic-loader and program
+argument interfaces plus POSIX `getcwd`. Windows and macOS
+statuses must not advance until their headers compile with the official SDK
+and their tests execute on those real operating systems.
 
 ### Sensitive and identifying information
 

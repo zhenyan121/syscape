@@ -5,6 +5,7 @@
 #include <syscape/error.hpp>
 #include <syscape/memory.hpp>
 #include <syscape/os.hpp>
+#include <syscape/process.hpp>
 #include <syscape/result.hpp>
 
 const std::error_category* other_error_category() {
@@ -32,4 +33,23 @@ bool other_memory_backend_callable() {
         syscape::memory::physical_memory_bytes();
     return (value && *value > 0U) ||
            value.error() == std::errc::operation_not_supported;
+}
+
+bool other_process_backend_callable() {
+    const syscape::result<std::uint32_t> process =
+        syscape::process::process_id();
+    const syscape::result<std::uint32_t> parent =
+        syscape::process::parent_process_id();
+    const syscape::result<std::string> executable =
+        syscape::process::executable_path();
+    const syscape::result<std::vector<std::string>> arguments =
+        syscape::process::command_line();
+    const syscape::result<std::string> directory =
+        syscape::process::working_directory();
+    static_cast<void>(parent);
+    static_cast<void>(executable);
+    static_cast<void>(arguments);
+    static_cast<void>(directory);
+    return (process && *process > 0U) ||
+           process.error() == std::errc::operation_not_supported;
 }
