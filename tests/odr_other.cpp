@@ -7,6 +7,7 @@
 #include <syscape/os.hpp>
 #include <syscape/process.hpp>
 #include <syscape/result.hpp>
+#include <syscape/user.hpp>
 
 const std::error_category* other_error_category() {
     return &syscape::error_category();
@@ -52,4 +53,27 @@ bool other_process_backend_callable() {
     static_cast<void>(directory);
     return (process && *process > 0U) ||
            process.error() == std::errc::operation_not_supported;
+}
+
+bool other_user_backend_callable() {
+    const syscape::result<std::uint32_t> real_user =
+        syscape::user::real_user_id();
+    const syscape::result<std::uint32_t> effective_user =
+        syscape::user::effective_user_id();
+    const syscape::result<std::uint32_t> real_group =
+        syscape::user::real_group_id();
+    const syscape::result<std::uint32_t> effective_group =
+        syscape::user::effective_group_id();
+    const syscape::result<std::string> name = syscape::user::user_name();
+    const syscape::result<std::string> home =
+        syscape::user::home_directory();
+    const syscape::result<std::string> shell = syscape::user::shell();
+    static_cast<void>(effective_user);
+    static_cast<void>(real_group);
+    static_cast<void>(effective_group);
+    static_cast<void>(name);
+    static_cast<void>(home);
+    static_cast<void>(shell);
+    return real_user.has_value() ||
+           real_user.error() == std::errc::operation_not_supported;
 }

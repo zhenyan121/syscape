@@ -157,7 +157,7 @@ will be no all-modules umbrella header.
 | 1 | `cpu.hpp` | Architecture, vendor, model, packages, physical and logical cores, topology, caches, instruction-set features, frequency, affinity, and utilization | In progress; vendor identifiers, model labels, and online logical, physical-core, and package counts implemented where documented sources exist |
 | 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | In progress; page size, physical memory, the available-memory estimate, and swap or pagefile usage implemented where documented sources exist |
 | 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | In progress; process identity and execution context implemented where documented platform sources exist. Later process attributes remain not started |
-| 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | Not started |
+| 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | In progress; real/effective user and group identifiers, login name, home directory, and recorded shell implemented where documented platform sources exist. Supplementary groups, elevation, and login session remain not started |
 | 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | Not started |
 | 1 | `network.hpp` | Network interfaces, addresses, prefix lengths, MAC addresses, MTU, state, routes, default gateways, DNS configuration, and host/domain names | Not started |
 | 1 | `locale.hpp` | Locale, preferred languages, country or region, text encoding, time zone, and UTC offset | Not started |
@@ -306,6 +306,29 @@ The macOS implementation follows Darwin's public dynamic-loader and program
 argument interfaces plus POSIX `getcwd`. Windows and macOS
 statuses must not advance until their headers compile with the official SDK
 and their tests execute on those real operating systems.
+
+### User identity evidence
+
+This first user slice exposes the real and effective user and group
+identifiers plus the login name, home directory, and recorded shell of the
+effective user. Supplementary groups, elevation state, and login sessions
+remain not started. Numeric identifiers are operating-system-scoped values;
+zero is valid where the platform defines it and never acts as an error
+sentinel. Textual queries perform a fresh lookup on every call, so concurrent
+user-database changes become visible between calls.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every user query | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | POSIX `getuid`, `geteuid`, `getgid`, and `getegid`; POSIX [`getpwuid_r`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/getpwuid_r.html) for the effective user supplies name, absolute home directory, and recorded shell; each textual query validates only its own field, so an unusable field cannot fail unrelated queries; an empty recorded shell is valid data; entries without a usable name or with a relative home directory are malformed platform data | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors` and high-signal warnings; buffer-growth (`ERANGE`) retry, absent-entry, native-failure, malformed-entry, field-independence, UTF-8 boundary, live-query identifier cross-checks, forced fallback, C++11 rejection, standalone repeated inclusion, AddressSanitizer, UndefinedBehaviorSanitizer, and two-translation-unit ODR tests passed | Verified for this slice on the listed host |
+| Windows | `GetUserNameW` for the login name and `SHGetKnownFolderPath(FOLDERID_Profile)` for the profile directory, converted from UTF-16 at the boundary; Win32-facility HRESULT failures are narrowed to their Win32 code under the system category and other HRESULTs preserve their full value under an internal category, keeping permission failures comparable; all four numeric identifiers return `not_supported` because security identifiers are structured platform values rather than portable numbers | Backend written from public Microsoft APIs; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | The shared POSIX backend: `getuid`, `geteuid`, `getgid`, `getegid`, and `getpwuid_r` | Backend written from public POSIX interfaces; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
+
+User names and home directories can identify persons or accounts. The queries
+are explicit, preserve permission errors, and perform no logging, persistence,
+telemetry, or network access. Windows and macOS statuses must not advance
+until their headers compile with the official SDK and the tests execute on the
+real operating systems.
 
 ### Sensitive and identifying information
 
