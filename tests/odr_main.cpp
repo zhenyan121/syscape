@@ -3,6 +3,7 @@
 #include <syscape/architecture.hpp>
 #include <syscape/cpu.hpp>
 #include <syscape/error.hpp>
+#include <syscape/filesystem.hpp>
 #include <syscape/memory.hpp>
 #include <syscape/os.hpp>
 #include <syscape/process.hpp>
@@ -16,6 +17,7 @@ bool other_cpu_backend_callable();
 bool other_memory_backend_callable();
 bool other_process_backend_callable();
 bool other_user_backend_callable();
+bool other_filesystem_backend_callable();
 
 int main() {
     if (other_error_category() != &syscape::error_category()) {
@@ -39,6 +41,9 @@ int main() {
     if (!other_user_backend_callable()) {
         return 7;
     }
+    if (!other_filesystem_backend_callable()) {
+        return 8;
+    }
     const syscape::result<int> value(7);
-    return value && *value == 7 ? 0 : 8;
+    return value && *value == 7 ? 0 : 9;
 }

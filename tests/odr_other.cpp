@@ -3,6 +3,7 @@
 #include <syscape/architecture.hpp>
 #include <syscape/cpu.hpp>
 #include <syscape/error.hpp>
+#include <syscape/filesystem.hpp>
 #include <syscape/memory.hpp>
 #include <syscape/os.hpp>
 #include <syscape/process.hpp>
@@ -76,4 +77,14 @@ bool other_user_backend_callable() {
     static_cast<void>(shell);
     return real_user.has_value() ||
            real_user.error() == std::errc::operation_not_supported;
+}
+
+bool other_filesystem_backend_callable() {
+    const syscape::result<std::vector<syscape::filesystem::mount_entry>>
+        mounted = syscape::filesystem::mounts();
+    const syscape::result<syscape::filesystem::space_info> capacity =
+        syscape::filesystem::space("/");
+    static_cast<void>(capacity);
+    return (mounted && !mounted->empty()) ||
+           mounted.error() == std::errc::operation_not_supported;
 }

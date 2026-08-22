@@ -158,7 +158,7 @@ will be no all-modules umbrella header.
 | 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | In progress; page size, physical memory, the available-memory estimate, and swap or pagefile usage implemented where documented sources exist |
 | 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | In progress; process identity and execution context implemented where documented platform sources exist. Later process attributes remain not started |
 | 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | In progress; real/effective user and group identifiers, login name, home directory, and recorded shell implemented where documented platform sources exist. Supplementary groups, elevation, and login session remain not started |
-| 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | Not started |
+| 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | In progress; mounted-filesystem enumeration plus per-path capacity, free, available, block-size, and read-only queries implemented where documented platform sources exist. Path limits and volume metadata beyond mount-table entries remain not started |
 | 1 | `network.hpp` | Network interfaces, addresses, prefix lengths, MAC addresses, MTU, state, routes, default gateways, DNS configuration, and host/domain names | Not started |
 | 1 | `locale.hpp` | Locale, preferred languages, country or region, text encoding, time zone, and UTC offset | Not started |
 | 2 | `storage.hpp` | Physical drives, partitions, bus and media type, model, firmware, capacity, logical and physical sector sizes, rotational state, removable state, and health data exposed by the OS | Not started |
@@ -329,6 +329,44 @@ are explicit, preserve permission errors, and perform no logging, persistence,
 telemetry, or network access. Windows and macOS statuses must not advance
 until their headers compile with the official SDK and the tests execute on the
 real operating systems.
+
+### Filesystem evidence
+
+This first filesystem slice exposes the platform's mounted-filesystem table
+and per-path volume capacity: total capacity, free capacity, the operating
+system's unprivately-available estimate, allocation granularity, and
+read-only state, all in bytes at the moment of the query. POSIX enumeration
+reads only the mount table and never touches the listed volumes, so
+unresponsive network filesystems cannot block it; Windows enumeration queries
+each drive-letter volume and can block on unready media or unresponsive mapped
+shares. Path limits, volume labels, drive and media types, and per-volume
+file-system-type lookup remain not started.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for valid filesystem queries; common public-boundary validation still rejects empty, embedded-null, and invalid-UTF-8 paths before backend selection | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | Kernel-documented `/proc/self/mounts` with its four documented octal escapes decoded; POSIX `statvfs` for capacity with `f_frsize` block sizes; undocumented escape codes, truncated records, and a zero effective block size are malformed platform data; byte totals beyond 64 bits report `value_too_large`; missing paths preserve native errno | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; synthetic-record parsing (escapes, malformed lines, extra fields), statvfs scaling including `f_bsize` fallback, overflow, boundary validation, live enumeration cross-checked against an independent `getmntent` decode of the same table, live `statvfs` cross-checks, native-error, invalid-argument, invalid-encoding, forced-fallback, C++11-rejection, AddressSanitizer, UndefinedBehaviorSanitizer, repeated-inclusion, and two-translation-unit ODR tests passed | Verified for this slice on the listed host |
+| Windows | `GetLogicalDrives` plus `QueryDosDeviceW` for sources, `GetVolumeInformationW` for file-system names and the read-only flag, `GetFileAttributesW` for preserving missing-path failures, `GetDiskFreeSpaceExW` for capacity, `GetVolumePathNameW` for resolving files, directories, junction points, and mounted folders to the volume actually holding the path, and `GetDiskFreeSpaceW` cluster size as the documented stand-in for a fundamental block size; only drive-letter volumes are enumerated, letters without ready media or locked volumes are omitted, device-mapping queries degrade to empty sources by design, and unlike POSIX enumeration the Windows enumeration contacts each drive-letter volume and may block on unready media or unresponsive network shares | Backend written from public Microsoft APIs with injectable enumeration seams covered by synthetic-data tests; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | Documented `getfsstat` interface into caller-owned buffers with growth retries, POSIX `statvfs` for capacity | Backend written from public Apple APIs with synthetic `statfs` conversion tests; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
+
+The Linux mount-table source follows the kernel's documented
+[`proc`](https://docs.kernel.org/filesystems/proc.html) interface, whose
+device, mount-point, and type fields encode whitespace as `\040`, `\011`,
+`\012`, and backslash as `\134`. The Windows implementation follows public
+documentation for
+[drive letters](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getlogicaldrives),
+[DOS devices](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-querydosdevicew),
+[volume information](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getvolumeinformationw),
+[path attributes](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfileattributesw),
+[volume mount points](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getvolumepathnamew),
+[disk free space](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getdiskfreespaceexw),
+and
+[allocation granularity](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getdiskfreespacew).
+The macOS implementation follows Darwin's documented
+[`getfsstat`](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/getfsstat.2.html)
+interface. Windows and macOS statuses must not advance until their headers
+compile with the official SDK and the tests execute on the real operating
+systems.
 
 ### Sensitive and identifying information
 
