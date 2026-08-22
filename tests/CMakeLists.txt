@@ -72,6 +72,7 @@ syscape_add_test(header_process 17 syscape::hosted header_process.cpp)
 syscape_add_test(header_user 17 syscape::hosted header_user.cpp)
 syscape_add_test(header_filesystem 17 syscape::hosted header_filesystem.cpp)
 syscape_add_test(header_network 17 syscape::hosted header_network.cpp)
+syscape_add_test(header_locale 17 syscape::hosted header_locale.cpp)
 syscape_add_test(foundation 17 syscape::hosted foundation.cpp)
 syscape_add_test(odr 17 syscape::hosted odr_main.cpp odr_other.cpp)
 
@@ -104,6 +105,11 @@ target_compile_definitions(
     network_force_generic
     PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
 
+syscape_add_test(locale_force_generic 17 syscape::hosted locale_force_generic.cpp)
+target_compile_definitions(
+    locale_force_generic
+    PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(os_linux 17 syscape::hosted os_linux.cpp)
     syscape_add_test(cpu_linux 17 syscape::hosted cpu_linux.cpp)
@@ -112,6 +118,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(user_linux 17 syscape::hosted user_linux.cpp)
     syscape_add_test(filesystem_linux 17 syscape::hosted filesystem_linux.cpp)
     syscape_add_test(network_linux 17 syscape::hosted network_linux.cpp)
+    syscape_add_test(locale_linux 17 syscape::hosted locale_linux.cpp)
 endif()
 
 if(WIN32)
@@ -121,6 +128,7 @@ if(WIN32)
     syscape_add_test(user_windows 17 syscape::hosted user_windows.cpp)
     syscape_add_test(filesystem_windows 17 syscape::hosted filesystem_windows.cpp)
     syscape_add_test(network_windows 17 syscape::hosted network_windows.cpp)
+    syscape_add_test(locale_windows 17 syscape::hosted locale_windows.cpp)
     # Targets that call the network API follow its documented Windows linkage
     # contract without imposing Iphlpapi on unrelated Hosted Full consumers.
     target_link_libraries(odr PRIVATE iphlpapi)
@@ -134,6 +142,7 @@ if(APPLE)
     syscape_add_test(user_macos 17 syscape::hosted user_macos.cpp)
     syscape_add_test(filesystem_macos 17 syscape::hosted filesystem_macos.cpp)
     syscape_add_test(network_macos 17 syscape::hosted network_macos.cpp)
+    syscape_add_test(locale_macos 17 syscape::hosted locale_macos.cpp)
 endif()
 
 # These smoke tests verify the language requirements propagated by each public
@@ -207,3 +216,6 @@ syscape_expect_cpp11_rejection(
 syscape_expect_cpp11_rejection(
     "syscape/network.hpp"
     "syscape/network.hpp requires C++17 or later")
+syscape_expect_cpp11_rejection(
+    "syscape/locale.hpp"
+    "syscape/locale.hpp requires C++17 or later")

@@ -160,7 +160,7 @@ will be no all-modules umbrella header.
 | 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | In progress; real/effective user and group identifiers, login name, home directory, and recorded shell implemented where documented platform sources exist. Supplementary groups, elevation, and login session remain not started |
 | 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | In progress; mounted-filesystem enumeration plus per-path capacity, free, available, block-size, and read-only queries implemented where documented platform sources exist. Path limits and volume metadata beyond mount-table entries remain not started |
 | 1 | `network.hpp` | Network interfaces, addresses, prefix lengths, MAC addresses, MTU, state, routes, default gateways, DNS configuration, and host/domain names | In progress; interface enumeration with names, indices, operational state, loopback classification, link-layer addresses, and unicast IPv4/IPv6 addresses with prefix lengths implemented where documented platform sources exist. MTU, routes, default gateways, DNS configuration, host and domain names, and IPv6 zone identifiers remain not started |
-| 1 | `locale.hpp` | Locale, preferred languages, country or region, text encoding, time zone, and UTC offset | Not started |
+| 1 | `locale.hpp` | Locale, preferred languages, country or region, text encoding, time zone, and UTC offset | In progress; the current locale identifier, the non-Unicode text-encoding label, and the current UTC offset implemented where documented platform sources exist. Preferred languages, country or region, and time-zone identifiers or display names remain not started |
 | 2 | `storage.hpp` | Physical drives, partitions, bus and media type, model, firmware, capacity, logical and physical sector sizes, rotational state, removable state, and health data exposed by the OS | Not started |
 | 2 | `power.hpp` | Batteries, charge, health, charging state, power source, estimated remaining time, and system power capabilities | Not started |
 | 2 | `hardware.hpp` | System manufacturer and model, chassis, motherboard, firmware or BIOS, hardware UUID, and documented device inventory | Not started |
@@ -385,6 +385,41 @@ failing the query, and an interface without unicast addresses is valid data.
 | Windows | Documented [`GetAdaptersAddresses`](https://learn.microsoft.com/en-us/windows/win32/api/iphlpapi/nf-iphlpapi-getadaptersaddresses) enumeration with `GAA_FLAG_INCLUDE_PREFIX`, documented buffer-growth retries capped before unbounded growth, friendly-name UTF-16 to UTF-8 conversion with ANSI identifier fallback, IPv4 `IfIndex` with `Ipv6IfIndex` fallback for IPv6-only adapters, `OperStatus`, `IfType`, physical address, and `OnLinkPrefixLength` mapping, and injectable enumeration seams covered by synthetic-data tests; an adapter with both protocol indices zero cannot satisfy the portable nonzero-index contract and produces explicit `not_supported`; requires Windows Vista or later and linking the Iphlpapi import library, which the public header documents | Backend written from public Microsoft APIs; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
 | macOS | Shared POSIX `getifaddrs` backend reading Darwin's documented [`sockaddr_dl`](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/sockaddr_dl.3.html) AF_LINK rows, preserving link-layer addresses longer than six bytes through recorded length fields | Backend written from public Darwin APIs with synthetic AF_LINK conversion tests; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
 
+Windows and macOS statuses must not advance until their headers compile with
+the official SDK and the tests execute on the real operating systems.
+
+### Locale identity and UTC-offset evidence
+
+This first locale slice exposes the process's current locale identifier, the
+label of the encoding used for non-Unicode narrow text, and the local time
+zone's UTC offset in effect at the moment of the query, in seconds east of
+UTC. Locale identifiers and encoding labels are reported verbatim and are not
+normalized across platforms: POSIX systems report the C runtime's locale
+string and LC_CTYPE codeset name, while Windows reports the Microsoft C
+runtime's locale string and decimal current multibyte code-page identifier.
+Preferred languages, country or region, and time-zone identifiers or display
+names remain not started. These queries observe C-runtime locale and time-zone
+state, so concurrent changes to that state are a documented unavoidable
+platform race. The Microsoft C runtime may additionally configure locale state
+per thread.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every locale query | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | The query form of POSIX [`setlocale`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/setlocale.html) for the locale identifier, POSIX [`nl_langinfo`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/nl_langinfo.html) `CODESET` for the encoding label, and `tzset` plus `localtime_r` with a C99 `strftime("%z")` rendering for the offset; an empty or undeterminable `%z` rendering reports `not_found`, and offset renderings outside the sign-plus-four-or-six-digit shape are malformed platform data | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; synthetic sign, digit-range, length, and extended-second offset-parsing tests, public-boundary empty, non-UTF-8, and offset-range tests, and live queries cross-checked against independent `setlocale`, `nl_langinfo`, and `sscanf`-decoded `strftime("%z")` references; forced-fallback, C++11-rejection, repeated-inclusion, and two-translation-unit ODR tests passed | Verified for this slice on the listed host |
+| Windows | The query form of the Microsoft C runtime `setlocale` for the process locale, `_getmbcp` for the runtime's current multibyte code page rendered as a decimal label, and [`GetTimeZoneInformation`](https://learn.microsoft.com/en-us/windows/win32/api/timezoneapi/nf-timezoneapi-gettimezoneinformation) with the bias component reported active for the instant; `TIME_ZONE_ID_UNKNOWN` still carries a valid base bias, dynamic time zones resolve through the same interface, and a summed bias reaching one day is malformed platform data | Backend written from documented Microsoft APIs with synthetic code-page rendering, bias-combination, and full-width `LONG` overflow tests; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | Shared POSIX backend: `setlocale`, `nl_langinfo(CODESET)`, and `tzset` plus `localtime_r` with `strftime("%z")` | Backend written from public POSIX interfaces with synthetic parsing and boundary tests; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
+
+The Linux locale and encoding sources follow the POSIX
+[`setlocale`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/setlocale.html)
+and
+[`nl_langinfo`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/nl_langinfo.html)
+specifications, and the offset follows the C standard `strftime` `%z`
+conversion specifier. The Windows implementation follows public Microsoft
+documentation for
+[runtime locale and code-page selection](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setlocale-wsetlocale)
+and
+[time-zone information](https://learn.microsoft.com/en-us/windows/win32/api/timezoneapi/ns-timezoneapi-time_zone_information).
 Windows and macOS statuses must not advance until their headers compile with
 the official SDK and the tests execute on the real operating systems.
 
