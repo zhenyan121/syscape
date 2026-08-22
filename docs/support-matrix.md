@@ -1,6 +1,6 @@
 # Syscape Support Matrix and Information Catalog
 
-Last reviewed: 2026-08-21
+Last reviewed: 2026-08-22
 
 ## Purpose
 
@@ -155,7 +155,7 @@ will be no all-modules umbrella header.
 | Foundation | `capability.hpp` | Allocation-free capability state vocabulary for runtime and compile-time modules | Implemented |
 | 1 | `os.hpp` | Product name, version, build, kernel name and version, host name, boot time, uptime, and boot identifier where available | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `cpu.hpp` | Architecture, vendor, model, packages, physical and logical cores, topology, caches, instruction-set features, frequency, affinity, and utilization | In progress; vendor identifiers, model labels, and online logical, physical-core, and package counts implemented where documented sources exist |
-| 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | Not started |
+| 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | In progress; page size, physical memory, the available-memory estimate, and swap or pagefile usage implemented where documented sources exist |
 | 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | Not started |
 | 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | Not started |
 | 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | Not started |
@@ -251,6 +251,32 @@ and
 [`GetLogicalProcessorInformationEx`](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex)
 APIs. The macOS counts follow Apple's documented
 [system capability parameters](https://developer.apple.com/documentation/kernel/1387446-sysctlbyname/determining_system_capabilities).
+
+### Memory capacity and paging evidence
+
+This first memory slice exposes the virtual-memory page size, total physical
+memory, the operating system's estimate of allocatable-without-swapping
+memory, and configured swap or pagefile usage. Committed-memory accounting,
+huge pages, pressure, and system utilization remain not started. Linux reads
+the kernel-documented [`proc_meminfo`](https://docs.kernel.org/admin-guide/proc-meminfo.html)
+fields; Windows follows the documented
+[`GlobalMemoryStatusEx`](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-globalmemorystatusex)
+and [GetSystemInfo](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsysteminfo)
+APIs and reports paging space as unsupported because those APIs expose only
+process-scoped commit limits rather than paging-space capacity; macOS follows
+the documented `hw.memsize` sysctl value, Mach
+[host statistics](https://developer.apple.com/documentation/kernel/1439469-host_statistics64),
+and the binary `xsw_usage` structure published by the `vm.swapusage` sysctl.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every memory query | Forced-backend standalone, runtime, C++11-rejection, and ODR tests under GCC and Clang | Verified |
+| Linux | `_SC_PAGESIZE` plus `/proc/meminfo` `MemTotal`, `MemAvailable`, `SwapTotal`, and `SwapFree`; unknown fields are skipped before value parsing; available memory returns `not_supported` on kernels that predate `MemAvailable`; zero swap totals are valid data | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44; strict C++17 GCC 16.2.1 and Clang 22.1.8; parser, malformed-data, overflow, standalone, runtime, ODR, AddressSanitizer, and UndefinedBehaviorSanitizer tests | Verified for this slice on the listed host |
+| Windows | `GlobalMemoryStatusEx` physical fields; `GetSystemInfo` page size; paging space returns `not_supported` because the pagefile fields describe commit limits scoped to the system or current process and cannot express paging-space capacity | Backend implemented from public Windows APIs; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | `hw.memsize`; free and inactive pages from `host_statistics64` (volatile purgeable pages already reside in the kernel's inactive population); binary `xsw_usage` from `vm.swapusage`; Mach failures map to `io_error` because kern_return_t has no standard category; host send rights are owned by an internal RAII guard | Backend implemented from public Apple APIs; no Apple SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+
+Windows and macOS statuses must not advance until their headers compile with
+the official SDK and the tests execute on the real operating system.
 
 ### Sensitive and identifying information
 

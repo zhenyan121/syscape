@@ -3,6 +3,7 @@
 #include <syscape/architecture.hpp>
 #include <syscape/cpu.hpp>
 #include <syscape/error.hpp>
+#include <syscape/memory.hpp>
 #include <syscape/os.hpp>
 #include <syscape/result.hpp>
 
@@ -22,6 +23,13 @@ bool other_os_backend_callable() {
 bool other_cpu_backend_callable() {
     const syscape::result<std::uint32_t> value =
         syscape::cpu::online_logical_processor_count();
+    return (value && *value > 0U) ||
+           value.error() == std::errc::operation_not_supported;
+}
+
+bool other_memory_backend_callable() {
+    const syscape::result<std::uint64_t> value =
+        syscape::memory::physical_memory_bytes();
     return (value && *value > 0U) ||
            value.error() == std::errc::operation_not_supported;
 }
