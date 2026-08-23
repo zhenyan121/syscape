@@ -11,6 +11,7 @@
 #include <string_view>
 #include <system_error>
 
+#include <syscape/detail/linux/directory.hpp>
 #include <syscape/detail/linux/file.hpp>
 #include <syscape/detail/resource/common.hpp>
 #include <syscape/result.hpp>
@@ -224,26 +225,6 @@ inline result<std::uint64_t> parse_thread_count(std::string_view input) {
     return threads;
 }
 
-/// Owns one open directory stream for the duration of an enumeration.
-class directory_handle {
-public:
-    explicit directory_handle(const char* path) noexcept
-        : value_(::opendir(path)) {}
-    directory_handle(const directory_handle&) = delete;
-    directory_handle& operator=(const directory_handle&) = delete;
-    ~directory_handle() {
-        if (value_ != nullptr) { ::closedir(value_); }
-    }
-
-    /// Returns true when the directory opened successfully.
-    bool valid() const noexcept { return value_ != nullptr; }
-    /// Returns the owned stream.
-    ::DIR* get() const noexcept { return value_; }
-
-private:
-    ::DIR* value_;
-};
-
 /// Reports whether a directory entry names a numeric process identifier.
 inline bool numeric_entry(const char* name) noexcept {
     if (name == nullptr || name[0] == '\0') { return false; }
@@ -262,7 +243,7 @@ inline bool numeric_entry(const char* name) noexcept {
 /// number of entries passed to the visitor.
 template <typename Visit>
 inline result<std::uint64_t> walk_processes(Visit visit) {
-    directory_handle directory("/proc");
+    linux_platform::directory_handle directory("/proc");
     if (!directory.valid()) {
         return fail(std::error_code(errno, std::generic_category()));
     }

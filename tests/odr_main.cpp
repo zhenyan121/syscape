@@ -7,6 +7,7 @@
 #include <syscape/memory.hpp>
 #include <syscape/network.hpp>
 #include <syscape/os.hpp>
+#include <syscape/power.hpp>
 #include <syscape/process.hpp>
 #include <syscape/resource.hpp>
 #include <syscape/result.hpp>
@@ -24,6 +25,7 @@ bool other_network_backend_callable();
 bool other_locale_backend_callable();
 bool other_environment_backend_callable();
 bool other_resource_backend_callable();
+bool other_power_backend_callable();
 
 int main() {
     if (other_error_category() != &syscape::error_category()) {
@@ -61,6 +63,9 @@ int main() {
     }
     if (!other_resource_backend_callable()) {
         return 13;
+    }
+    if (!other_power_backend_callable()) {
+        return 14;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;

@@ -10,6 +10,7 @@
 #include <syscape/memory.hpp>
 #include <syscape/network.hpp>
 #include <syscape/os.hpp>
+#include <syscape/power.hpp>
 #include <syscape/process.hpp>
 #include <syscape/resource.hpp>
 #include <syscape/result.hpp>
@@ -138,6 +139,17 @@ bool other_resource_backend_callable() {
     static_cast<void>(handles);
     return (processes && *processes > 0U) ||
            processes.error() == std::errc::operation_not_supported;
+}
+
+bool other_power_backend_callable() {
+    const syscape::result<std::vector<syscape::power::battery_entry>>
+        listed = syscape::power::batteries();
+    const syscape::result<bool> powered =
+        syscape::power::external_power_online();
+    static_cast<void>(powered);
+    return listed.has_value() ||
+           listed.error() == std::errc::operation_not_supported ||
+           listed.error() == syscape::errc::not_found;
 }
 
 bool other_environment_backend_callable() {
