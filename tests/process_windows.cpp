@@ -4,6 +4,7 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include <syscape/detail/utf8.hpp>
@@ -161,11 +162,80 @@ void test_address_space_walk() {
            "Region totals beyond 64 bits must be reported as too large");
 }
 
+void test_priority_class_mapping() {
+    using syscape::detail::process_backend::map_priority_class;
+
+    const struct {
+        ::DWORD native;
+        int expected;
+    } classes[] = {
+        {IDLE_PRIORITY_CLASS, 4},
+        {BELOW_NORMAL_PRIORITY_CLASS, 6},
+        {NORMAL_PRIORITY_CLASS, 8},
+        {ABOVE_NORMAL_PRIORITY_CLASS, 10},
+        {HIGH_PRIORITY_CLASS, 13},
+        {REALTIME_PRIORITY_CLASS, 24},
+    };
+
+    for (const auto& item : classes) {
+        const auto mapped = map_priority_class(item.native);
+        expect(mapped && *mapped == item.expected,
+               "Each documented priority class must map onto its "
+               "documented base priority");
+    }
+
+    const auto unknown = map_priority_class(0U);
+    expect(!unknown && unknown.error() == syscape::errc::malformed_data,
+           "An unrecognized priority class cannot come from the "
+           "documented source and is malformed");
+}
+
+void test_affinity_expansion() {
+    using syscape::detail::process_backend::expand_affinity_mask;
+    using syscape::detail::process_backend::validate_processor_group_count;
+
+    const auto no_groups = validate_processor_group_count(0U);
+    expect(!no_groups && no_groups.error() == syscape::errc::malformed_data,
+           "Windows must expose at least one processor group");
+
+    const auto one_group = validate_processor_group_count(1U);
+    expect(one_group.has_value(),
+           "One processor group has unambiguous system-wide indices");
+
+    const auto multiple_groups = validate_processor_group_count(2U);
+    expect(!multiple_groups &&
+               multiple_groups.error() == syscape::errc::not_supported,
+           "Group-relative affinity is ambiguous on multiple-group systems");
+
+    const auto scattered = expand_affinity_mask(0b0101ULL, 0b0111ULL);
+    expect(scattered && scattered->size() == 2U && (*scattered)[0] == 0U &&
+               (*scattered)[1] == 2U,
+           "Process-mask bits must expand into ascending indices");
+
+    const auto highest_bit =
+        expand_affinity_mask(1ULL << 63U, ~(0ULL));
+    expect(highest_bit && highest_bit->size() == 1U &&
+               (*highest_bit)[0] == 63U,
+           "The topmost group bit must keep its documented index");
+
+    const auto beyond_system = expand_affinity_mask(0b1000ULL, 0b0111ULL);
+    expect(!beyond_system &&
+               beyond_system.error() == syscape::errc::malformed_data,
+           "A process mask beyond the system mask is malformed data");
+
+    const auto empty_process = expand_affinity_mask(0ULL, ~0ULL);
+    expect(!empty_process &&
+               empty_process.error() == syscape::errc::malformed_data,
+           "An empty process mask cannot describe a runnable process");
+}
+
 } // namespace
 
 int main() {
     test_filetime_conversion();
     test_address_space_walk();
+    test_priority_class_mapping();
+    test_affinity_expansion();
 
     const auto id = syscape::process::process_id();
     expect(id && *id > 0U, "Windows must report a positive process ID");
@@ -214,6 +284,57 @@ int main() {
     const auto threads = syscape::process::thread_count();
     expect(threads && *threads >= 1U,
            "Windows must count at least the calling thread");
+
+    const auto scheduling = syscape::process::priority();
+    expect(scheduling.has_value(),
+           "Windows must report a priority from GetPriorityClass");
+    if (scheduling) {
+        const bool documented = *scheduling == 4 || *scheduling == 6 ||
+                                *scheduling == 8 || *scheduling == 10 ||
+                                *scheduling == 13 || *scheduling == 24;
+        expect(documented,
+               "The reported priority must be a documented base priority");
+    }
+
+    ::ULONG_PTR reference_process_mask = 0U;
+    ::ULONG_PTR reference_system_mask = 0U;
+    const ::WORD group_count = ::GetActiveProcessorGroupCount();
+    const auto indices = syscape::process::cpu_affinity();
+    if (group_count == 1U) {
+        expect(indices && !indices->empty(),
+               "Single-group Windows must expand a nonempty affinity mask");
+    } else if (group_count > 1U) {
+        expect(!indices && indices.error() == syscape::errc::not_supported,
+               "Multiple-group Windows must reject ambiguous affinity indices");
+    } else {
+        expect(!indices && indices.error() == syscape::errc::malformed_data,
+               "A zero processor-group count must be malformed data");
+    }
+    if (group_count == 1U && indices &&
+        ::GetProcessAffinityMask(::GetCurrentProcess(),
+                                 &reference_process_mask,
+                                 &reference_system_mask) != 0) {
+        std::vector<std::uint32_t> reference_indices;
+        for (std::uint32_t bit = 0U; bit < 64U; ++bit) {
+            const auto mask_bit =
+                static_cast<std::uint64_t>(1ULL) << bit;
+            if ((static_cast<std::uint64_t>(reference_process_mask) &
+                 mask_bit) != 0U) {
+                reference_indices.push_back(bit);
+            }
+        }
+        expect(*indices == reference_indices,
+               "cpu_affinity() must match an independent "
+               "GetProcessAffinityMask call");
+    }
+
+    const auto unsupported_limits = syscape::process::resource_limit(
+        syscape::process::resource_kind::open_files);
+    expect(!unsupported_limits &&
+               unsupported_limits.error() ==
+                   std::errc::operation_not_supported,
+           "Windows records no public per-process resource limits and "
+           "must report them as unsupported");
 
     return failures == 0 ? 0 : 1;
 }

@@ -25,6 +25,13 @@ int main() {
         syscape::process::memory_usage();
     const syscape::result<std::uint32_t> threads =
         syscape::process::thread_count();
+    const syscape::result<int> scheduling =
+        syscape::process::priority();
+    const syscape::result<std::vector<std::uint32_t>> affinity =
+        syscape::process::cpu_affinity();
+    const syscape::result<syscape::process::resource_limits> limits =
+        syscape::process::resource_limit(
+            syscape::process::resource_kind::stack_size);
 
     static_cast<void>(parent);
     static_cast<void>(path);
@@ -34,5 +41,8 @@ int main() {
     static_cast<void>(started);
     static_cast<void>(memory);
     static_cast<void>(threads);
+    static_cast<void>(scheduling);
+    static_cast<void>(affinity);
+    static_cast<void>(limits);
     return id && *id == 0U ? 1 : 0;
 }

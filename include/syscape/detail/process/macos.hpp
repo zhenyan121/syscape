@@ -20,6 +20,7 @@
 #include <sys/sysctl.h>
 
 #include <syscape/detail/process/common.hpp>
+#include <syscape/detail/process/posix.hpp>
 #include <syscape/result.hpp>
 
 namespace syscape {
@@ -237,6 +238,31 @@ inline result<std::uint32_t> thread_count() {
     const result<task_statistics> statistics = read_task_statistics();
     if (!statistics) { return fail(statistics.error()); }
     return statistics->threads;
+}
+
+/// Validates the documented POSIX nice range.
+///
+/// Darwin records nice values from -20 (most favorable) through 20 (least
+/// favorable); anything outside that range cannot come from the documented
+/// source.
+inline result<int> validate_priority(int value) {
+    return process_posix::validate_priority(value, -20, 20);
+}
+
+inline result<int> priority() {
+    return process_posix::priority(-20, 20);
+}
+
+inline result<std::vector<std::uint32_t>> cpu_affinity() {
+    // Darwin exposes no documented public interface for reading a process
+    // scheduling affinity, so the capability is unsupported rather than
+    // approximated from private Mach policy interfaces.
+    return fail(errc::not_supported);
+}
+
+inline result<process_common::resource_limit_snapshot> resource_limit(
+    process_common::limit_resource kind) {
+    return process_posix::resource_limit(kind);
 }
 
 } // namespace process_backend

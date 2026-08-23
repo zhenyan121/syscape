@@ -10,6 +10,10 @@
 #include <system_error>
 #include <vector>
 
+#include <sched.h>
+#include <sys/resource.h>
+#include <unistd.h>
+
 #include <syscape/detail/process/linux.hpp>
 #include <syscape/detail/utf8.hpp>
 #include <syscape/os.hpp>
@@ -358,6 +362,235 @@ void test_memory_scaling_and_start_composition() {
            "too large");
 }
 
+void test_priority_validation() {
+    using syscape::detail::process_backend::validate_priority;
+
+    const auto most_favorable = validate_priority(-20);
+    expect(most_favorable && *most_favorable == -20,
+           "The documented most favorable nice value must be accepted");
+
+    const auto normal = validate_priority(0);
+    expect(normal && *normal == 0,
+           "The normal nice value must be accepted unchanged");
+
+    const auto least_favorable = validate_priority(19);
+    expect(least_favorable && *least_favorable == 19,
+           "The documented least favorable nice value must be accepted");
+
+    const auto too_low = validate_priority(-21);
+    expect(!too_low && too_low.error() == syscape::errc::malformed_data,
+           "A nice value below the documented range must be malformed");
+
+    const auto too_high = validate_priority(20);
+    expect(!too_high && too_high.error() == syscape::errc::malformed_data,
+           "A nice value above the documented range must be malformed");
+}
+
+void test_affinity_expansion() {
+    using syscape::detail::process_backend::affinity_indices;
+
+    unsigned long scattered[1] = {0b1010UL};
+    const auto scattered_indices = affinity_indices(scattered, 1U);
+    expect(scattered_indices && scattered_indices->size() == 2U &&
+               (*scattered_indices)[0] == 1U && (*scattered_indices)[1] == 3U,
+           "Set mask bits must map onto ascending processor indices");
+
+    unsigned long second_word[2] = {0UL, 1UL};
+    const auto crossed_word = affinity_indices(second_word, 2U);
+    expect(crossed_word && crossed_word->size() == 1U &&
+               (*crossed_word)[0] == 64U,
+           "Bits in later words must continue the index sequence");
+
+    const unsigned long all_bits[1] = {~0UL};
+    const auto dense = affinity_indices(all_bits, 1U);
+    expect(dense && dense->size() == sizeof(unsigned long) * 8U,
+           "A fully set word must expand to every index in that word");
+
+    const unsigned long empty[2] = {0UL, 0UL};
+    const auto empty_mask = affinity_indices(empty, 2U);
+    expect(!empty_mask &&
+               empty_mask.error() == syscape::errc::malformed_data,
+           "An empty affinity mask cannot describe a runnable process");
+}
+
+void test_limit_conversion_and_validation() {
+    namespace posix = syscape::detail::process_posix;
+    using bound = syscape::detail::process_common::resource_limit_bound;
+
+    const ::rlim_t finite_marker = static_cast<::rlim_t>(4096);
+    const auto finite =
+        posix::convert_rlim_amount(finite_marker, RLIM_INFINITY);
+    expect(finite && !finite->unlimited && finite->amount == 4096U,
+           "A finite recorded limit must convert with its amount");
+
+    const auto unlimited =
+        posix::convert_rlim_amount(RLIM_INFINITY, RLIM_INFINITY);
+    expect(unlimited && unlimited->unlimited,
+           "The platform infinity marker must record an unlimited bound");
+
+    const auto signed_unlimited =
+        posix::convert_rlim_amount(static_cast<long long>(-1),
+                                   static_cast<long long>(-1));
+    expect(signed_unlimited && signed_unlimited->unlimited,
+           "A signed limit type's negative infinity marker must record an "
+           "unlimited bound");
+
+    const auto signed_negative =
+        posix::convert_rlim_amount(static_cast<long long>(-5),
+                                   static_cast<long long>(-1));
+    expect(!signed_negative &&
+               signed_negative.error() == syscape::errc::malformed_data,
+           "A signed limit type's other negative amounts must be malformed");
+
+    const auto signed_finite =
+        posix::convert_rlim_amount(static_cast<long long>(8192),
+                                   static_cast<long long>(-1));
+    expect(signed_finite && !signed_finite->unlimited &&
+               signed_finite->amount == 8192U,
+           "A signed limit type's finite amount must convert unchanged");
+
+    const syscape::result<void> ordered = posix::validate_limit_pair(
+        bound{100U, false}, bound{200U, false});
+    expect(ordered.has_value(),
+           "A soft bound within the hard bound is valid data");
+
+    const syscape::result<void> equal = posix::validate_limit_pair(
+        bound{200U, false}, bound{200U, false});
+    expect(equal.has_value(), "Equal soft and hard bounds are valid data");
+
+    const syscape::result<void> both_unlimited = posix::validate_limit_pair(
+        bound{0U, true}, bound{0U, true});
+    expect(both_unlimited.has_value(),
+           "Unlimited soft and hard bounds are valid data");
+
+    const syscape::result<void> finite_within_unlimited = posix::validate_limit_pair(
+        bound{100U, false}, bound{0U, true});
+    expect(finite_within_unlimited.has_value(),
+           "A finite soft bound under an unlimited hard bound is valid "
+           "data");
+
+    const syscape::result<void> soft_above_hard = posix::validate_limit_pair(
+        bound{300U, false}, bound{200U, false});
+    expect(!soft_above_hard &&
+               soft_above_hard.error() == syscape::errc::malformed_data,
+           "A soft bound above a finite hard bound is malformed data");
+
+    const syscape::result<void> unlimited_above_finite =
+        posix::validate_limit_pair(bound{0U, true}, bound{50U, false});
+    expect(!unlimited_above_finite &&
+               unlimited_above_finite.error() ==
+                   syscape::errc::malformed_data,
+           "An unlimited soft bound above a finite hard bound is malformed "
+           "data");
+}
+
+void test_scheduling_queries() {
+    errno = 0;
+    const int nice_reference = ::getpriority(::PRIO_PROCESS, 0);
+    const bool nice_reference_failed =
+        (nice_reference == -1 && errno != 0);
+
+    const auto scheduling = syscape::process::priority();
+    if (!nice_reference_failed) {
+        expect(scheduling && *scheduling == nice_reference,
+               "priority() must match an independent getpriority call");
+        if (scheduling) {
+            expect(*scheduling >= -20 && *scheduling <= 19,
+                   "The reported priority must stay in the Linux nice "
+                   "range");
+        }
+    }
+
+    ::cpu_set_t reference_set {};
+    CPU_ZERO(&reference_set);
+    const int reference_status = ::sched_getaffinity(
+        0, sizeof(reference_set), &reference_set);
+
+    const auto indices = syscape::process::cpu_affinity();
+    expect(indices && !indices->empty(),
+           "Linux must expand a nonempty affinity mask");
+    if (!indices) { return; }
+
+    for (std::size_t position = 1U; position < indices->size();
+         ++position) {
+        expect((*indices)[position - 1U] < (*indices)[position],
+               "Affinity indices must be strictly ascending without "
+               "duplicates");
+    }
+
+    if (reference_status != 0) { return; }
+    std::vector<std::uint32_t> reference_indices;
+    for (std::size_t index = 0; index < static_cast<std::size_t>(CPU_SETSIZE);
+         ++index) {
+        if (CPU_ISSET(index, &reference_set)) {
+            reference_indices.push_back(static_cast<std::uint32_t>(index));
+        }
+    }
+    expect(*indices == reference_indices,
+           "cpu_affinity() must match an independent sched_getaffinity "
+           "call");
+}
+
+void test_resource_limit_queries() {
+    struct limit_case {
+        syscape::process::resource_kind portable;
+        int native;
+    };
+    const limit_case cases[] = {
+        {syscape::process::resource_kind::core_file_size, RLIMIT_CORE},
+        {syscape::process::resource_kind::cpu_time, RLIMIT_CPU},
+        {syscape::process::resource_kind::file_size, RLIMIT_FSIZE},
+        {syscape::process::resource_kind::open_files, RLIMIT_NOFILE},
+        {syscape::process::resource_kind::stack_size, RLIMIT_STACK},
+        {syscape::process::resource_kind::address_space, RLIMIT_AS},
+    };
+
+    for (const limit_case& item : cases) {
+        struct ::rlimit reference {};
+        const int status = ::getrlimit(item.native, &reference);
+        const auto limits = syscape::process::resource_limit(item.portable);
+        if (status != 0) { continue; }
+
+        expect(limits.has_value(),
+               "resource_limit() must succeed where getrlimit succeeds");
+        if (!limits) { continue; }
+
+        const bool soft_matches =
+            reference.rlim_cur == RLIM_INFINITY
+                ? limits->soft.unlimited
+                : !limits->soft.unlimited &&
+                      limits->soft.amount ==
+                          static_cast<std::uint64_t>(reference.rlim_cur);
+        const bool hard_matches =
+            reference.rlim_max == RLIM_INFINITY
+                ? limits->hard.unlimited
+                : !limits->hard.unlimited &&
+                      limits->hard.amount ==
+                          static_cast<std::uint64_t>(reference.rlim_max);
+        expect(soft_matches,
+               "The soft bound must match an independent getrlimit call");
+        expect(hard_matches,
+               "The hard bound must match an independent getrlimit call");
+
+        const bool ordered =
+            limits->hard.unlimited ||
+            (!limits->soft.unlimited &&
+             limits->soft.amount <= limits->hard.amount);
+        expect(ordered,
+               "The soft bound must never exceed the hard bound");
+    }
+
+    const auto open_files = syscape::process::resource_limit(
+        syscape::process::resource_kind::open_files);
+    expect(open_files && open_files->soft.amount > 0U,
+           "Linux must record a positive open-files limit");
+
+    const auto invalid = syscape::process::resource_limit(
+        static_cast<syscape::process::resource_kind>(999));
+    expect(!invalid && invalid.error() == syscape::errc::invalid_argument,
+           "An unrecognized resource kind must not select a real limit");
+}
+
 void test_runtime_attribute_queries() {
     using namespace std::chrono_literals;
 
@@ -404,6 +637,11 @@ int main() {
     test_stat_parser();
     test_tick_conversion();
     test_memory_scaling_and_start_composition();
+    test_priority_validation();
+    test_affinity_expansion();
+    test_limit_conversion_and_validation();
+    test_scheduling_queries();
+    test_resource_limit_queries();
     test_runtime_queries();
     test_runtime_attribute_queries();
     return failures == 0 ? 0 : 1;

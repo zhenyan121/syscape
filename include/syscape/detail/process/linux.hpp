@@ -14,9 +14,12 @@
 #include <unistd.h>
 #include <vector>
 
+#include <sched.h>
+
 #include <syscape/detail/linux/file.hpp>
 #include <syscape/detail/os/linux.hpp>
 #include <syscape/detail/process/common.hpp>
+#include <syscape/detail/process/posix.hpp>
 #include <syscape/result.hpp>
 
 namespace syscape {
@@ -367,6 +370,82 @@ inline result<process_common::memory_usage_snapshot> memory_usage() {
     usage.resident_bytes = *resident;
     usage.virtual_bytes = statistics->virtual_size_bytes;
     return usage;
+}
+
+/// Validates the documented Linux nice range.
+///
+/// The kernel documents nice values from -20 (most favorable) through 19
+/// (least favorable); anything outside that range cannot come from the
+/// documented source.
+inline result<int> validate_priority(int value) {
+    return process_posix::validate_priority(value, -20, 19);
+}
+
+inline result<int> priority() {
+    return process_posix::priority(-20, 19);
+}
+
+/// Expands a kernel affinity bitmask into ascending logical processor
+/// indices.
+///
+/// The mask layout follows the cpu_set_t representation: one bit per logical
+/// processor index inside an array of native unsigned long words. An empty
+/// mask cannot describe a runnable process and is malformed platform data.
+inline result<std::vector<std::uint32_t>> affinity_indices(
+    const unsigned long* words, std::size_t word_count) {
+    std::vector<std::uint32_t> indices;
+    for (std::size_t word = 0U; word < word_count; ++word) {
+        for (std::size_t bit = 0U; bit < sizeof(unsigned long) * 8U; ++bit) {
+            if (((words[word] >> bit) & 1UL) != 0UL) {
+                const std::uint64_t index =
+                    static_cast<std::uint64_t>(word) *
+                        static_cast<std::uint64_t>(sizeof(unsigned long)) *
+                        8ULL +
+                    bit;
+                if (index > (std::numeric_limits<std::uint32_t>::max)()) {
+                    return fail(errc::value_too_large);
+                }
+                indices.push_back(static_cast<std::uint32_t>(index));
+            }
+        }
+    }
+    if (indices.empty()) { return fail(errc::malformed_data); }
+    return indices;
+}
+
+inline result<std::vector<std::uint32_t>> cpu_affinity() {
+    static_assert(sizeof(::cpu_set_t) % sizeof(unsigned long) == 0U,
+                  "cpu_set_t must be an array of unsigned long words");
+    constexpr std::size_t initial_words =
+        sizeof(::cpu_set_t) / sizeof(unsigned long);
+    // The kernel rejects masks smaller than the possible-CPU range with
+    // EINVAL, so the buffer grows until the syscall accepts it. The growth
+    // cap keeps a hostile kernel from forcing unbounded allocation.
+    constexpr std::size_t maximum_words = initial_words * 512U;
+
+    std::vector<unsigned long> words(initial_words, 0UL);
+    for (;;) {
+        const int status = ::sched_getaffinity(
+            0, words.size() * sizeof(unsigned long),
+            reinterpret_cast<::cpu_set_t*>(words.data()));
+        if (status == 0) { break; }
+        const int error = errno;
+        if (error != EINVAL || words.size() >= maximum_words) {
+            return error == EINVAL && words.size() >= maximum_words
+                       ? result<std::vector<std::uint32_t>>(
+                             fail(errc::value_too_large))
+                       : result<std::vector<std::uint32_t>>(fail(
+                             std::error_code(error,
+                                             std::generic_category())));
+        }
+        words.resize(words.size() * 2U, 0UL);
+    }
+    return affinity_indices(words.data(), words.size());
+}
+
+inline result<process_common::resource_limit_snapshot> resource_limit(
+    process_common::limit_resource kind) {
+    return process_posix::resource_limit(kind);
 }
 
 } // namespace process_backend

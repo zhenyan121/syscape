@@ -1,6 +1,24 @@
 #ifndef SYSCAPE_DETAIL_PROCESS_WINDOWS_HPP
 #define SYSCAPE_DETAIL_PROCESS_WINDOWS_HPP
 
+#if defined(_WIN32_WINNT) && _WIN32_WINNT < 0x0601
+#error "syscape/process.hpp requires _WIN32_WINNT >= 0x0601 on Windows"
+#endif
+
+#if defined(WINVER) && WINVER < 0x0601
+#error "syscape/process.hpp requires WINVER >= 0x0601 on Windows"
+#endif
+
+#if !defined(_WIN32_WINNT)
+#define SYSCAPE_DETAIL_PROCESS_DEFINED_WIN32_WINNT
+#define _WIN32_WINNT 0x0601
+#endif
+
+#if !defined(WINVER)
+#define SYSCAPE_DETAIL_PROCESS_DEFINED_WINVER
+#define WINVER 0x0601
+#endif
+
 #include <chrono>
 #include <climits>
 #include <cstddef>
@@ -396,8 +414,94 @@ inline result<std::uint32_t> thread_count() {
     return threads;
 }
 
+/// Maps a documented priority-class constant onto its documented base
+/// priority.
+///
+/// The mapping follows the documented base-priority table for each
+/// GetPriorityClass value. An unrecognized class cannot come from the
+/// documented source and is malformed platform data.
+inline result<int> map_priority_class(::DWORD priority_class) {
+    switch (priority_class) {
+        case IDLE_PRIORITY_CLASS: return 4;
+        case BELOW_NORMAL_PRIORITY_CLASS: return 6;
+        case NORMAL_PRIORITY_CLASS: return 8;
+        case ABOVE_NORMAL_PRIORITY_CLASS: return 10;
+        case HIGH_PRIORITY_CLASS: return 13;
+        case REALTIME_PRIORITY_CLASS: return 24;
+        default: return fail(errc::malformed_data);
+    }
+}
+
+inline result<int> priority() {
+    const ::DWORD priority_class = ::GetPriorityClass(::GetCurrentProcess());
+    if (priority_class == 0U) { return fail(last_error()); }
+    return map_priority_class(priority_class);
+}
+
+/// Expands an affinity mask pair into ascending logical processor indices.
+///
+/// GetProcessAffinityMask reports a group-relative mask. The caller validates
+/// separately that the system has only one processor group, where these bit
+/// positions are also unambiguous system-wide indices. The process mask must
+/// be a subset of the system mask, and both must leave at least one processor
+/// available for a runnable process.
+inline result<std::vector<std::uint32_t>> expand_affinity_mask(
+    std::uint64_t process_mask, std::uint64_t system_mask) {
+    if ((process_mask & ~system_mask) != 0U) {
+        return fail(errc::malformed_data);
+    }
+    std::vector<std::uint32_t> indices;
+    for (std::uint32_t index = 0U; index < 64U; ++index) {
+        const std::uint64_t bit = (1ULL << index);
+        if ((process_mask & bit) != 0U) { indices.push_back(index); }
+    }
+    if (indices.empty()) { return fail(errc::malformed_data); }
+    return indices;
+}
+
+/// Ensures that group-relative Windows affinity bits are also unambiguous
+/// system-wide logical processor indices.
+inline result<void> validate_processor_group_count(std::uint16_t count) {
+    if (count == 0U) { return fail(errc::malformed_data); }
+    if (count != 1U) { return fail(errc::not_supported); }
+    return {};
+}
+
+inline result<std::vector<std::uint32_t>> cpu_affinity() {
+    const result<void> single_group = validate_processor_group_count(
+        static_cast<std::uint16_t>(::GetActiveProcessorGroupCount()));
+    if (!single_group) { return fail(single_group.error()); }
+
+    ::ULONG_PTR process_mask = 0U;
+    ::ULONG_PTR system_mask = 0U;
+    if (!::GetProcessAffinityMask(::GetCurrentProcess(), &process_mask,
+                                  &system_mask)) {
+        return fail(last_error());
+    }
+    return expand_affinity_mask(static_cast<std::uint64_t>(process_mask),
+                                static_cast<std::uint64_t>(system_mask));
+}
+
+inline result<process_common::resource_limit_snapshot> resource_limit(
+    process_common::limit_resource) {
+    // The Windows API surface exposes no per-process equivalent of the POSIX
+    // resource-limit model through a public documented source, so every kind
+    // is unsupported rather than approximated.
+    return fail(errc::not_supported);
+}
+
 } // namespace process_backend
 } // namespace detail
 } // namespace syscape
+
+#if defined(SYSCAPE_DETAIL_PROCESS_DEFINED_WINVER)
+#undef WINVER
+#undef SYSCAPE_DETAIL_PROCESS_DEFINED_WINVER
+#endif
+
+#if defined(SYSCAPE_DETAIL_PROCESS_DEFINED_WIN32_WINNT)
+#undef _WIN32_WINNT
+#undef SYSCAPE_DETAIL_PROCESS_DEFINED_WIN32_WINNT
+#endif
 
 #endif

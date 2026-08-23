@@ -1,6 +1,6 @@
 # Syscape Support Matrix and Information Catalog
 
-Last reviewed: 2026-08-22
+Last reviewed: 2026-08-23
 
 ## Purpose
 
@@ -156,7 +156,7 @@ will be no all-modules umbrella header.
 | 1 | `os.hpp` | Product name, version, build, kernel name and version, host name, boot time, uptime, and boot identifier where available | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `cpu.hpp` | Architecture, vendor, model, packages, physical and logical cores, topology, caches, instruction-set features, frequency, affinity, and utilization | In progress; vendor identifiers, model labels, and online logical, physical-core, and package counts implemented where documented sources exist |
 | 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | In progress; page size, physical memory, the available-memory estimate, and swap or pagefile usage implemented where documented sources exist |
-| 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | In progress; process identity, execution context, start time, CPU time, memory use, and thread count implemented where documented platform sources exist. Priority, affinity, and resource limits remain not started |
+| 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | In progress; real/effective user and group identifiers, login name, home directory, and recorded shell implemented where documented platform sources exist. Supplementary groups, elevation, and login session remain not started |
 | 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | In progress; mounted-filesystem enumeration plus per-path capacity, free, available, block-size, and read-only queries implemented where documented platform sources exist. Path limits and volume metadata beyond mount-table entries remain not started |
 | 1 | `network.hpp` | Network interfaces, addresses, prefix lengths, MAC addresses, MTU, state, routes, default gateways, DNS configuration, and host/domain names | In progress; interface enumeration with names, indices, operational state, loopback classification, link-layer addresses, and unicast IPv4/IPv6 addresses with prefix lengths implemented where documented platform sources exist. MTU, routes, default gateways, DNS configuration, host and domain names, and IPv6 zone identifiers remain not started |
@@ -284,7 +284,9 @@ This first process slice exposes the current process ID, parent process ID,
 executable path, command-line argument values, and current working directory.
 Start time, CPU time, memory use, priority, affinity, thread count, and
 resource limits are outside this slice; the runtime-attribute section below
-covers start time, CPU time, memory use, and thread count. An empty
+covers start time, CPU time, memory use, and thread count, and the
+scheduling-priority section below that covers priority, affinity, and
+resource limits. An empty
 argument list is valid data where
 the operating system permits execution without arguments; ordinary executions
 normally contain at least argv[0].
@@ -317,8 +319,9 @@ live thread count of the calling process. Each query takes an independent
 snapshot at the moment of the call. Execution-time resolution is limited by
 each platform's accounting granularity: Linux reports clock ticks (commonly
 ten milliseconds), Windows reports hundred-nanosecond units, and macOS
-reports the task's nanosecond totals. Priority, affinity, and resource limits
-remain not started. The resident and virtual extents follow each platform's
+reports the task's nanosecond totals. Priority, affinity, and resource
+limits are covered by the scheduling-priority section below. The resident
+and virtual extents follow each platform's
 own definition of those concepts and are documented as such rather than being
 normalized into a single cross-platform meaning.
 
@@ -328,6 +331,35 @@ normalized into a single cross-platform meaning.
 | Linux | One kernel-documented `/proc/self/stat` read supplies `utime`, `stime`, `num_threads`, `starttime`, `vsize`, and `rss`; parsing locates the parenthesized process-name boundary before field extraction; `sysconf(_SC_CLK_TCK)` scaling validates that the tick rate permits exact integer arithmetic and otherwise reports `not_supported`; RSS scales by `_SC_PAGESIZE`; the start instant derives from `/proc/stat` `btime` through the shared OS backend, so suspend periods and system-clock adjustments can shift it relative to real wall-clock time and it must be treated as an estimate; zero threads, negative or nonnumeric fields, and missing fields are malformed platform data; unrepresentable amounts report `value_too_large` | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; synthetic parser tests (parenthesized names, trailing newline, extra fields, truncated, nonnumeric, negative, zero-thread, oversized-thread, out-of-range tick lines), exact tick-rate arithmetic and overflow tests, page-scaling and start-composition boundary tests, live queries cross-checked for boot-to-now bounds, CPU-time monotonicity, resident-within-virtual ordering, and thread-count invariants, forced-fallback, C++11-rejection, repeated-inclusion, two-translation-unit ODR, AddressSanitizer, and UndefinedBehaviorSanitizer tests passed | Verified for this slice on the listed host |
 | Windows | `GetProcessTimes` creation, user, and system values converted from the documented 1601-epoch hundred-nanosecond FILETIME form with pre-epoch rejection; working set from the documented [`PROCESS_MEMORY_COUNTERS`](https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-process_memory_counters) query declared in `<psapi.h>` (kernel32 mapping on Windows 7 or later SDKs or Psapi.lib linkage); address-space extent from a documented [`VirtualQuery`](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualquery) walk over reserved and committed regions behind an injectable seam covered by synthetic region chains; thread count from a documented [`TH32CS_SNAPTHREAD`](https://learn.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-createtoolhelp32snapshot) snapshot filtered by owning process, which can be comparatively expensive on systems with many threads | Backend written from public Microsoft APIs with FILETIME-conversion, epoch-boundary, region-walk, malformed-region, native-error, and overflow synthetic tests; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
 | macOS | Documented `proc_pidinfo` `PROC_PIDTASKINFO` task fields supply nanosecond execution totals, resident and virtual sizes, and the thread count; the documented `KERN_PROC` sysctl supplies `p_starttime` for the recorded creation instant; microsecond components outside one second are malformed platform data | Backend written from public Apple APIs with duration-limit, time-pair, and malformed-component synthetic tests; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
+
+Windows and macOS statuses must not advance until their headers compile with
+the official SDK and the tests execute on the real operating systems.
+
+### Process scheduling-priority, affinity, and resource-limit evidence
+
+This third process slice exposes the platform-recorded scheduling priority,
+the logical processor indices available to the caller's platform scheduling
+context, and the recorded soft and hard bounds of six named resource-limit
+kinds. Priority values use each platform's own documented scale and are not
+comparable across platforms: Linux reports the calling thread's nice value,
+macOS reports the calling process's nice value, and Windows maps the documented
+priority-class constants onto their documented base priorities. Affinity
+covers every Linux processor range for the calling thread. Windows reports
+process affinity only on single-group systems, where group-relative bits are
+also unambiguous system-wide indices; multiple-group systems report
+`not_supported`. macOS exposes no documented public source and also reports
+`not_supported`. Resource limits follow the POSIX `getrlimit` records for
+core-file size, CPU time, file size, open files, stack size, and address
+space; Windows exposes no per-process equivalent through a public documented
+source and reports `not_supported` for every kind. An unlimited bound is
+recorded as an explicit flag, never as a sentinel amount.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every priority, affinity, and resource-limit query | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | Linux `getpriority(PRIO_PROCESS)` reports the calling thread's nice value, validated against the kernel-documented range from -20 through 19; `sched_getaffinity` reports the calling thread's mask and expands a growing unsigned-long buffer with an `EINVAL` growth cap, yielding ascending unique indices, with an empty mask rejected as malformed platform data; `getrlimit` for `RLIMIT_CORE`, `RLIMIT_CPU`, `RLIMIT_FSIZE`, `RLIMIT_NOFILE`, `RLIMIT_STACK`, and `RLIMIT_AS` with `RLIM_INFINITY` recorded as an explicit unlimited bound and a soft-within-hard invariant | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; synthetic nice-range, mask-expansion, infinity-marker, signed-marker, soft/hard-ordering, and invalid-kind tests; live queries cross-checked against independent `getpriority`, `sched_getaffinity`, and per-kind `getrlimit` calls; forced-fallback, C++11-rejection, repeated-inclusion, two-translation-unit ODR, AddressSanitizer, and UndefinedBehaviorSanitizer tests passed | Verified for this slice on the listed host |
+| Windows | `GetPriorityClass` mapped onto the documented base-priority table from 4 (idle) through 24 (realtime) with unrecognized classes rejected as malformed data; `GetProcessAffinityMask` expanded only after `GetActiveProcessorGroupCount` establishes that group-relative bit positions are unambiguous system-wide indices, while multiple-group systems report `not_supported`; the process mask is validated as a subset of the system mask behind injectable validation and expansion seams; every resource-limit kind returns `not_supported` because the platform exposes no per-process equivalent; `_WIN32_WINNT` and `WINVER` values below 0x0601 are rejected, while absent values are scoped to 0x0601 only across the internal Windows SDK include boundary | Backend written from public Windows 7 or later APIs with synthetic class-mapping, group-count, and mask-expansion tests; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | POSIX `getpriority(PRIO_PROCESS)` validated against the Darwin-documented nice range from -20 through 20; no documented affinity source, so affinity returns `not_supported`; Darwin's signed 64-bit `rlim_t` uses the positive `RLIM_INFINITY` value 2^63−1 | Backend written from public POSIX interfaces with synthetic range, marker, and ordering tests; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
 
 Windows and macOS statuses must not advance until their headers compile with
 the official SDK and the tests execute on the real operating systems.

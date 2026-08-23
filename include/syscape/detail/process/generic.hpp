@@ -36,6 +36,14 @@ inline result<process_common::memory_usage_snapshot> memory_usage() {
 inline result<std::uint32_t> thread_count() {
     return fail(errc::not_supported);
 }
+inline result<int> priority() { return fail(errc::not_supported); }
+inline result<std::vector<std::uint32_t>> cpu_affinity() {
+    return fail(errc::not_supported);
+}
+inline result<process_common::resource_limit_snapshot> resource_limit(
+    process_common::limit_resource) {
+    return fail(errc::not_supported);
+}
 
 } // namespace process_backend
 } // namespace detail

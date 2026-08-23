@@ -33,6 +33,42 @@ struct memory_usage_snapshot {
     std::uint64_t virtual_bytes;
 };
 
+/// Selects the recorded process resource limit a backend query reports.
+///
+/// The meaning and unit of every member value is determined by the selected
+/// kind and is documented by the public enumeration that maps onto it.
+enum class limit_resource {
+    /// Maximum core-file size in bytes.
+    core_file_size,
+    /// Maximum accumulated CPU time in seconds.
+    cpu_time,
+    /// Maximum size in bytes of a single file the process may write.
+    file_size,
+    /// Maximum number of open file descriptors.
+    open_files,
+    /// Maximum size in bytes of the process stack segment.
+    stack_size,
+    /// Maximum total virtual address-space extent in bytes.
+    address_space,
+};
+
+/// One recorded bound of a process resource limit.
+struct resource_limit_bound {
+    /// The recorded bound in the unit named by the queried kind. Meaningful
+    /// only when unlimited is false.
+    std::uint64_t amount = 0U;
+    /// True when the platform records no bound instead of a finite amount.
+    bool unlimited = false;
+};
+
+/// Soft and hard bounds of one process resource limit.
+struct resource_limit_snapshot {
+    /// The currently enforced bound.
+    resource_limit_bound soft;
+    /// The ceiling to which an unprivileged process may raise the soft bound.
+    resource_limit_bound hard;
+};
+
 inline result<std::string> validate_utf8_path(result<std::string> value) {
     if (!value) { return fail(value.error()); }
     if (value->empty() || !is_valid_utf8(*value)) {
