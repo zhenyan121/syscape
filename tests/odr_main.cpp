@@ -21,6 +21,7 @@ bool other_user_backend_callable();
 bool other_filesystem_backend_callable();
 bool other_network_backend_callable();
 bool other_locale_backend_callable();
+bool other_environment_backend_callable();
 
 int main() {
     if (other_error_category() != &syscape::error_category()) {
@@ -52,6 +53,9 @@ int main() {
     }
     if (!other_locale_backend_callable()) {
         return 11;
+    }
+    if (!other_environment_backend_callable()) {
+        return 12;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;

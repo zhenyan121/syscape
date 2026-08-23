@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <pwd.h>
 
+#include <syscape/detail/posix/passwd.hpp>
 #include <syscape/detail/user/common.hpp>
 #include <syscape/result.hpp>
 
@@ -58,52 +59,12 @@ inline result<std::uint32_t> effective_group_id() {
 }
 
 /// Textual identity fields copied from a passwd database entry.
-struct passwd_fields {
-    std::string name;
-    std::string directory;
-    std::string shell;
-};
+using passwd_fields = posix_passwd::fields;
 
 template <typename LookupOperation>
 inline result<passwd_fields> lookup_passwd_with_growth(
     LookupOperation lookup) {
-    constexpr std::size_t initial_size = 1024U;
-    constexpr std::size_t maximum_size = 1024U * 1024U;
-    std::vector<char> buffer(initial_size);
-
-    for (;;) {
-        ::passwd entry {};
-        ::passwd* pointer = nullptr;
-        const int outcome =
-            lookup(entry, buffer.data(), buffer.size(), &pointer);
-        if (outcome != 0) {
-            if (outcome == ERANGE && buffer.size() < maximum_size) {
-                buffer.resize(buffer.size() <= maximum_size / 2U
-                                  ? buffer.size() * 2U
-                                  : maximum_size);
-                continue;
-            }
-            return fail(std::error_code(outcome, std::generic_category()));
-        }
-        if (pointer == nullptr) {
-            return fail(errc::not_found);
-        }
-
-        // Copy every present field verbatim before the buffer disappears.
-        // Field-level validation belongs to the individual queries so that
-        // one unusable field cannot invalidate unrelated information.
-        passwd_fields fields;
-        fields.name =
-            pointer->pw_name != nullptr ? std::string(pointer->pw_name)
-                                        : std::string();
-        fields.directory =
-            pointer->pw_dir != nullptr ? std::string(pointer->pw_dir)
-                                       : std::string();
-        fields.shell =
-            pointer->pw_shell != nullptr ? std::string(pointer->pw_shell)
-                                         : std::string();
-        return fields;
-    }
+    return posix_passwd::lookup_with_growth(lookup);
 }
 
 /// Looks up the passwd entry of the effective user identifier.
@@ -111,12 +72,7 @@ inline result<passwd_fields> lookup_passwd_with_growth(
 /// Each call performs a fresh lookup so that changes to the user database
 /// become visible without caching.
 inline result<passwd_fields> current_passwd_entry() {
-    const ::uid_t uid = ::geteuid();
-    return lookup_passwd_with_growth(
-        [uid](::passwd& entry, char* buffer, std::size_t size,
-              ::passwd** pointer) {
-            return ::getpwuid_r(uid, &entry, buffer, size, pointer);
-        });
+    return posix_passwd::current_entry();
 }
 
 /// Extracts the login name from an looked-up passwd entry.

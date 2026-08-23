@@ -167,7 +167,7 @@ will be no all-modules umbrella header.
 | 2 | `display.hpp` | Displays, bounds, resolution, work area, refresh rate, scale, orientation, color depth, and connection state | Not started |
 | 2 | `gpu.hpp` | GPU name, vendor, device identity, driver, memory values exposed by the OS, and active adapter state | Not started |
 | 2 | `virtualization.hpp` | Hypervisor presence and vendor, virtual machine hints, containers, namespaces, cgroups, jails, zones, WSL, and application sandboxing | Not started |
-| 2 | `environment.hpp` | Process environment snapshot, temporary and configuration directories, terminal presence, and runtime environment characteristics | Not started |
+| 2 | `environment.hpp` | Process environment snapshot, temporary and configuration directories, terminal presence, and runtime environment characteristics | In progress; environment-variable lookup, standard user directories, and standard-stream terminal status implemented. Linux verified; Windows and macOS unverified. Environment snapshots and broader runtime characteristics remain not started |
 | 2 | `resource.hpp` | System load, scheduler information, system-wide process and thread counts, handle or file descriptor limits, and other capacity limits | Not started |
 | 3 | `security.hpp` | Secure Boot state, TPM presence, privilege state, filesystem encryption visibility, integrity facilities, and security capabilities publicly exposed by the OS | Not started |
 | 3 | `sensor.hpp` | Thermal zones, temperatures, fan speeds, and other sensors available through documented system interfaces | Not started |
@@ -494,6 +494,25 @@ and
 Windows and macOS statuses must not advance until their headers compile with
 the official SDK and the tests execute on the real operating systems.
 
+### Environment variables, standard directories, and terminal status evidence
+
+This environment slice exposes environment variable lookup, existence checking,
+standard filesystem directories (temporary directory, user home, user configuration,
+user data, and user cache), and standard streams interactive terminal status
+(stdin, stdout, stderr). All returned paths are guaranteed to be normalized
+non-empty UTF-8 absolute paths without trailing directory separators (except
+for the root directory).
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every environment query | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | Documented POSIX [`getenv`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/getenv.html) for variable retrieval; XDG Base Directory specification (`$XDG_CONFIG_HOME`, `$XDG_DATA_HOME`, `$XDG_CACHE_HOME`) with `$HOME` and shared reentrant `getpwuid_r` fallback; `$TMPDIR` with `/tmp` fallback; POSIX [`isatty`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/isatty.html) for terminal checks. Queries do not mutate the process environment; callers must serialize C or POSIX environment mutation against queries because those APIs provide no portable reader/writer synchronization contract | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; variable existence, non-existence, empty values, invalid names, invalid UTF-8 values, path normalization, trailing slash trimming, XDG directories, temporary directory, and terminal status tests; forced-fallback, C++11-rejection, repeated-inclusion, and two-translation-unit ODR tests passed | Verified for this slice on the listed host |
+| Windows | Documented [`GetEnvironmentVariableW`](https://learn.microsoft.com/en-us/windows/win32/api/processenv/nf-processenv-getenvironmentvariablew) with UTF-16 to UTF-8 conversion; [`GetTempPathW`](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-gettemppathw) for temporary directory; [`SHGetKnownFolderPath`](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shgetknownfolderpath) for `FOLDERID_RoamingAppData`, `FOLDERID_LocalAppData`, and `FOLDERID_Profile`; `_isatty` combined with [`GetConsoleMode`](https://learn.microsoft.com/en-us/windows/console/getconsolemode) on `STD_INPUT_HANDLE`, `STD_OUTPUT_HANDLE`, and `STD_ERROR_HANDLE` | Backend written from public Microsoft APIs; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | POSIX `getenv` with UTF-8 validation; `confstr(_CS_DARWIN_USER_TEMP_DIR)` with POSIX `/tmp` fallback; Standard macOS user directories (`~/Library/Application Support`, `~/Library/Caches`); POSIX `isatty` for terminal checks | Backend written from public Darwin and POSIX APIs; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
+
+Windows and macOS statuses must not advance until their headers compile with
+the official SDK and the tests execute on the real operating systems.
+
 ### Sensitive and identifying information
 
 Machine identifiers, firmware serial numbers, storage serial numbers, hardware
@@ -528,6 +547,7 @@ marked Implemented or Verified.
 | Power and batteries | Partial | Broad | Broad | Broad | Partial | Broad | Not available | Not supported |
 | Hardware and firmware | Broad | Broad | Broad | Restricted | Partial | Restricted | Not available | Not supported |
 | Displays and GPUs | Broad | Broad | Broad | Partial | Partial | Partial | Browser-provided subset | Not supported |
+| Environment and paths | Broad | Broad | Broad | Broad | Broad | Partial | Restricted | Not supported |
 | Virtualization and containers | Broad | Broad | Partial | Partial | Broad | Restricted | Runtime-defined | Not supported |
 | Security capabilities | Broad | Broad | Broad | Restricted | Partial | Restricted | Runtime-defined | Not supported |
 | Sensors and device inventory | Partial | Partial | Partial | Broad with permission | Partial | Broad with permission | Browser permission model | Not supported |
