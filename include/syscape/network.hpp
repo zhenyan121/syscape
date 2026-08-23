@@ -2,7 +2,7 @@
 #define SYSCAPE_NETWORK_HPP
 
 /// @file
-/// @brief Hosted network interface and unicast-address queries.
+/// @brief Hosted network interface, MTU, and unicast-address queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note Linux and macOS enumerate interfaces through the documented
 /// getifaddrs interface, resolving interface indices through POSIX
@@ -12,12 +12,12 @@
 /// that use this header on Windows must link the Iphlpapi import library;
 /// Syscape itself stays header-only and does not add linkage for unrelated
 /// Hosted Full domains. Other targets use the generic not-supported fallback.
-/// @note This first network slice exposes interface names, indices,
+/// @note The implemented network slices expose interface names, indices,
 /// operational state, loopback classification, link-layer (hardware)
-/// addresses, and unicast IPv4/IPv6 addresses with prefix lengths. MTU,
-/// routes, gateways, DNS configuration, host and domain names, and IPv6
-/// zone identifiers are outside this slice. Expected failures are returned
-/// as native error codes where available, or as syscape::errc values for
+/// addresses, MTU values, and unicast IPv4/IPv6 addresses with prefix lengths
+/// and numeric IPv6 scope identifiers. Routes, gateways, DNS configuration,
+/// and host and domain names are outside these slices. Expected failures are
+/// returned as native error codes where available, or as syscape::errc values for
 /// missing, malformed, or unsupported data.
 
 #include <syscape/detail/config.hpp>
@@ -71,6 +71,11 @@ struct unicast_address {
     /// prefix describes the subnet mask recorded for the address at the
     /// moment of the query.
     std::uint8_t prefix_length;
+    /// Numeric IPv6 scope identifier recorded by the platform. For a
+    /// link-local address this normally identifies the interface on which
+    /// the address is meaningful. IPv4 addresses always use zero, and zero
+    /// is valid for an IPv6 address with no recorded zone.
+    std::uint32_t scope_id;
 };
 
 /// One network interface with its assigned unicast addresses.
@@ -104,6 +109,10 @@ struct interface_entry {
     /// order. An empty vector is valid data for an interface with no
     /// assigned unicast addresses.
     std::vector<unicast_address> addresses;
+    /// Maximum transmission unit recorded for this interface, in bytes.
+    /// The value can change when the interface is reconfigured and is always
+    /// nonzero in a successful snapshot.
+    std::uint32_t mtu_bytes;
 };
 
 /// Returns a snapshot of the platform's network interfaces and their
@@ -124,11 +133,16 @@ struct interface_entry {
 /// cannot satisfy the portable nonzero-index contract; such a record fails
 /// the whole snapshot with not_supported rather than fabricating an index.
 ///
+/// Linux and macOS obtain the MTU by name after enumerating the interface
+/// table. If an interface disappears or is renamed during that interval,
+/// the native lookup failure is returned rather than publishing a partial
+/// snapshot.
+///
 /// @return A list with at least one entry on any running hosted system,
 /// invalid_encoding when a name is not valid UTF-8, malformed_data for
-/// unusable platform records, not_supported when the platform exposes no
-/// acceptable source or cannot represent a record, or a native platform
-/// error.
+/// unusable platform records including a zero MTU or nonzero IPv4 scope
+/// identifier, not_supported when the platform exposes no acceptable source
+/// or cannot represent a record, or a native platform error.
 inline result<std::vector<interface_entry>> interfaces() {
     result<std::vector<detail::network_common::interface_record>> records =
         detail::network_common::validate_interface_records(
@@ -150,8 +164,10 @@ inline result<std::vector<interface_entry>> interfaces() {
             converted.family = address.family;
             converted.value = address.value;
             converted.prefix_length = address.prefix_length;
+            converted.scope_id = address.scope_id;
             entry.addresses.push_back(std::move(converted));
         }
+        entry.mtu_bytes = record.mtu_bytes;
         entries.push_back(std::move(entry));
     }
     return entries;

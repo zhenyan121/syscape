@@ -169,6 +169,7 @@ inline result<void> convert_unicast_entry(
         for (std::size_t offset = 0U; offset < 16U; ++offset) {
             record.value[offset] = bytes[offset];
         }
+        record.scope_id = static_cast<std::uint32_t>(address->sin6_scope_id);
     } else {
         return {};
     }
@@ -199,6 +200,7 @@ inline result<network_common::interface_record> convert_adapter_row(
     if (record.index == 0U) { return fail(errc::not_supported); }
     record.state = classify_oper_status(row.OperStatus);
     record.loopback = row.IfType == IF_TYPE_SOFTWARE_LOOPBACK;
+    record.mtu_bytes = static_cast<std::uint32_t>(row.Mtu);
 
     // The platform stores the address verbatim in a fixed-size buffer and
     // records how many bytes are meaningful; those bytes are copied without

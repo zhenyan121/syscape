@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <net/if.h>
 #include <net/if_dl.h>
+#include <netinet/in.h>
 #include <ifaddrs.h>
 
 #include <syscape/detail/network/common.hpp>
@@ -32,10 +33,12 @@ void expect(bool condition, const char* message) {
 struct fake_index_api {
     static bool fail_resolution;
     static std::uint32_t next_index;
+    static std::uint32_t mtu_bytes;
 
     static void reset() {
         fail_resolution = false;
         next_index = 1U;
+        mtu_bytes = 1500U;
     }
 
     static syscape::result<std::uint32_t> index_of(const std::string&) {
@@ -45,10 +48,15 @@ struct fake_index_api {
         }
         return next_index++;
     }
+
+    static syscape::result<std::uint32_t> mtu_of(const std::string&) {
+        return mtu_bytes;
+    }
 };
 
 bool fake_index_api::fail_resolution = false;
 std::uint32_t fake_index_api::next_index = 1U;
+std::uint32_t fake_index_api::mtu_bytes = 1500U;
 
 /// Builds synthetic getifaddrs chains whose nodes stay address-stable.
 class synthetic_chain {
@@ -114,6 +122,29 @@ public:
         return row;
     }
 
+    ::ifaddrs& add_ipv6(const std::string& name, unsigned int flags,
+                        std::uint32_t scope_id) {
+        ::ifaddrs& row = add(name, flags);
+        ipv6_.emplace_back();
+        masks_ipv6_.emplace_back();
+        ::sockaddr_in6& address = ipv6_.back();
+        ::sockaddr_in6& mask = masks_ipv6_.back();
+        std::memset(&address, 0, sizeof(address));
+        std::memset(&mask, 0, sizeof(mask));
+        address.sin6_family = AF_INET6;
+        address.sin6_scope_id = scope_id;
+        address.sin6_addr.s6_addr[0U] = 0xFEU;
+        address.sin6_addr.s6_addr[1U] = 0x80U;
+        address.sin6_addr.s6_addr[15U] = 1U;
+        mask.sin6_family = AF_INET6;
+        for (std::size_t offset = 0U; offset < 8U; ++offset) {
+            mask.sin6_addr.s6_addr[offset] = 0xFFU;
+        }
+        row.ifa_addr = reinterpret_cast<::sockaddr*>(&address);
+        row.ifa_netmask = reinterpret_cast<::sockaddr*>(&mask);
+        return row;
+    }
+
 private:
     void link(::ifaddrs& row) {
         if (tail_ != nullptr) {
@@ -127,6 +158,8 @@ private:
     std::deque<std::string> names_;
     std::deque<::ifaddrs> rows_;
     std::deque<link_storage> links_;
+    std::deque<::sockaddr_in6> ipv6_;
+    std::deque<::sockaddr_in6> masks_ipv6_;
     ::ifaddrs* head_ = nullptr;
     ::ifaddrs* tail_ = nullptr;
 };
@@ -148,6 +181,8 @@ void test_link_address_extraction() {
     if (!converted || converted->empty()) { return; }
     expect((*converted)[0U].index == 4U,
            "The injected resolver supplies the interface index");
+    expect((*converted)[0U].mtu_bytes == 1500U,
+           "The injected MTU query supplies the interface MTU");
     expect((*converted)[0U].hardware_address.size() == 6U &&
                (*converted)[0U].hardware_address[0U] == 0xA8U &&
                (*converted)[0U].hardware_address[5U] == 0xAAU,
@@ -168,6 +203,20 @@ void test_empty_link_address() {
                (*converted)[0U].hardware_address.empty() &&
                (*converted)[0U].loopback,
            "A zero-length link-layer address is valid and stays empty");
+}
+
+void test_ipv6_scope_identifier() {
+    fake_index_api::reset();
+    synthetic_chain chain;
+    chain.add_ipv6("en0", IFF_UP | IFF_RUNNING, 6U);
+
+    const auto converted =
+        syscape::detail::network_backend::convert_ifaddrs<fake_index_api>(
+            chain.head());
+    expect(converted && converted->size() == 1U &&
+               converted->at(0U).addresses.size() == 1U &&
+               converted->at(0U).addresses[0U].scope_id == 6U,
+           "An IPv6 row preserves its numeric scope identifier");
 }
 
 void test_long_link_address() {
@@ -242,6 +291,8 @@ void test_live_enumeration() {
     for (const syscape::network::interface_entry& entry : *interfaces) {
         expect(entry.index != 0U,
                "Every live interface has a nonzero index");
+        expect(entry.mtu_bytes != 0U,
+               "Every live interface has a nonzero MTU");
         expect(!entry.name.empty(), "Every live interface has a name");
         has_loopback = has_loopback || entry.loopback;
     }
@@ -269,6 +320,7 @@ void test_live_enumeration() {
 int main() {
     test_link_address_extraction();
     test_empty_link_address();
+    test_ipv6_scope_identifier();
     test_long_link_address();
     test_inconsistent_link_record_is_malformed();
     test_index_resolution_failure();

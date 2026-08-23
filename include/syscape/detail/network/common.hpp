@@ -42,6 +42,10 @@ struct unicast_record {
     std::array<unsigned char, 16> value {};
     /// Prefix length in bits, never greater than maximum_prefix_length().
     std::uint8_t prefix_length = 0U;
+    /// Numeric IPv6 scope identifier recorded by the platform. IPv4 records
+    /// always use zero; zero is also valid for an IPv6 address with no
+    /// recorded zone.
+    std::uint32_t scope_id = 0U;
 };
 
 /// One network interface with its addresses, shared by the network backends
@@ -64,20 +68,25 @@ struct interface_record {
     /// Unicast addresses assigned to the interface. An empty vector is
     /// valid data for an interface with no assigned unicast addresses.
     std::vector<unicast_record> addresses;
+    /// Maximum transmission unit recorded for this interface, in bytes.
+    /// Zero is not a usable MTU and is rejected at the public boundary.
+    std::uint32_t mtu_bytes = 0U;
 };
 
 /// Validates converted interface records at the public boundary.
 ///
-/// Every record needs a non-empty name in valid UTF-8 and a nonzero index.
-/// Each address needs a prefix length within its family's documented range,
-/// and an IPv4 record must leave the bytes beyond the first four zero. One
-/// unusable record fails the whole snapshot so that silently dropping
-/// entries can never hide platform damage.
+/// Every record needs a non-empty name in valid UTF-8, a nonzero index, and a
+/// nonzero MTU. Each address needs a prefix length within its family's
+/// documented range, and an IPv4 record must use a zero scope identifier and
+/// leave the bytes beyond the first four zero. One unusable record fails the
+/// whole snapshot so that silently dropping entries can never hide platform
+/// damage.
 inline result<std::vector<interface_record>> validate_interface_records(
     result<std::vector<interface_record>> records) {
     if (!records) { return fail(records.error()); }
     for (const interface_record& entry : *records) {
-        if (entry.name.empty() || entry.index == 0U) {
+        if (entry.name.empty() || entry.index == 0U ||
+            entry.mtu_bytes == 0U) {
             return fail(errc::malformed_data);
         }
         if (!is_valid_utf8(entry.name)) {
@@ -89,6 +98,9 @@ inline result<std::vector<interface_record>> validate_interface_records(
                 return fail(errc::malformed_data);
             }
             if (address.family == address_family::ipv4) {
+                if (address.scope_id != 0U) {
+                    return fail(errc::malformed_data);
+                }
                 for (std::size_t offset = 4U; offset < address.value.size();
                      ++offset) {
                     if (address.value[offset] != 0U) {

@@ -12,8 +12,10 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <netpacket/packet.h>
+#include <unistd.h>
 
 #include <syscape/detail/network/common.hpp>
 #include <syscape/detail/network/posix.hpp>
@@ -33,11 +35,17 @@ void expect(bool condition, const char* message) {
 /// Injected index resolver shared by all synthetic conversions.
 struct fake_index_api {
     static bool fail_resolution;
+    static bool fail_mtu;
     static std::uint32_t next_index;
+    static std::uint32_t mtu_bytes;
+    static std::uint32_t mtu_queries;
 
     static void reset() {
         fail_resolution = false;
+        fail_mtu = false;
         next_index = 1U;
+        mtu_bytes = 1500U;
+        mtu_queries = 0U;
     }
 
     static syscape::result<std::uint32_t> index_of(const std::string&) {
@@ -47,10 +55,38 @@ struct fake_index_api {
         }
         return next_index++;
     }
+
+    static syscape::result<std::uint32_t> mtu_of(const std::string&) {
+        ++mtu_queries;
+        if (fail_mtu) {
+            return syscape::fail(
+                std::error_code(EACCES, std::generic_category()));
+        }
+        return mtu_bytes;
+    }
 };
 
 bool fake_index_api::fail_resolution = false;
+bool fake_index_api::fail_mtu = false;
 std::uint32_t fake_index_api::next_index = 1U;
+std::uint32_t fake_index_api::mtu_bytes = 1500U;
+std::uint32_t fake_index_api::mtu_queries = 0U;
+
+struct interrupting_mtu_ioctl_api {
+    static std::uint32_t calls;
+
+    static int get(int, ::ifreq* request) noexcept {
+        ++calls;
+        if (calls == 1U) {
+            errno = EINTR;
+            return -1;
+        }
+        request->ifr_mtu = 9000;
+        return 0;
+    }
+};
+
+std::uint32_t interrupting_mtu_ioctl_api::calls = 0U;
 
 /// Builds synthetic getifaddrs chains whose nodes stay address-stable.
 class synthetic_chain {
@@ -94,19 +130,22 @@ public:
 
     /// Adds an IPv6 row wired to its address text and prefix-derived mask.
     ::ifaddrs& add_ipv6(const std::string& name, unsigned int flags,
-                        const char* address_text, std::uint8_t prefix) {
+                        const char* address_text, std::uint8_t prefix,
+                        std::uint32_t scope_id = 0U) {
         return add_ipv6_mask(name, flags, address_text,
-                             prefix_mask6(prefix));
+                             prefix_mask6(prefix), scope_id);
     }
 
     /// Adds an IPv6 row with an arbitrary raw netmask.
     ::ifaddrs& add_ipv6_mask(const std::string& name, unsigned int flags,
                              const char* address_text,
-                             const std::array<unsigned char, 16>& mask) {
+                             const std::array<unsigned char, 16>& mask,
+                             std::uint32_t scope_id = 0U) {
         ::ifaddrs& row = add(name, flags);
         ipv6_.emplace_back();
         std::memset(&ipv6_.back(), 0, sizeof(::sockaddr_in6));
         ipv6_.back().sin6_family = AF_INET6;
+        ipv6_.back().sin6_scope_id = scope_id;
         if (::inet_pton(AF_INET6, address_text,
                         &ipv6_.back().sin6_addr) != 1) {
             std::cerr << "FAIL: invalid synthetic IPv6 text\n";
@@ -243,6 +282,10 @@ void test_single_loopback() {
            "The merged record keeps the interface name");
     expect(entry.index == 7U,
            "The injected resolver supplies the interface index");
+    expect(entry.mtu_bytes == 1500U,
+           "The injected MTU query supplies the interface MTU");
+    expect(fake_index_api::mtu_queries == 1U,
+           "Rows sharing an interface query its MTU only once");
     expect(entry.loopback,
            "The documented IFF_LOOPBACK flag classifies the interface as "
            "loopback");
@@ -275,7 +318,7 @@ void test_grouping_and_order() {
     chain.add_ipv4("eth0", IFF_UP | IFF_RUNNING, htonl(0xC0A80105U),
                    htonl(0xFFFFFF00U));
     chain.add_ipv6("wlan0", IFF_UP | IFF_RUNNING, "2001:db8::1", 64U);
-    chain.add_ipv6("eth0", IFF_UP | IFF_RUNNING, "fe80::1", 64U);
+    chain.add_ipv6("eth0", IFF_UP | IFF_RUNNING, "fe80::1", 64U, 9U);
 
     const auto converted =
         syscape::detail::network_backend::convert_ifaddrs<fake_index_api>(
@@ -291,8 +334,9 @@ void test_grouping_and_order() {
     expect((*converted)[0U].addresses[0U].prefix_length == 24U,
            "A contiguous 255.255.255.0 netmask becomes prefix length 24");
     expect((*converted)[0U].addresses[1U].family == address_family::ipv6 &&
-               (*converted)[0U].addresses[1U].prefix_length == 64U,
-           "An AF_INET6 row keeps its family and documented prefix");
+               (*converted)[0U].addresses[1U].prefix_length == 64U &&
+               (*converted)[0U].addresses[1U].scope_id == 9U,
+           "An AF_INET6 row keeps its prefix and numeric scope identifier");
     expect((*converted)[1U].addresses.size() == 1U &&
                (*converted)[1U].addresses[0U].value[0U] == 0x20U &&
                (*converted)[1U].addresses[0U].value[1U] == 0x01U &&
@@ -464,10 +508,35 @@ void test_index_resolution_failure() {
            "error");
 }
 
+void test_mtu_failure_is_preserved() {
+    fake_index_api::reset();
+    fake_index_api::fail_mtu = true;
+    synthetic_chain chain;
+    chain.add("eth0", IFF_UP | IFF_RUNNING);
+    const auto converted =
+        syscape::detail::network_backend::convert_ifaddrs<fake_index_api>(
+            chain.head());
+    expect(!converted &&
+               converted.error() ==
+                   std::error_code(EACCES, std::generic_category()),
+           "A failed MTU lookup preserves its native error");
+}
+
+void test_interrupted_mtu_ioctl_is_retried() {
+    interrupting_mtu_ioctl_api::calls = 0U;
+    ::ifreq request {};
+    const auto mtu = syscape::detail::network_backend::
+        read_mtu<interrupting_mtu_ioctl_api>(-1, request);
+    expect(mtu && *mtu == 9000U &&
+               interrupting_mtu_ioctl_api::calls == 2U,
+           "An interrupted MTU ioctl is retried before conversion");
+}
+
 interface_record make_valid_record() {
     interface_record record;
     record.name = "eth0";
     record.index = 3U;
+    record.mtu_bytes = 1500U;
     return record;
 }
 
@@ -521,6 +590,14 @@ void test_boundary_validation() {
 
     {
         interface_record record = make_valid_record();
+        record.mtu_bytes = 0U;
+        expect_validation_failure(std::move(record),
+                                  syscape::errc::malformed_data,
+                                  "A zero MTU is malformed platform data");
+    }
+
+    {
+        interface_record record = make_valid_record();
         record.name = "bad\xff";
         expect_validation_failure(std::move(record),
                                   syscape::errc::invalid_encoding,
@@ -536,6 +613,17 @@ void test_boundary_validation() {
                                   syscape::errc::malformed_data,
                                   "An IPv4 prefix beyond 32 bits is "
                                   "malformed platform data");
+    }
+
+    {
+        interface_record record = make_valid_record();
+        record.addresses.push_back(unicast_record{});
+        record.addresses.back().family = address_family::ipv4;
+        record.addresses.back().scope_id = 2U;
+        expect_validation_failure(std::move(record),
+                                  syscape::errc::malformed_data,
+                                  "An IPv4 scope identifier is malformed "
+                                  "platform data");
     }
 
     {
@@ -589,6 +677,8 @@ void test_live_enumeration() {
     for (const syscape::network::interface_entry& entry : *interfaces) {
         expect(entry.index != 0U,
                "Every live interface has a nonzero index");
+        expect(entry.mtu_bytes != 0U,
+               "Every live interface has a nonzero MTU");
         expect(!entry.name.empty(), "Every live interface has a name");
         unicast_total += entry.addresses.size();
         for (const syscape::network::unicast_address& address :
@@ -632,12 +722,40 @@ void test_live_enumeration() {
            "The loopback interface carries its documented loopback "
            "address");
 
+    const int descriptor = ::socket(AF_INET, SOCK_DGRAM, 0);
+    expect(descriptor >= 0,
+           "A datagram socket is available for the independent MTU check");
+    if (descriptor >= 0) {
+        for (const syscape::network::interface_entry& entry : *interfaces) {
+            ::ifreq request {};
+            if (entry.name.size() >= static_cast<std::size_t>(IFNAMSIZ)) {
+                expect(false,
+                       "A live interface name fits the documented ioctl "
+                       "storage");
+                continue;
+            }
+            std::memcpy(request.ifr_name, entry.name.data(),
+                        entry.name.size());
+            const int outcome = ::ioctl(descriptor, SIOCGIFMTU, &request);
+            expect(outcome == 0,
+                   "The independent ioctl resolves each live MTU");
+            if (outcome == 0) {
+                expect(request.ifr_mtu > 0 &&
+                           static_cast<std::uint32_t>(request.ifr_mtu) ==
+                               entry.mtu_bytes,
+                       "The snapshot MTU matches an independent ioctl");
+            }
+        }
+        ::close(descriptor);
+    }
+
     // Cross-check against an independent getifaddrs walk over the same
     // live table.
     ::ifaddrs* list = nullptr;
     if (::getifaddrs(&list) != 0) { return; }
     std::set<std::string> independent_names;
     std::size_t independent_unicast = 0U;
+    bool scope_ids_match = true;
     for (const ::ifaddrs* cursor = list; cursor != nullptr;
          cursor = cursor->ifa_next) {
         if (cursor->ifa_name != nullptr) {
@@ -648,6 +766,26 @@ void test_live_enumeration() {
              cursor->ifa_addr->sa_family == AF_INET6)) {
             ++independent_unicast;
         }
+        if (cursor->ifa_name != nullptr && cursor->ifa_addr != nullptr &&
+            cursor->ifa_addr->sa_family == AF_INET6) {
+            const ::sockaddr_in6* native =
+                reinterpret_cast<const ::sockaddr_in6*>(cursor->ifa_addr);
+            bool found = false;
+            for (const syscape::network::interface_entry& entry :
+                 *interfaces) {
+                if (entry.name != cursor->ifa_name) { continue; }
+                for (const syscape::network::unicast_address& address :
+                     entry.addresses) {
+                    if (address.family == address_family::ipv6 &&
+                        std::memcmp(address.value.data(), &native->sin6_addr,
+                                    16U) == 0 &&
+                        address.scope_id == native->sin6_scope_id) {
+                        found = true;
+                    }
+                }
+            }
+            scope_ids_match = scope_ids_match && found;
+        }
     }
     ::freeifaddrs(list);
 
@@ -655,6 +793,8 @@ void test_live_enumeration() {
            "The snapshot lists exactly the interfaces the platform does");
     expect(unicast_total == independent_unicast,
            "The snapshot counts every IPv4 and IPv6 unicast row");
+    expect(scope_ids_match,
+           "IPv6 scope identifiers match an independent getifaddrs walk");
 }
 
 } // namespace
@@ -671,6 +811,8 @@ int main() {
     test_unknown_family_is_skipped();
     test_hardware_address_lengths();
     test_index_resolution_failure();
+    test_mtu_failure_is_preserved();
+    test_interrupted_mtu_ioctl_is_retried();
     test_boundary_validation();
     test_live_enumeration();
     return failures == 0 ? 0 : 1;

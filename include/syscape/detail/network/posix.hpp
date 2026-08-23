@@ -4,15 +4,18 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <system_error>
 #include <vector>
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <ifaddrs.h>
+#include <unistd.h>
 #if defined(AF_PACKET)
 #include <netpacket/packet.h>
 #elif defined(AF_LINK)
@@ -42,6 +45,44 @@ private:
     ::ifaddrs* value_;
 };
 
+/// Owns the socket used for read-only interface ioctls.
+class socket_guard {
+public:
+    explicit socket_guard(int value) noexcept : value_(value) {}
+    socket_guard(const socket_guard&) = delete;
+    socket_guard& operator=(const socket_guard&) = delete;
+    ~socket_guard() {
+        if (value_ >= 0) { ::close(value_); }
+    }
+
+    int get() const noexcept { return value_; }
+
+private:
+    int value_;
+};
+
+/// Native MTU ioctl used by the retryable conversion boundary.
+struct native_mtu_ioctl_api {
+    static int get(int descriptor, ::ifreq* request) noexcept {
+        return ::ioctl(descriptor, SIOCGIFMTU, request);
+    }
+};
+
+/// Executes an MTU ioctl, retrying interruption and validating its signed
+/// native result before converting it to the portable unsigned byte count.
+template <typename IoctlApi>
+inline result<std::uint32_t> read_mtu(int descriptor, ::ifreq& request) {
+    int outcome;
+    do {
+        outcome = IoctlApi::get(descriptor, &request);
+    } while (outcome != 0 && errno == EINTR);
+    if (outcome != 0) {
+        return fail(std::error_code(errno, std::generic_category()));
+    }
+    if (request.ifr_mtu < 0) { return fail(errc::malformed_data); }
+    return static_cast<std::uint32_t>(request.ifr_mtu);
+}
+
 /// Platform calls used to convert a getifaddrs list.
 ///
 /// The indirection exists so tests can drive the conversion with injected
@@ -57,6 +98,22 @@ struct native_interface_api {
             return fail(std::error_code(error, std::generic_category()));
         }
         return static_cast<std::uint32_t>(resolved);
+    }
+
+    /// Returns the interface MTU in bytes through the documented
+    /// SIOCGIFMTU interface.
+    static result<std::uint32_t> mtu_of(const std::string& name) {
+        if (name.size() >= static_cast<std::size_t>(IFNAMSIZ)) {
+            return fail(errc::malformed_data);
+        }
+        const int descriptor = ::socket(AF_INET, SOCK_DGRAM, 0);
+        if (descriptor < 0) {
+            return fail(std::error_code(errno, std::generic_category()));
+        }
+        const socket_guard guard(descriptor);
+        ::ifreq request {};
+        std::memcpy(request.ifr_name, name.data(), name.size());
+        return read_mtu<native_mtu_ioctl_api>(guard.get(), request);
     }
 };
 
@@ -140,7 +197,8 @@ inline result<network_common::unicast_record> make_ipv4_record(
 
 /// Converts one IPv6 row into a unicast record.
 inline result<network_common::unicast_record> make_ipv6_record(
-    const unsigned char* address, const unsigned char* netmask) noexcept {
+    const unsigned char* address, const unsigned char* netmask,
+    std::uint32_t scope_id) noexcept {
     network_common::unicast_record record;
     record.family = network_common::address_family::ipv6;
     for (std::size_t offset = 0U; offset < 16U; ++offset) {
@@ -151,6 +209,7 @@ inline result<network_common::unicast_record> make_ipv6_record(
                                             record.family));
     if (!prefix) { return fail(prefix.error()); }
     record.prefix_length = *prefix;
+    record.scope_id = scope_id;
     return record;
 }
 
@@ -171,6 +230,9 @@ inline result<void> convert_ifaddrs_row(
         network_common::interface_record created;
         created.name = name;
         created.index = *index;
+        const result<std::uint32_t> mtu = InterfaceApi::mtu_of(name);
+        if (!mtu) { return fail(mtu.error()); }
+        created.mtu_bytes = *mtu;
         interfaces.push_back(std::move(created));
         entry = &interfaces.back();
     }
@@ -216,7 +278,8 @@ inline result<void> convert_ifaddrs_row(
             reinterpret_cast<const ::sockaddr_in6*>(row.ifa_netmask);
         result<network_common::unicast_record> record = make_ipv6_record(
             reinterpret_cast<const unsigned char*>(&address->sin6_addr),
-            reinterpret_cast<const unsigned char*>(&netmask->sin6_addr));
+            reinterpret_cast<const unsigned char*>(&netmask->sin6_addr),
+            static_cast<std::uint32_t>(address->sin6_scope_id));
         if (!record) { return fail(record.error()); }
         entry->addresses.push_back(std::move(*record));
         return {};

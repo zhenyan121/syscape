@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include <winsock2.h>
@@ -61,11 +62,13 @@ bool fake_adapter_api::fail_enumeration = false;
 
 ::IP_ADAPTER_UNICAST_ADDRESS make_unicast_ipv6(::sockaddr_in6& storage,
                                                const unsigned char* bytes,
-                                               ::ULONG prefix) {
+                                               ::ULONG prefix,
+                                               std::uint32_t scope_id = 0U) {
     ::IP_ADAPTER_UNICAST_ADDRESS entry {};
     std::memset(&storage, 0, sizeof(storage));
     storage.sin6_family = AF_INET6;
     std::memcpy(&storage.sin6_addr, bytes, 16U);
+    storage.sin6_scope_id = scope_id;
     entry.Address.lpSockaddr = reinterpret_cast<::sockaddr*>(&storage);
     entry.Address.iSockaddrLength = static_cast<int>(sizeof(storage));
     entry.OnLinkPrefixLength = prefix;
@@ -86,6 +89,7 @@ void test_two_adapter_table() {
     ethernet.IfIndex = 5U;
     ethernet.OperStatus = IfOperStatusUp;
     ethernet.IfType = IF_TYPE_ETHERNET_CSMACD;
+    ethernet.Mtu = 1500U;
     std::memcpy(ethernet.PhysicalAddress, ethernet_address, 6U);
     ethernet.PhysicalAddressLength = 6U;
     ethernet.FirstUnicastAddress = &unicast;
@@ -95,13 +99,14 @@ void test_two_adapter_table() {
                                               1U};
     ::sockaddr_in6 loopback_storage {};
     ::IP_ADAPTER_UNICAST_ADDRESS loopback_unicast = make_unicast_ipv6(
-        loopback_storage, loopback_bytes, 128U);
+        loopback_storage, loopback_bytes, 128U, 4U);
 
     ::IP_ADAPTER_ADDRESSES loopback {};
     loopback.AdapterName = const_cast<::PSTR>("loopback-adapter");
     loopback.IfIndex = 1U;
     loopback.OperStatus = IfOperStatusDown;
     loopback.IfType = IF_TYPE_SOFTWARE_LOOPBACK;
+    loopback.Mtu = 65536U;
     loopback.FirstUnicastAddress = &loopback_unicast;
 
     ethernet.Next = &loopback;
@@ -118,6 +123,8 @@ void test_two_adapter_table() {
            "The friendly name becomes the interface name");
     expect((*converted)[0U].index == 5U,
            "The documented IfIndex supplies the interface index");
+    expect((*converted)[0U].mtu_bytes == 1500U,
+           "The documented adapter MTU is copied in bytes");
     expect((*converted)[0U].state ==
                syscape::detail::network_common::interface_state::up,
            "IfOperStatusUp classifies the adapter as up");
@@ -145,8 +152,9 @@ void test_two_adapter_table() {
                (*converted)[1U].addresses[0U].family ==
                    syscape::detail::network_common::address_family::ipv6 &&
                (*converted)[1U].addresses[0U].value[15U] == 1U &&
-               (*converted)[1U].addresses[0U].prefix_length == 128U,
-           "An IPv6 unicast entry keeps its bytes and prefix");
+               (*converted)[1U].addresses[0U].prefix_length == 128U &&
+               (*converted)[1U].addresses[0U].scope_id == 4U,
+           "An IPv6 unicast entry keeps its bytes, prefix, and scope ID");
 }
 
 void test_localized_friendly_name() {
@@ -211,6 +219,22 @@ void test_adapter_without_protocol_index() {
                    syscape::make_error_code(syscape::errc::not_supported),
            "An adapter without either protocol index is an explicit "
            "unsupported representation, not malformed data");
+}
+
+void test_zero_mtu_is_malformed_at_boundary() {
+    ::IP_ADAPTER_ADDRESSES adapter {};
+    adapter.AdapterName = const_cast<::PSTR>("zero-mtu-adapter");
+    adapter.IfIndex = 29U;
+    adapter.Mtu = 0U;
+    fake_adapter_api::table = &adapter;
+    auto converted =
+        syscape::detail::network_backend::enumerate(fake_adapter_api{});
+    const auto validated = syscape::detail::network_common::
+        validate_interface_records(std::move(converted));
+    expect(!validated &&
+               validated.error() == syscape::make_error_code(
+                                        syscape::errc::malformed_data),
+           "A zero adapter MTU is malformed at the public boundary");
 }
 
 void test_unknown_unicast_family_skipped() {
@@ -363,6 +387,8 @@ void test_live_enumeration() {
     for (const syscape::network::interface_entry& entry : *interfaces) {
         expect(entry.index != 0U,
                "Every live adapter has a nonzero index");
+        expect(entry.mtu_bytes != 0U,
+               "Every live adapter has a nonzero MTU");
         expect(!entry.name.empty(), "Every live adapter has a name");
         has_loopback = has_loopback || entry.loopback;
     }
@@ -377,6 +403,7 @@ int main() {
     test_unknown_oper_status();
     test_ipv6_only_index();
     test_adapter_without_protocol_index();
+    test_zero_mtu_is_malformed_at_boundary();
     test_unknown_unicast_family_skipped();
     test_prefix_and_socket_address_validation();
     test_nameless_adapter_is_malformed();
