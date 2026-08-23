@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include <syscape/detail/cpu/common.hpp>
 #include <syscape/result.hpp>
 
 namespace syscape {
@@ -28,6 +29,22 @@ inline result<std::uint32_t> online_physical_core_count() {
 }
 
 inline result<std::uint32_t> online_processor_package_count() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::uint32_t> minimum_frequency_khz() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::uint32_t> maximum_frequency_khz() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<std::uint32_t>> current_frequencies_khz() {
+    return fail(errc::not_supported);
+}
+
+inline result<cpu_common::usage_information> cumulative_processor_usage() {
     return fail(errc::not_supported);
 }
 

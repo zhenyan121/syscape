@@ -2,11 +2,22 @@
 #define SYSCAPE_CPU_HPP
 
 /// @file
-/// @brief Hosted CPU identity and online topology queries.
+/// @brief Hosted CPU identity, topology, frequency, and utilization queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note Linux implements identity and topology. Windows implements topology
-/// using Windows 7 or later processor-group APIs. macOS implements logical and
-/// physical core counts. Other targets use the not-supported fallback.
+/// @note Linux implements identity and topology through kernel-documented
+/// interfaces, reads recorded frequency bounds and current clocks from the
+/// cpufreq sysfs interface with a /proc/cpuinfo fallback, and folds the
+/// documented /proc/stat aggregate counters into cumulative utilization
+/// totals. Windows implements topology using Windows 7 or later
+/// processor-group APIs, reads processor clocks through CallNtPowerInformation
+/// (declared in <powerbase.h>; provided by PowrProf.lib), and folds the
+/// GetSystemTimes totals into cumulative utilization on single-group
+/// systems, reporting not_supported on multi-group systems where those
+/// totals cover only the calling thread's processor group. macOS implements core
+/// counts, reads recorded clock bounds from the hw.cpufrequency sysctl values,
+/// and folds the host_processor_info scheduler ticks into cumulative
+/// utilization; platforms without those facts report not_supported. All other
+/// targets use the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
 
@@ -98,6 +109,114 @@ inline result<std::uint32_t> online_physical_core_count() {
 /// no package topology, malformed_data, value_too_large, or a native error.
 inline result<std::uint32_t> online_processor_package_count() {
     return detail::cpu_backend::online_processor_package_count();
+}
+
+/// Returns the lowest recorded operating frequency of any online logical
+/// processor, in kilohertz.
+///
+/// This is the platform's recorded lower bound for clock selection, not a
+/// measurement of instantaneous behavior. The value normally remains
+/// unchanged while the process runs but follows hardware or firmware
+/// reconfiguration. Linux reads the documented cpufreq cpuinfo_min_freq
+/// attributes and reports not_supported when no online processor exposes
+/// them, which is common in virtual machines. Windows documents no public
+/// source for this bound and reports not_supported. macOS reads the
+/// hw.cpufrequency_min sysctl, which Intel Macs provide and Apple silicon
+/// does not.
+/// @return A positive frequency or not_supported when no acceptable platform
+/// source exists, malformed_data, value_too_large, or a native error.
+inline result<std::uint32_t> minimum_frequency_khz() {
+    return detail::cpu_backend::minimum_frequency_khz();
+}
+
+/// Returns the highest recorded operating frequency of any online logical
+/// processor, in kilohertz.
+///
+/// This is the platform's recorded upper bound for clock selection. It is not
+/// a guarantee that any processor sustains that rate and can be exceeded by
+/// boost behavior on some platforms. Availability matches
+/// minimum_frequency_khz(): Linux reads the cpufreq cpuinfo_max_freq
+/// attributes, Windows reads the MaxMhz field of the documented processor
+/// power information records on single-group systems, and macOS reads the
+/// hw.cpufrequency_max sysctl. Windows multi-group systems report
+/// not_supported because the documented record sizing is group-relative.
+/// @return A positive frequency or not_supported when no acceptable platform
+/// source exists, malformed_data, value_too_large, or a native error.
+inline result<std::uint32_t> maximum_frequency_khz() {
+    return detail::cpu_backend::maximum_frequency_khz();
+}
+
+/// Returns one current clock reading per online logical processor, in
+/// kilohertz.
+///
+/// Every entry is an instantaneous sample observed during the call; entries
+/// are listed in ascending online-processor order on Linux and change
+/// continuously with governor decisions, load, and power state. Heterogeneous
+/// systems may legitimately report different values. Linux prefers the
+/// documented scaling_cur_freq attribute of every online processor and falls
+/// back to the /proc/cpuinfo "cpu MHz" fields (rounded to kilohertz) when the
+/// cpufreq interface is unavailable; Windows reports the CurrentMhz field of
+/// the processor power information records on single-group systems and reports
+/// not_supported on multi-group systems. No other backend currently has a
+/// documented per-processor clock source.
+/// @return One positive frequency per online logical processor,
+/// not_supported when no acceptable platform source exists, malformed_data,
+/// value_too_large, or a native error.
+inline result<std::vector<std::uint32_t>> current_frequencies_khz() {
+    return detail::cpu_backend::current_frequencies_khz();
+}
+
+/// Cumulative system-wide processor time counters at the moment of the call.
+///
+/// Each field normally grows from platform start until an underlying counter
+/// wraps. One tick is whatever unit the queried platform uses for
+/// processor-time accounting: kernel scheduler ticks on Linux and macOS, and
+/// hundred-nanosecond units on Windows. Only differences between two snapshots
+/// carry meaning, so callers compute utilization as delta(user) + delta(system)
+/// divided by that sum plus delta(idle). A caller must discard an interval if
+/// any later bucket is smaller because the snapshots crossed a counter wrap or
+/// a platform accounting reset. Tick durations differ across platforms, so
+/// absolute counters must never be compared across platforms.
+struct usage_snapshot {
+    /// Cumulative time attributed to user execution, including each
+    /// platform's nice or low-priority user states.
+    std::uint64_t user_ticks;
+    /// Cumulative time attributed to kernel execution on behalf of the
+    /// workload: system, interrupt, and softirq time on Linux, and kernel
+    /// time excluding idle on Windows.
+    std::uint64_t system_ticks;
+    /// Cumulative time recorded as idle, including Linux iowait because that
+    /// state also leaves the processor without runnable work.
+    std::uint64_t idle_ticks;
+};
+
+/// Returns cumulative system-wide processor time counters.
+///
+/// The totals cover every processor visible to the caller, including time
+/// before the process started, and are not restricted by process affinity or
+/// container quotas. Platforms record further states that belong to no
+/// portable bucket: Linux steal time describes execution on behalf of other
+/// virtual machines and is deliberately excluded, so bucket deltas may sum to
+/// less than elapsed time under hosting overhead. Queries read a consistent
+/// platform snapshot and remain safe for concurrent calls.
+/// @note macOS supplies per-processor natural_t counters. Their system-wide
+/// sums can decrease when an underlying counter wraps; the query deliberately
+/// keeps no mutable process-wide state, so callers must discard such an
+/// interval and take another pair of snapshots.
+/// @note On Windows the totals fold the documented GetSystemTimes counters,
+/// which summarize only the calling thread's primary processor group on
+/// systems with more than one processor group. Such multi-group systems
+/// report not_supported rather than silently partial coverage.
+/// @return Cumulative counters, not_found when the platform source contains
+/// no aggregate record, not_supported when no acceptable source exists or
+/// the Windows system has more than one processor group, malformed_data,
+/// value_too_large, or a native error.
+inline result<usage_snapshot> cumulative_processor_usage() {
+    const result<detail::cpu_common::usage_information> value =
+        detail::cpu_backend::cumulative_processor_usage();
+    if (!value) { return fail(value.error()); }
+    return usage_snapshot{value->user_ticks, value->system_ticks,
+                          value->idle_ticks};
 }
 
 } // namespace cpu

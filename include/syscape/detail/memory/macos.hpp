@@ -26,7 +26,7 @@ public:
     host_port(const host_port&) = delete;
     host_port& operator=(const host_port&) = delete;
     ~host_port() {
-        if (value_ != ::MACH_PORT_NULL) {
+        if (value_ != MACH_PORT_NULL) {
             ::mach_port_deallocate(::mach_task_self(), value_);
         }
     }
@@ -57,14 +57,14 @@ inline result<std::uint64_t> sysctl_u64(const char* name) {
 inline result<std::uint64_t> query_page_size(::mach_port_t host) {
     ::vm_size_t page_size = 0U;
     const ::kern_return_t status = ::host_page_size(host, &page_size);
-    if (status != ::KERN_SUCCESS) { return fail(errc::io_error); }
+    if (status != KERN_SUCCESS) { return fail(errc::io_error); }
     if (page_size == 0U) { return fail(errc::malformed_data); }
     return static_cast<std::uint64_t>(page_size);
 }
 
 inline result<std::uint64_t> page_size_bytes() {
     const host_port host;
-    if (host.get() == ::MACH_PORT_NULL) { return fail(errc::io_error); }
+    if (host.get() == MACH_PORT_NULL) { return fail(errc::io_error); }
     return query_page_size(host.get());
 }
 
@@ -84,16 +84,16 @@ inline result<std::uint64_t> physical_memory_bytes() {
 /// standard error category, so failures map to io_error.
 inline result<std::uint64_t> available_memory_bytes() {
     const host_port host;
-    if (host.get() == ::MACH_PORT_NULL) { return fail(errc::io_error); }
+    if (host.get() == MACH_PORT_NULL) { return fail(errc::io_error); }
     const result<std::uint64_t> page_size = query_page_size(host.get());
     if (!page_size) { return fail(page_size.error()); }
 
     ::vm_statistics64_data_t statistics {};
-    ::mach_msg_type_number_t count = ::HOST_VM_INFO64_COUNT;
+    ::mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
     const ::kern_return_t status = ::host_statistics64(
-        host.get(), ::HOST_VM_INFO64,
+        host.get(), HOST_VM_INFO64,
         reinterpret_cast<::host_info64_t>(&statistics), &count);
-    if (status != ::KERN_SUCCESS) { return fail(errc::io_error); }
+    if (status != KERN_SUCCESS) { return fail(errc::io_error); }
 
     const std::uint64_t pages =
         static_cast<std::uint64_t>(statistics.free_count) +

@@ -154,7 +154,7 @@ will be no all-modules umbrella header.
 | Foundation | `result.hpp` | Non-throwing `syscape::result<T>` and `result<void>` value-or-error types | Implemented |
 | Foundation | `capability.hpp` | Allocation-free capability state vocabulary for runtime and compile-time modules | Implemented |
 | 1 | `os.hpp` | Product name, version, build, kernel name and version, host name, boot time, uptime, and boot identifier where available | Implemented; Linux verified, Windows and macOS unverified |
-| 1 | `cpu.hpp` | Architecture, vendor, model, packages, physical and logical cores, topology, caches, instruction-set features, frequency, affinity, and utilization | In progress; vendor identifiers, model labels, and online logical, physical-core, and package counts implemented where documented sources exist |
+| 1 | `cpu.hpp` | Architecture, vendor, model, packages, physical and logical cores, topology, caches, instruction-set features, frequency, affinity, and utilization | In progress; vendor identifiers, model labels, online logical, physical-core, and package counts, recorded and current clock frequencies, and cumulative system-wide utilization implemented where documented sources exist. Cache topology and instruction-set features remain not started. Affinity of the calling context belongs to the process module's scheduling slice rather than being duplicated here |
 | 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | In progress; page size, physical memory, the available-memory estimate, and swap or pagefile usage implemented where documented sources exist |
 | 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | Implemented; Linux verified, Windows and macOS unverified. Login-session metadata beyond the recorded session name, and fine-grained capability or per-privilege grants beyond the privilege classification, remain not started |
@@ -233,8 +233,9 @@ system.
 This first CPU slice exposes distinct platform-provided vendor identifiers and
 model labels plus system-wide counts of online logical processors, physical
 cores, and CPU packages. The counts intentionally do not apply process affinity
-or container CPU quotas. Cache topology, instruction-set features, frequencies,
-affinity, and utilization remain not started.
+or container CPU quotas. Cache topology, instruction-set features,
+frequencies, and utilization are covered by the slice below; per-caller
+affinity is covered by the process scheduling-priority slice.
 
 | Backend | Data sources and limitations | Evidence | State |
 | --- | --- | --- | --- |
@@ -251,6 +252,33 @@ and
 [`GetLogicalProcessorInformationEx`](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex)
 APIs. The macOS counts follow Apple's documented
 [system capability parameters](https://developer.apple.com/documentation/kernel/1387446-sysctlbyname/determining_system_capabilities).
+
+### CPU frequency and utilization evidence
+
+This second CPU slice exposes the platform-recorded minimum and maximum
+operating clocks in kilohertz, one instantaneous current-clock reading per
+online logical processor in kilohertz, and cumulative system-wide processor
+time counters folded into user, system, and idle buckets. Recorded bounds
+describe the platform's clock-selection range rather than measured behavior.
+Current clocks are instantaneous samples that change continuously with
+governor decisions. One usage tick is whatever unit the queried platform uses
+for processor-time accounting; only differences between two snapshots carry
+portable meaning, so callers compute utilization fractions from deltas.
+Linux folds the documented aggregate `/proc/stat` fields as user plus nice,
+system plus irq plus softirq, and idle plus iowait, while steal time is
+deliberately excluded because it describes execution on behalf of other
+virtual machines and belongs to no caller-visible bucket; guest time is not
+added again because the kernel already counts it inside user and nice.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every frequency and utilization query | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | Kernel-documented [cpufreq sysfs attributes](https://docs.kernel.org/admin-guide/pm/cpufreq.html) supply recorded bounds (`cpuinfo_min_freq`, `cpuinfo_max_freq`) and current clocks (`scaling_cur_freq`); when the cpufreq interface is unavailable, which is common in virtual machines, current clocks fall back to the `/proc/cpuinfo` "cpu MHz" fields rounded half up to kilohertz, and the source switch is all-or-nothing so one vector never mixes sources; bounds require cpufreq and otherwise report `not_supported`; zero or nonnumeric frequency records are malformed platform data; utilization reads the kernel-documented `/proc/stat` aggregate line, whose absence reports `not_found`, with fewer than four counters or any nonnumeric counter treated as malformed data | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44 (AMD Ryzen 9 8945HX). Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; synthetic kilohertz, megahertz-rounding, cpuinfo-block, and aggregate-line parser tests including malformed, partial-coverage, orphan-field, negative, and overflow cases; live queries cross-checked for per-online-processor coverage, bound ordering, counter monotonicity between calls, and agreement of current clocks with an independent `/proc/cpuinfo` read; forced-fallback, repeated-inclusion, two-translation-unit ODR, AddressSanitizer, and UndefinedBehaviorSanitizer tests passed | Verified for this slice on the listed host |
+| Windows | [`CallNtPowerInformation(ProcessorInformation)`](https://learn.microsoft.com/en-us/windows/win32/api/powerbase/nf-powerbase-callntpowerinformation) records supply CurrentMhz and MaxMhz multiplied exactly by one thousand; requires linking PowrProf.lib, which the public header documents; the records expose no minimum operating frequency, so that query returns `not_supported`; its documented sizing procedure and [`GetSystemTimes`](https://learn.microsoft.com/en-us/windows/win32/api/proctimeapi/nf-proctimeapi-getsystemtimes) are group-relative on systems with more than one processor group, so frequency and utilization queries report `not_supported` there instead of silently partial coverage; `STATUS_ACCESS_DENIED` maps to `permission_denied` while other failing NTSTATUS values map to `io_error`; GetSystemTimes supplies cumulative idle, kernel, and user totals in hundred-nanosecond units, where system ticks are the kernel total minus idle because the kernel total includes idle, and a kernel total below idle is malformed platform data | Backend written from public Microsoft APIs with synthetic record-conversion, zero-frequency, null-buffer, NTSTATUS mapping, kernel-below-idle, group-count gate, and live monotonicity tests; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | Documented `hw.cpufrequency_min` and `hw.cpufrequency_max` sysctl values converted from hertz with sub-kilohertz truncation; those keys are absent on Apple silicon, where both bound queries report `not_supported`; Darwin documents no public source for instantaneous clocks, so current frequencies return `not_supported`; utilization sums the documented [`host_processor_info`](https://developer.apple.com/documentation/kernel/1439494-host_processor_info) `PROCESSOR_CPU_LOAD_INFO` unsigned tick records, folding user plus nice into the user bucket, with the Mach port owned by an internal RAII guard and the implicit output buffer released through `vm_deallocate`; the underlying natural_t counters can wrap, so a caller must discard any interval whose later aggregate bucket is smaller; a failing kern_return_t maps to `io_error` | Backend written from public Apple APIs with synthetic per-processor tick-summing, high-bit-counter, and empty-input tests; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
+
+Windows and macOS statuses must not advance until their headers compile with
+the official SDK and the tests execute on the real operating systems.
 
 ### Memory capacity and paging evidence
 

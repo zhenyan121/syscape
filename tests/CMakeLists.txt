@@ -150,6 +150,10 @@ if(WIN32)
     # otherwise Psapi.lib) without imposing it on unrelated Hosted Full
     # consumers.
     target_link_libraries(resource_windows PRIVATE psapi)
+    # Targets that call the CPU power information API follow its documented
+    # Windows linkage contract without imposing PowrProf on unrelated Hosted
+    # Full consumers.
+    target_link_libraries(cpu_windows PRIVATE powrprof)
     # Targets that call the network API follow its documented Windows linkage
     # contract without imposing Iphlpapi on unrelated Hosted Full consumers.
     target_link_libraries(odr PRIVATE iphlpapi)
