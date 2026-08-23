@@ -12,6 +12,10 @@ inline result<std::vector<network_common::interface_record>> interfaces() {
     return fail(errc::not_supported);
 }
 
+inline result<std::vector<network_common::route_record>> routes() {
+    return fail(errc::not_supported);
+}
+
 } // namespace network_backend
 } // namespace detail
 } // namespace syscape

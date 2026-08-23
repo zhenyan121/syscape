@@ -797,6 +797,218 @@ void test_live_enumeration() {
            "IPv6 scope identifiers match an independent getifaddrs walk");
 }
 
+void test_route_boundary_validation() {
+    using syscape::detail::network_common::ip_address_record;
+    using syscape::detail::network_common::route_record;
+    route_record valid;
+    valid.destination.family = address_family::ipv4;
+    valid.destination.value[0U] = 192U;
+    valid.destination.value[1U] = 168U;
+    valid.destination.value[2U] = 1U;
+    valid.prefix_length = 24U;
+    valid.interface_index = 2U;
+    auto accepted = syscape::detail::network_common::validate_route_records(
+        std::vector<route_record> {valid});
+    expect(accepted.has_value(), "A canonical route passes validation");
+
+    route_record host_bits = valid;
+    host_bits.destination.value[3U] = 1U;
+    auto rejected = syscape::detail::network_common::validate_route_records(
+        std::vector<route_record> {host_bits});
+    expect(!rejected && rejected.error() == syscape::errc::malformed_data,
+           "A destination with host bits set is malformed");
+
+    route_record mismatched = valid;
+    ip_address_record gateway;
+    gateway.family = address_family::ipv6;
+    gateway.value[15U] = 1U;
+    mismatched.next_hop = gateway;
+    rejected = syscape::detail::network_common::validate_route_records(
+        std::vector<route_record> {mismatched});
+    expect(!rejected && rejected.error() == syscape::errc::malformed_data,
+           "A next hop from another address family is malformed");
+
+    route_record unindexed = valid;
+    unindexed.interface_index = 0U;
+    rejected = syscape::detail::network_common::validate_route_records(
+        std::vector<route_record> {unindexed});
+    expect(!rejected && rejected.error() == syscape::errc::malformed_data,
+           "A zero route interface index is malformed");
+}
+
+void append_route_attribute(std::vector<unsigned char>& message,
+                            std::uint16_t type, const void* value,
+                            std::size_t size) {
+    ::rtattr attribute {};
+    attribute.rta_type = type;
+    attribute.rta_len = static_cast<std::uint16_t>(sizeof(attribute) + size);
+    const std::size_t offset = message.size();
+    const std::size_t recorded = static_cast<std::size_t>(attribute.rta_len);
+    message.resize(offset +
+                   syscape::detail::network_backend::netlink_align(recorded),
+                   0U);
+    std::memcpy(message.data() + offset, &attribute, sizeof(attribute));
+    if (size != 0U) {
+        std::memcpy(message.data() + offset + sizeof(attribute), value, size);
+    }
+}
+
+void test_linux_route_message_conversion() {
+    ::rtmsg header {};
+    header.rtm_family = AF_INET;
+    header.rtm_dst_len = 0U;
+    header.rtm_type = RTN_UNICAST;
+    std::vector<unsigned char> message(sizeof(header));
+    std::memcpy(message.data(), &header, sizeof(header));
+    const unsigned char gateway[4] = {192U, 168U, 1U, 1U};
+    const std::uint32_t interface_index = 7U;
+    const std::uint32_t metric = 25U;
+    append_route_attribute(message, RTA_GATEWAY, gateway, sizeof(gateway));
+    append_route_attribute(message, RTA_OIF, &interface_index,
+                           sizeof(interface_index));
+    append_route_attribute(message, RTA_PRIORITY, &metric, sizeof(metric));
+    std::vector<syscape::detail::network_common::route_record> routes;
+    const auto converted =
+        syscape::detail::network_backend::append_linux_route_message(
+            message.data(), message.size(), routes);
+    expect(converted && routes.size() == 1U,
+           "A Linux default route converts into one record");
+    if (!converted || routes.empty()) { return; }
+    expect(routes[0U].prefix_length == 0U &&
+               routes[0U].interface_index == 7U &&
+               routes[0U].next_hop &&
+               routes[0U].next_hop->value[3U] == 1U &&
+               routes[0U].metric && *routes[0U].metric == 25U,
+           "The Linux route keeps its gateway, interface, and metric");
+
+    message.pop_back();
+    routes.clear();
+    const auto truncated =
+        syscape::detail::network_backend::append_linux_route_message(
+            message.data(), message.size(), routes);
+    expect(!truncated && truncated.error() == syscape::errc::malformed_data,
+           "A truncated Linux route attribute is malformed");
+}
+
+void append_multipath_hop(std::vector<unsigned char>& multipath,
+                          std::int32_t interface_index,
+                          const unsigned char* gateway,
+                          std::size_t gateway_size) {
+    const std::size_t offset = multipath.size();
+    multipath.resize(offset + sizeof(::rtnexthop), 0U);
+    append_route_attribute(multipath, RTA_GATEWAY, gateway, gateway_size);
+    ::rtnexthop hop {};
+    hop.rtnh_len = static_cast<unsigned short>(multipath.size() - offset);
+    hop.rtnh_ifindex = interface_index;
+    std::memcpy(multipath.data() + offset, &hop, sizeof(hop));
+}
+
+void test_linux_multipath_and_ipv6_scope() {
+    ::rtmsg header {};
+    header.rtm_family = AF_INET;
+    header.rtm_type = RTN_UNICAST;
+    std::vector<unsigned char> message(sizeof(header));
+    std::memcpy(message.data(), &header, sizeof(header));
+    std::vector<unsigned char> multipath;
+    const unsigned char first[4] = {10U, 0U, 0U, 1U};
+    const unsigned char second[4] = {10U, 0U, 1U, 1U};
+    append_multipath_hop(multipath, 3, first, sizeof(first));
+    append_multipath_hop(multipath, 4, second, sizeof(second));
+    append_route_attribute(message, RTA_MULTIPATH, multipath.data(),
+                           multipath.size());
+    std::vector<syscape::detail::network_common::route_record> routes;
+    auto converted =
+        syscape::detail::network_backend::append_linux_route_message(
+            message.data(), message.size(), routes);
+    expect(converted && routes.size() == 2U &&
+               routes[0U].interface_index == 3U &&
+               routes[1U].interface_index == 4U &&
+               routes[1U].next_hop && routes[1U].next_hop->value[2U] == 1U,
+           "A Linux multipath route expands in next-hop order");
+
+    header.rtm_family = AF_INET6;
+    message.assign(sizeof(header), 0U);
+    std::memcpy(message.data(), &header, sizeof(header));
+    unsigned char link_local[16] {};
+    link_local[0U] = 0xFEU;
+    link_local[1U] = 0x80U;
+    link_local[15U] = 1U;
+    const std::uint32_t interface_index = 9U;
+    append_route_attribute(message, RTA_GATEWAY, link_local,
+                           sizeof(link_local));
+    append_route_attribute(message, RTA_OIF, &interface_index,
+                           sizeof(interface_index));
+    routes.clear();
+    converted = syscape::detail::network_backend::append_linux_route_message(
+        message.data(), message.size(), routes);
+    expect(converted && routes.size() == 1U && routes[0U].next_hop &&
+               routes[0U].next_hop->scope_id == 9U,
+           "A link-local Linux IPv6 gateway uses its output-interface scope");
+}
+
+void test_linux_nexthop_object_route() {
+    ::rtmsg header {};
+    header.rtm_family = AF_INET;
+    header.rtm_type = RTN_UNICAST;
+    std::vector<unsigned char> message(sizeof(header));
+    std::memcpy(message.data(), &header, sizeof(header));
+    const std::uint32_t nexthop_id = 17U;
+    append_route_attribute(
+        message, syscape::detail::network_backend::linux_rta_nh_id,
+        &nexthop_id, sizeof(nexthop_id));
+
+    std::vector<syscape::detail::network_common::route_record> routes;
+    auto converted =
+        syscape::detail::network_backend::append_linux_route_message(
+            message.data(), message.size(), routes);
+    expect(!converted && converted.error() == syscape::errc::not_supported,
+           "A compact Linux nexthop-object route is unsupported, not malformed");
+
+    const std::uint32_t interface_index = 12U;
+    append_route_attribute(message, RTA_OIF, &interface_index,
+                           sizeof(interface_index));
+    converted = syscape::detail::network_backend::append_linux_route_message(
+        message.data(), message.size(), routes);
+    expect(converted && routes.size() == 1U &&
+               routes[0U].interface_index == interface_index,
+           "A compatibility-expanded nexthop-object route still converts");
+}
+
+void test_live_routes() {
+    const auto listed = syscape::network::routes();
+    if (!listed) {
+        expect(listed.error() == std::errc::permission_denied ||
+                   listed.error() == std::errc::operation_not_permitted ||
+                   listed.error() == std::errc::operation_not_supported,
+               "Live routes fail only when access is denied or unsupported");
+        return;
+    }
+    const auto interfaces = syscape::network::interfaces();
+    expect(interfaces.has_value(),
+           "Interfaces are available when the live route table is available");
+    std::set<std::uint32_t> indices;
+    if (interfaces) {
+        for (const auto& entry : *interfaces) { indices.insert(entry.index); }
+    }
+    std::size_t expected_gateway_count = 0U;
+    for (const auto& route : *listed) {
+        expect(route.interface_index != 0U,
+               "Every live route has a nonzero interface index");
+        if (interfaces) {
+            expect(indices.count(route.interface_index) != 0U,
+                   "Every live route refers to an enumerated interface");
+        }
+        if (route.prefix_length == 0U && route.next_hop) {
+            ++expected_gateway_count;
+            expect(route.destination.value[0U] == 0U,
+                   "A default route has an unspecified destination");
+        }
+    }
+    const auto gateways = syscape::network::default_gateways();
+    expect(gateways && gateways->size() == expected_gateway_count,
+           "Default gateways are exactly explicit next hops from /0 routes");
+}
+
 } // namespace
 
 int main() {
@@ -815,5 +1027,10 @@ int main() {
     test_interrupted_mtu_ioctl_is_retried();
     test_boundary_validation();
     test_live_enumeration();
+    test_route_boundary_validation();
+    test_linux_route_message_conversion();
+    test_linux_multipath_and_ipv6_scope();
+    test_linux_nexthop_object_route();
+    test_live_routes();
     return failures == 0 ? 0 : 1;
 }

@@ -315,6 +315,123 @@ void test_live_enumeration() {
            "The live table exposes link-layer rows for the cross-check");
 }
 
+void append_darwin_address(std::vector<unsigned char>& message,
+                           const void* address, std::size_t recorded_size) {
+    const std::size_t alignment = sizeof(std::uint32_t);
+    const std::size_t storage_size =
+        (recorded_size + alignment - 1U) & ~(alignment - 1U);
+    const std::size_t offset = message.size();
+    message.resize(offset + storage_size, 0U);
+    std::memcpy(message.data() + offset, address, recorded_size);
+}
+
+void test_darwin_route_dump_conversion() {
+    ::rt_msghdr2 header {};
+    header.rtm_version = RTM_VERSION;
+    header.rtm_type = RTM_GET2;
+    header.rtm_index = 6U;
+    header.rtm_flags = RTF_UP | RTF_GATEWAY;
+    header.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
+    header.rtm_rmx.rmx_hopcount = 3U;
+    std::vector<unsigned char> message(sizeof(header));
+
+    ::sockaddr_in destination {};
+    destination.sin_len = sizeof(destination);
+    destination.sin_family = AF_INET;
+    append_darwin_address(message, &destination, sizeof(destination));
+    ::sockaddr_in gateway {};
+    gateway.sin_len = sizeof(gateway);
+    gateway.sin_family = AF_INET;
+    gateway.sin_addr.s_addr = htonl(0xC0A80101U);
+    append_darwin_address(message, &gateway, sizeof(gateway));
+    ::sockaddr_in mask {};
+    mask.sin_len = sizeof(mask);
+    append_darwin_address(message, &mask, sizeof(mask));
+
+    header.rtm_msglen = static_cast<unsigned short>(message.size());
+    std::memcpy(message.data(), &header, sizeof(header));
+    const auto converted =
+        syscape::detail::network_backend::parse_darwin_route_dump(
+            message.data(), message.size());
+    expect(converted && converted->size() == 1U &&
+               converted->at(0U).prefix_length == 0U &&
+               converted->at(0U).next_hop &&
+               converted->at(0U).next_hop->value[0U] == 192U &&
+               converted->at(0U).interface_index == 6U &&
+               converted->at(0U).metric &&
+               *converted->at(0U).metric == 3U,
+           "A Darwin default route keeps its gateway, interface, and metric");
+
+    message.pop_back();
+    const auto truncated =
+        syscape::detail::network_backend::parse_darwin_route_dump(
+            message.data(), message.size());
+    expect(!truncated && truncated.error() == syscape::errc::malformed_data,
+           "A truncated Darwin route message is malformed");
+}
+
+void test_darwin_ipv6_sockaddr_alignment() {
+    ::rt_msghdr2 header {};
+    header.rtm_version = RTM_VERSION;
+    header.rtm_type = RTM_GET2;
+    header.rtm_index = 9U;
+    header.rtm_flags = RTF_UP | RTF_GATEWAY;
+    header.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
+    std::vector<unsigned char> message(sizeof(header));
+
+    ::sockaddr_in6 destination {};
+    destination.sin6_len = sizeof(destination);
+    destination.sin6_family = AF_INET6;
+    append_darwin_address(message, &destination, sizeof(destination));
+    ::sockaddr_in6 gateway {};
+    gateway.sin6_len = sizeof(gateway);
+    gateway.sin6_family = AF_INET6;
+    gateway.sin6_addr.s6_addr[0U] = 0xFEU;
+    gateway.sin6_addr.s6_addr[1U] = 0x80U;
+    gateway.sin6_addr.s6_addr[15U] = 1U;
+    gateway.sin6_scope_id = 9U;
+    append_darwin_address(message, &gateway, sizeof(gateway));
+    ::sockaddr mask {};
+    append_darwin_address(message, &mask, sizeof(std::uint32_t));
+
+    header.rtm_msglen = static_cast<unsigned short>(message.size());
+    std::memcpy(message.data(), &header, sizeof(header));
+    const auto converted =
+        syscape::detail::network_backend::parse_darwin_route_dump(
+            message.data(), message.size());
+    expect(converted && converted->size() == 1U &&
+               converted->at(0U).next_hop &&
+               converted->at(0U).next_hop->value[0U] == 0xFEU &&
+               converted->at(0U).next_hop->scope_id == 9U,
+           "Darwin NET_RT_DUMP2 uses four-byte sockaddr alignment");
+}
+
+void test_darwin_unusable_routes_are_filtered() {
+    ::rt_msghdr2 header {};
+    header.rtm_version = RTM_VERSION;
+    header.rtm_type = RTM_GET2;
+    header.rtm_flags = RTF_UP;
+#if defined(RTF_BROADCAST)
+    header.rtm_flags |= RTF_BROADCAST;
+#elif defined(RTF_MULTICAST)
+    header.rtm_flags |= RTF_MULTICAST;
+#else
+    header.rtm_flags |= RTF_REJECT;
+#endif
+    std::vector<syscape::detail::network_common::route_record> routes;
+    const auto converted =
+        syscape::detail::network_backend::append_darwin_route_message(
+            header, nullptr, 0U, routes);
+    expect(converted && routes.empty(),
+           "Darwin broadcast and other unusable routes are omitted");
+
+    header.rtm_flags = RTF_GATEWAY;
+    const auto down =
+        syscape::detail::network_backend::append_darwin_route_message(
+            header, nullptr, 0U, routes);
+    expect(down && routes.empty(), "Darwin routes that are not up are omitted");
+}
+
 } // namespace
 
 int main() {
@@ -325,5 +442,8 @@ int main() {
     test_inconsistent_link_record_is_malformed();
     test_index_resolution_failure();
     test_live_enumeration();
+    test_darwin_route_dump_conversion();
+    test_darwin_ipv6_sockaddr_alignment();
+    test_darwin_unusable_routes_are_filtered();
     return failures == 0 ? 0 : 1;
 }

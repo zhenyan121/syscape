@@ -121,6 +121,10 @@ bool other_filesystem_backend_callable() {
 bool other_network_backend_callable() {
     const syscape::result<std::vector<syscape::network::interface_entry>>
         interfaces = syscape::network::interfaces();
+    const auto routes = syscape::network::routes();
+    const auto gateways = syscape::network::default_gateways();
+    static_cast<void>(routes);
+    static_cast<void>(gateways);
     return interfaces.has_value() != static_cast<bool>(interfaces.error());
 }
 

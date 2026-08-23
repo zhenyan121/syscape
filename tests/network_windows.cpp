@@ -46,6 +46,34 @@ struct fake_adapter_api {
 bool fake_adapter_api::fail_enumeration = false;
 ::ULONG fake_adapter_api::native_error = 0U;
 
+struct fake_route_api {
+    static ::MIB_IPFORWARD_TABLE2* value;
+    static ::MIB_UNICASTIPADDRESS_TABLE* address_value;
+    static bool released;
+    static bool addresses_released;
+    static bool no_routes;
+    static bool no_addresses;
+    static syscape::result<::MIB_IPFORWARD_TABLE2*> table() {
+        if (no_routes) { return syscape::fail(syscape::errc::not_found); }
+        return value;
+    }
+    static syscape::result<::MIB_UNICASTIPADDRESS_TABLE*> addresses() {
+        if (no_addresses) { return syscape::fail(syscape::errc::not_found); }
+        return address_value;
+    }
+    static void release(::MIB_IPFORWARD_TABLE2*) noexcept { released = true; }
+    static void release(::MIB_UNICASTIPADDRESS_TABLE*) noexcept {
+        addresses_released = true;
+    }
+};
+
+::MIB_IPFORWARD_TABLE2* fake_route_api::value = nullptr;
+::MIB_UNICASTIPADDRESS_TABLE* fake_route_api::address_value = nullptr;
+bool fake_route_api::released = false;
+bool fake_route_api::addresses_released = false;
+bool fake_route_api::no_routes = false;
+bool fake_route_api::no_addresses = false;
+
 /// Converts one IPv4 address and prefix into wired unicast storage.
 ::IP_ADAPTER_UNICAST_ADDRESS make_unicast_ipv4(::sockaddr_in& storage,
                                                std::uint32_t address,
@@ -395,6 +423,119 @@ void test_live_enumeration() {
     expect(has_loopback, "This host exposes a loopback adapter");
 }
 
+void test_route_table_conversion_and_release() {
+    ::MIB_IPFORWARD_TABLE2 table {};
+    table.NumEntries = 1U;
+    ::MIB_IPFORWARD_ROW2& row = table.Table[0U];
+    row.DestinationPrefix.Prefix.Ipv4.sin_family = AF_INET;
+    row.DestinationPrefix.PrefixLength = 0U;
+    row.NextHop.Ipv4.sin_family = AF_INET;
+    const unsigned char gateway[4] = {10U, 0U, 0U, 1U};
+    std::memcpy(&row.NextHop.Ipv4.sin_addr, gateway, sizeof(gateway));
+    row.InterfaceIndex = 8U;
+    row.Metric = 42U;
+    ::MIB_UNICASTIPADDRESS_TABLE addresses {};
+    fake_route_api::value = &table;
+    fake_route_api::address_value = &addresses;
+    fake_route_api::released = false;
+    fake_route_api::addresses_released = false;
+    fake_route_api::no_routes = false;
+    fake_route_api::no_addresses = false;
+    const auto converted =
+        syscape::detail::network_backend::enumerate_routes(fake_route_api {});
+    expect(converted && converted->size() == 1U &&
+               converted->at(0U).next_hop &&
+               converted->at(0U).next_hop->value[0U] == 10U &&
+               converted->at(0U).interface_index == 8U &&
+               converted->at(0U).metric &&
+               *converted->at(0U).metric == 42U,
+           "A Windows default route keeps its gateway, interface, and metric");
+    expect(fake_route_api::released,
+           "The Windows route table is released on successful conversion");
+    expect(fake_route_api::addresses_released,
+           "The Windows unicast-address table is released after filtering");
+
+    row.Loopback = TRUE;
+    const auto skipped =
+        syscape::detail::network_backend::convert_route_table(table);
+    expect(skipped && skipped->empty(),
+           "Windows loopback routes are omitted from forwarding routes");
+
+    fake_route_api::no_routes = true;
+    const auto empty =
+        syscape::detail::network_backend::enumerate_routes(fake_route_api {});
+    expect(empty && empty->empty(),
+           "Windows reports a missing route table as a valid empty snapshot");
+    fake_route_api::no_routes = false;
+
+    table.NumEntries = 0U;
+    fake_route_api::released = false;
+    fake_route_api::addresses_released = false;
+    const auto zero_rows =
+        syscape::detail::network_backend::enumerate_routes(fake_route_api {});
+    expect(zero_rows && zero_rows->empty() && fake_route_api::released &&
+               !fake_route_api::addresses_released,
+           "An empty Windows route table needs no address-table query");
+}
+
+void set_windows_ipv4_destination(::MIB_IPFORWARD_ROW2& row,
+                                  const unsigned char (&bytes)[4],
+                                  unsigned char prefix_length) {
+    row.DestinationPrefix.Prefix.Ipv4.sin_family = AF_INET;
+    std::memcpy(&row.DestinationPrefix.Prefix.Ipv4.sin_addr, bytes,
+                sizeof(bytes));
+    row.DestinationPrefix.PrefixLength = prefix_length;
+}
+
+void test_windows_non_forwarding_routes_are_filtered() {
+    ::MIB_IPFORWARD_TABLE2 table {};
+    table.NumEntries = 1U;
+    ::MIB_IPFORWARD_ROW2& row = table.Table[0U];
+    row.InterfaceIndex = 8U;
+    row.NextHop.Ipv4.sin_family = AF_INET;
+
+    ::MIB_UNICASTIPADDRESS_TABLE addresses {};
+    addresses.NumEntries = 1U;
+    ::MIB_UNICASTIPADDRESS_ROW& local = addresses.Table[0U];
+    local.InterfaceIndex = 8U;
+    local.Address.Ipv4.sin_family = AF_INET;
+    const unsigned char local_bytes[4] = {10U, 0U, 0U, 5U};
+    std::memcpy(&local.Address.Ipv4.sin_addr, local_bytes,
+                sizeof(local_bytes));
+    local.OnLinkPrefixLength = 24U;
+
+    auto expect_filtered = [&](const unsigned char (&destination)[4],
+                               unsigned char prefix_length,
+                               const char* message) {
+        set_windows_ipv4_destination(row, destination, prefix_length);
+        const auto converted =
+            syscape::detail::network_backend::convert_route_table(
+                table, &addresses);
+        expect(converted && converted->empty(), message);
+    };
+
+    expect_filtered(local_bytes, 32U,
+                    "Windows local host routes are omitted");
+    const unsigned char directed_broadcast[4] = {10U, 0U, 0U, 255U};
+    expect_filtered(directed_broadcast, 32U,
+                    "Windows directed-broadcast routes are omitted");
+    const unsigned char limited_broadcast[4] = {255U, 255U, 255U, 255U};
+    expect_filtered(limited_broadcast, 32U,
+                    "Windows limited-broadcast routes are omitted");
+    const unsigned char multicast[4] = {224U, 0U, 0U, 0U};
+    expect_filtered(multicast, 4U, "Windows multicast routes are omitted");
+
+    row.DestinationPrefix.Prefix.Ipv6.sin6_family = AF_INET6;
+    reinterpret_cast<unsigned char*>(
+        &row.DestinationPrefix.Prefix.Ipv6.sin6_addr)[0U] = 0xFFU;
+    row.DestinationPrefix.PrefixLength = 8U;
+    row.NextHop.Ipv6.sin6_family = AF_INET6;
+    const auto ipv6 =
+        syscape::detail::network_backend::convert_route_table(table,
+                                                               &addresses);
+    expect(ipv6 && ipv6->empty(), "Windows IPv6 multicast routes are omitted");
+}
+
 } // namespace
 
 int main() {
@@ -410,5 +551,7 @@ int main() {
     test_enumeration_failure_preserved();
     test_empty_table_is_valid();
     test_live_enumeration();
+    test_route_table_conversion_and_release();
+    test_windows_non_forwarding_routes_are_filtered();
     return failures == 0 ? 0 : 1;
 }

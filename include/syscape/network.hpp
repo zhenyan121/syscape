@@ -2,21 +2,25 @@
 #define SYSCAPE_NETWORK_HPP
 
 /// @file
-/// @brief Hosted network interface, MTU, and unicast-address queries.
+/// @brief Hosted network interface, address, route, and gateway queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note Linux and macOS enumerate interfaces through the documented
 /// getifaddrs interface, resolving interface indices through POSIX
 /// if_nametoindex; Linux exposes link-layer addresses through AF_PACKET
 /// rows and macOS through AF_LINK rows. Windows enumerates adapters through
-/// GetAdaptersAddresses and requires Windows Vista or later. Applications
-/// that use this header on Windows must link the Iphlpapi import library;
+/// GetAdaptersAddresses. Linux obtains routes from NETLINK_ROUTE, Windows
+/// from GetIpForwardTable2 with GetUnicastIpAddressTable context, and macOS
+/// from a PF_ROUTE NET_RT_DUMP2 sysctl.
+/// The Windows sources require Windows Vista or later. Applications that use
+/// this header on Windows must link the Iphlpapi import library;
 /// Syscape itself stays header-only and does not add linkage for unrelated
 /// Hosted Full domains. Other targets use the generic not-supported fallback.
 /// @note The implemented network slices expose interface names, indices,
 /// operational state, loopback classification, link-layer (hardware)
 /// addresses, MTU values, and unicast IPv4/IPv6 addresses with prefix lengths
-/// and numeric IPv6 scope identifiers. Routes, gateways, DNS configuration,
-/// and host and domain names are outside these slices. Expected failures are
+/// and numeric IPv6 scope identifiers, together with forwarding unicast
+/// routes and explicit default gateways. DNS configuration and host and
+/// domain names are outside these slices. Expected failures are
 /// returned as native error codes where available, or as syscape::errc values for
 /// missing, malformed, or unsupported data.
 
@@ -28,6 +32,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -115,6 +120,41 @@ struct interface_entry {
     std::uint32_t mtu_bytes;
 };
 
+/// One IPv4 or IPv6 address used by a route.
+struct ip_address {
+    /// Address family selecting the meaningful length of value.
+    address_family family;
+    /// Address octets in network byte order. IPv4 uses the first four bytes.
+    std::array<unsigned char, 16> value;
+    /// Numeric IPv6 scope identifier. IPv4 always uses zero.
+    std::uint32_t scope_id;
+};
+
+/// One forwarding unicast route from the platform routing table.
+struct route_entry {
+    /// Canonical destination network address with all host bits clear.
+    ip_address destination;
+    /// Destination prefix length in bits.
+    std::uint8_t prefix_length;
+    /// Explicit next hop, or no value for an on-link route.
+    std::optional<ip_address> next_hop;
+    /// Nonzero operating-system interface index used by the route.
+    std::uint32_t interface_index;
+    /// Platform-recorded route metric, when the source exposes one. Values
+    /// from different operating systems are not directly comparable.
+    std::optional<std::uint32_t> metric;
+};
+
+/// One explicit gateway selected by a default route.
+struct gateway_entry {
+    /// Explicit next-hop address recorded by the default route.
+    ip_address address;
+    /// Nonzero operating-system interface index used by the route.
+    std::uint32_t interface_index;
+    /// Platform-recorded route metric, when available.
+    std::optional<std::uint32_t> metric;
+};
+
 /// Returns a snapshot of the platform's network interfaces and their
 /// unicast addresses.
 ///
@@ -171,6 +211,63 @@ inline result<std::vector<interface_entry>> interfaces() {
         entries.push_back(std::move(entry));
     }
     return entries;
+}
+
+/// Returns the platform's forwarding IPv4 and IPv6 unicast routes.
+///
+/// Non-forwarding entries such as local, broadcast, blackhole, prohibit, and
+/// unreachable routes are omitted. Enumeration order is preserved. An empty
+/// snapshot is valid. Concurrent route changes are visible to later calls.
+///
+/// @return The route snapshot, malformed_data for structurally unusable
+/// platform records, not_supported where no documented source exists or a
+/// platform route representation cannot be resolved portably, or a native
+/// platform error.
+inline result<std::vector<route_entry>> routes() {
+    result<std::vector<detail::network_common::route_record>> records =
+        detail::network_common::validate_route_records(
+            detail::network_backend::routes());
+    if (!records) { return fail(records.error()); }
+    std::vector<route_entry> entries;
+    entries.reserve(records->size());
+    for (detail::network_common::route_record& record : *records) {
+        route_entry entry;
+        entry.destination = ip_address {record.destination.family,
+                                        record.destination.value,
+                                        record.destination.scope_id};
+        entry.prefix_length = record.prefix_length;
+        if (record.next_hop) {
+            entry.next_hop = ip_address {record.next_hop->family,
+                                         record.next_hop->value,
+                                         record.next_hop->scope_id};
+        }
+        entry.interface_index = record.interface_index;
+        entry.metric = record.metric;
+        entries.push_back(std::move(entry));
+    }
+    return entries;
+}
+
+/// Returns explicit gateways carried by the platform's default routes.
+///
+/// An on-link default route has no gateway and is intentionally omitted.
+/// Multiple default gateways and their platform enumeration order are
+/// preserved. No explicit default gateway is a successful empty result.
+///
+/// @return Explicit next hops from the route snapshot, or the same error
+/// that routes() would return for the current platform state.
+inline result<std::vector<gateway_entry>> default_gateways() {
+    const result<std::vector<route_entry>> listed = routes();
+    if (!listed) { return fail(listed.error()); }
+    std::vector<gateway_entry> gateways;
+    for (const route_entry& route : *listed) {
+        if (route.prefix_length == 0U && route.next_hop) {
+            gateways.push_back(gateway_entry {*route.next_hop,
+                                               route.interface_index,
+                                               route.metric});
+        }
+    }
+    return gateways;
 }
 
 } // namespace network

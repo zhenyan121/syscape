@@ -1,6 +1,7 @@
 #ifndef SYSCAPE_DETAIL_NETWORK_WINDOWS_HPP
 #define SYSCAPE_DETAIL_NETWORK_WINDOWS_HPP
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -251,6 +252,233 @@ inline result<std::vector<network_common::interface_record>> enumerate(
 /// unicast addresses through the documented GetAdaptersAddresses interface.
 inline result<std::vector<network_common::interface_record>> interfaces() {
     return enumerate(native_adapter_api{});
+}
+
+template <typename RouteApi, typename Table>
+class route_table_guard {
+public:
+    explicit route_table_guard(Table* value) noexcept
+        : value_(value) {}
+    route_table_guard(const route_table_guard&) = delete;
+    route_table_guard& operator=(const route_table_guard&) = delete;
+    ~route_table_guard() {
+        if (value_ != nullptr) { RouteApi::release(value_); }
+    }
+    Table* get() const noexcept { return value_; }
+
+private:
+    Table* value_;
+};
+
+struct native_route_api {
+    static result<::MIB_IPFORWARD_TABLE2*> table() {
+        ::MIB_IPFORWARD_TABLE2* value = nullptr;
+        const ::NETIO_STATUS outcome = ::GetIpForwardTable2(AF_UNSPEC, &value);
+        if (outcome == ERROR_NOT_FOUND) { return fail(errc::not_found); }
+        if (outcome != NO_ERROR) {
+            return fail(std::error_code(static_cast<int>(outcome),
+                                        std::system_category()));
+        }
+        if (value == nullptr) { return fail(errc::malformed_data); }
+        return value;
+    }
+    static result<::MIB_UNICASTIPADDRESS_TABLE*> addresses() {
+        ::MIB_UNICASTIPADDRESS_TABLE* value = nullptr;
+        const ::NETIO_STATUS outcome =
+            ::GetUnicastIpAddressTable(AF_UNSPEC, &value);
+        if (outcome == ERROR_NOT_FOUND) { return fail(errc::not_found); }
+        if (outcome != NO_ERROR) {
+            return fail(std::error_code(static_cast<int>(outcome),
+                                        std::system_category()));
+        }
+        if (value == nullptr) { return fail(errc::malformed_data); }
+        return value;
+    }
+    static void release(::MIB_IPFORWARD_TABLE2* value) noexcept {
+        ::FreeMibTable(value);
+    }
+    static void release(::MIB_UNICASTIPADDRESS_TABLE* value) noexcept {
+        ::FreeMibTable(value);
+    }
+};
+
+inline result<network_common::ip_address_record> convert_sockaddr_inet(
+    const ::SOCKADDR_INET& source) {
+    network_common::ip_address_record address;
+    if (source.si_family == AF_INET) {
+        address.family = network_common::address_family::ipv4;
+        const unsigned char* bytes = reinterpret_cast<const unsigned char*>(
+            &source.Ipv4.sin_addr);
+        std::copy(bytes, bytes + 4U, address.value.begin());
+    } else if (source.si_family == AF_INET6) {
+        address.family = network_common::address_family::ipv6;
+        const unsigned char* bytes = reinterpret_cast<const unsigned char*>(
+            &source.Ipv6.sin6_addr);
+        std::copy(bytes, bytes + 16U, address.value.begin());
+        address.scope_id =
+            static_cast<std::uint32_t>(source.Ipv6.sin6_scope_id);
+    } else {
+        return fail(errc::malformed_data);
+    }
+    return address;
+}
+
+inline bool windows_addresses_equal(
+    const network_common::ip_address_record& left,
+    const network_common::ip_address_record& right) noexcept {
+    if (left.family != right.family) { return false; }
+    const std::size_t size =
+        left.family == network_common::address_family::ipv4 ? 4U : 16U;
+    for (std::size_t offset = 0U; offset < size; ++offset) {
+        if (left.value[offset] != right.value[offset]) { return false; }
+    }
+    return true;
+}
+
+inline bool windows_non_unicast_destination(
+    const network_common::ip_address_record& destination,
+    std::uint8_t prefix_length) noexcept {
+    if (destination.family == network_common::address_family::ipv4) {
+        if (destination.value[0U] == 127U ||
+            destination.value[0U] >= 224U) {
+            return true;
+        }
+        return prefix_length != 0U &&
+               network_common::is_unspecified(destination);
+    }
+    const bool loopback =
+        destination.value[0U] == 0U && destination.value[1U] == 0U &&
+        destination.value[2U] == 0U && destination.value[3U] == 0U &&
+        destination.value[4U] == 0U && destination.value[5U] == 0U &&
+        destination.value[6U] == 0U && destination.value[7U] == 0U &&
+        destination.value[8U] == 0U && destination.value[9U] == 0U &&
+        destination.value[10U] == 0U && destination.value[11U] == 0U &&
+        destination.value[12U] == 0U && destination.value[13U] == 0U &&
+        destination.value[14U] == 0U && destination.value[15U] == 1U;
+    return destination.value[0U] == 0xFFU || loopback ||
+           (prefix_length != 0U &&
+            network_common::is_unspecified(destination));
+}
+
+inline std::uint32_t windows_ipv4_value(
+    const network_common::ip_address_record& address) noexcept {
+    return (static_cast<std::uint32_t>(address.value[0U]) << 24U) |
+           (static_cast<std::uint32_t>(address.value[1U]) << 16U) |
+           (static_cast<std::uint32_t>(address.value[2U]) << 8U) |
+           static_cast<std::uint32_t>(address.value[3U]);
+}
+
+inline result<bool> windows_local_or_broadcast_route(
+    const network_common::ip_address_record& destination,
+    std::uint8_t prefix_length, ::NET_IFINDEX interface_index,
+    const ::MIB_UNICASTIPADDRESS_TABLE* addresses) {
+    if (addresses == nullptr) { return false; }
+    for (::ULONG offset = 0U; offset < addresses->NumEntries; ++offset) {
+        const ::MIB_UNICASTIPADDRESS_ROW& row = addresses->Table[offset];
+        if (row.InterfaceIndex != interface_index ||
+            row.Address.si_family !=
+                (destination.family == network_common::address_family::ipv4
+                     ? AF_INET
+                     : AF_INET6)) {
+            continue;
+        }
+        const result<network_common::ip_address_record> local =
+            convert_sockaddr_inet(row.Address);
+        if (!local) { return fail(local.error()); }
+        const std::uint8_t host_prefix =
+            destination.family == network_common::address_family::ipv4
+                ? std::uint8_t(32U)
+                : std::uint8_t(128U);
+        if (prefix_length == host_prefix &&
+            windows_addresses_equal(destination, *local)) {
+            return true;
+        }
+        if (destination.family == network_common::address_family::ipv4 &&
+            prefix_length == 32U && row.OnLinkPrefixLength <= 30U) {
+            const std::uint32_t host_mask =
+                ~std::uint32_t(0U) >> row.OnLinkPrefixLength;
+            if (windows_ipv4_value(destination) ==
+                (windows_ipv4_value(*local) | host_mask)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+inline result<std::vector<network_common::route_record>>
+convert_route_table(
+    const ::MIB_IPFORWARD_TABLE2& table,
+    const ::MIB_UNICASTIPADDRESS_TABLE* addresses = nullptr) {
+    std::vector<network_common::route_record> routes;
+    routes.reserve(static_cast<std::size_t>(table.NumEntries));
+    for (::ULONG offset = 0U; offset < table.NumEntries; ++offset) {
+        const ::MIB_IPFORWARD_ROW2& row = table.Table[offset];
+        if (row.Loopback != FALSE) { continue; }
+        result<network_common::ip_address_record> destination =
+            convert_sockaddr_inet(row.DestinationPrefix.Prefix);
+        if (!destination) { return fail(destination.error()); }
+        const std::uint8_t prefix_length =
+            static_cast<std::uint8_t>(row.DestinationPrefix.PrefixLength);
+        const std::uint8_t maximum_prefix =
+            network_common::maximum_prefix_length(destination->family);
+        if (prefix_length > maximum_prefix) {
+            return fail(errc::malformed_data);
+        }
+        if (windows_non_unicast_destination(*destination, prefix_length)) {
+            continue;
+        }
+        const result<bool> local_or_broadcast =
+            windows_local_or_broadcast_route(
+                *destination, prefix_length, row.InterfaceIndex, addresses);
+        if (!local_or_broadcast) { return fail(local_or_broadcast.error()); }
+        if (*local_or_broadcast) { continue; }
+        result<network_common::ip_address_record> next_hop =
+            convert_sockaddr_inet(row.NextHop);
+        if (!next_hop) { return fail(next_hop.error()); }
+        network_common::route_record record;
+        record.destination = *destination;
+        record.prefix_length = prefix_length;
+        if (!network_common::is_unspecified(*next_hop)) {
+            record.next_hop = *next_hop;
+        }
+        record.interface_index =
+            static_cast<std::uint32_t>(row.InterfaceIndex);
+        record.metric = static_cast<std::uint32_t>(row.Metric);
+        routes.push_back(std::move(record));
+    }
+    return routes;
+}
+
+template <typename RouteApi>
+inline result<std::vector<network_common::route_record>> enumerate_routes(
+    RouteApi /*api*/) {
+    const result<::MIB_IPFORWARD_TABLE2*> table = RouteApi::table();
+    if (!table) {
+        if (table.error() == errc::not_found) {
+            return std::vector<network_common::route_record> {};
+        }
+        return fail(table.error());
+    }
+    const route_table_guard<RouteApi, ::MIB_IPFORWARD_TABLE2> guard(*table);
+    if (guard.get()->NumEntries == 0U) {
+        return std::vector<network_common::route_record> {};
+    }
+    const result<::MIB_UNICASTIPADDRESS_TABLE*> addresses =
+        RouteApi::addresses();
+    if (!addresses) {
+        if (addresses.error() == errc::not_found) {
+            return convert_route_table(*guard.get());
+        }
+        return fail(addresses.error());
+    }
+    const route_table_guard<RouteApi, ::MIB_UNICASTIPADDRESS_TABLE>
+        address_guard(*addresses);
+    return convert_route_table(*guard.get(), address_guard.get());
+}
+
+inline result<std::vector<network_common::route_record>> routes() {
+    return enumerate_routes(native_route_api {});
 }
 
 } // namespace network_backend

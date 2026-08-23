@@ -2,5 +2,6 @@
 #define SYSCAPE_DETAIL_NETWORK_MACOS_HPP
 
 #include <syscape/detail/network/posix.hpp>
+#include <syscape/detail/network/routes_macos.hpp>
 
 #endif
