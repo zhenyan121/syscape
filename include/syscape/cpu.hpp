@@ -2,22 +2,29 @@
 #define SYSCAPE_CPU_HPP
 
 /// @file
-/// @brief Hosted CPU identity, topology, frequency, and utilization queries.
+/// @brief Hosted CPU identity, topology, frequency, utilization, cache, and
+/// instruction-set queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note Linux implements identity and topology through kernel-documented
-/// interfaces, reads recorded frequency bounds and current clocks from the
-/// cpufreq sysfs interface with a /proc/cpuinfo fallback, and folds the
+/// @note Linux implements identity through kernel-documented interfaces,
+/// topology and cache instances through the documented testing sysfs ABI
+/// interface under /sys/devices/system/cpu, recorded frequency bounds and
+/// current clocks from the cpufreq sysfs interface with a /proc/cpuinfo
+/// fallback, instruction-set features from /proc/cpuinfo, and folds the
 /// documented /proc/stat aggregate counters into cumulative utilization
-/// totals. Windows implements topology using Windows 7 or later
+/// totals. Windows implements topology and caches using Windows 7 or later
 /// processor-group APIs, reads processor clocks through CallNtPowerInformation
-/// (declared in <powerbase.h>; provided by PowrProf.lib), and folds the
-/// GetSystemTimes totals into cumulative utilization on single-group
-/// systems, reporting not_supported on multi-group systems where those
-/// totals cover only the calling thread's processor group. macOS implements core
-/// counts, reads recorded clock bounds from the hw.cpufrequency sysctl values,
+/// (declared in <powerbase.h>; provided by PowrProf.lib), enumerates the
+/// documented processor-feature probes of IsProcessorFeaturePresent, and
+/// folds the GetSystemTimes totals into cumulative utilization on
+/// single-group systems, reporting not_supported on multi-group systems
+/// where those totals cover only the calling thread's processor group.
+/// macOS implements core counts, reads recorded clock bounds from the
+/// hw.cpufrequency sysctl values, collects the documented feature renderings,
 /// and folds the host_processor_info scheduler ticks into cumulative
-/// utilization; platforms without those facts report not_supported. All other
-/// targets use the not-supported fallback.
+/// utilization. Darwin's documented cache sysctls do not identify distinct
+/// sharing sets, so the cache-instance query reports not_supported. Platforms
+/// without the other facts also report not_supported. All other targets use
+/// the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
 
@@ -27,9 +34,31 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
+namespace syscape {
+namespace cpu {
+
+/// Kind of information stored by one processor cache instance.
+enum class cache_kind : std::uint8_t {
+    /// The cache stores data only.
+    data,
+    /// The cache stores instructions only.
+    instruction,
+    /// The cache stores both data and instructions.
+    unified,
+    /// The cache stores decoded operations rather than addressable memory.
+    trace,
+    /// The platform records the instance without a stored-information kind.
+    unknown
+};
+
+} // namespace cpu
+} // namespace syscape
+
 #include <syscape/detail/cpu/common.hpp>
+#include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) && \
@@ -217,6 +246,114 @@ inline result<usage_snapshot> cumulative_processor_usage() {
     if (!value) { return fail(value.error()); }
     return usage_snapshot{value->user_ticks, value->system_ticks,
                           value->idle_ticks};
+}
+
+/// One distinct processor cache instance observed by the platform.
+///
+/// Two instances are distinct when different sets of logical processors
+/// share them; a sixteen-core system therefore lists sixteen level-one
+/// data caches even when every entry carries equal attributes. The
+/// geometry fields describe the recorded platform values verbatim: a
+/// zero in associativity_ways, sets_count, or
+/// shared_logical_processor_count records that the platform exposes no
+/// such value for this instance, because none of those quantities can be
+/// zero on real hardware.
+struct cache_information {
+    /// Cache level counted from one for the level nearest the processor.
+    std::uint32_t level;
+    /// Recorded kind of stored information. The unknown kind records that
+    /// the platform reports the instance without a stored-information
+    /// type rather than forcing an invented classification.
+    cache_kind kind;
+    /// Size of one shared instance in bytes as recorded by the platform;
+    /// always positive.
+    std::uint64_t instance_size_bytes;
+    /// Coherency (line) size in bytes; always positive.
+    std::uint32_t line_size_bytes;
+    /// Associativity expressed in ways, or zero when the platform reports
+    /// no value.
+    std::uint32_t associativity_ways;
+    /// Number of sets, or zero when the platform reports no value. A fully
+    /// associative cache is exactly one set holding every line, so a
+    /// source that records full associativity converts it to one set with
+    /// size divided by line size ways.
+    std::uint32_t sets_count;
+    /// Online logical processors that share one such instance, or zero
+    /// when the platform reports no sharing count.
+    std::uint32_t shared_logical_processor_count;
+};
+
+/// Returns one entry per distinct cache instance of the online processors,
+/// ordered by nondecreasing level and then by kind.
+///
+/// The snapshot reflects the online population observed during the call;
+/// hot-plug and virtualization reconfiguration become visible only to
+/// later calls. Linux reads the kernel's documented testing sysfs cache ABI
+/// interface under /sys/devices/system/cpu/cpuN/cache/indexI/ and reports
+/// not_supported when no online processor exposes any cache directory,
+/// which happens on several virtual-machine configurations. Windows reads
+/// the documented GetLogicalProcessorInformationEx cache relationship on
+/// single-group systems and reports not_supported on multi-group systems.
+/// Darwin's documented cache sysctls do not map their per-level geometry to
+/// distinct sharing sets, so macOS cannot satisfy the per-instance contract
+/// and reports not_supported. Other targets report not_supported.
+/// @return One or more entries, not_supported when the platform exposes no
+/// acceptable source, malformed_data, value_too_large, temporarily
+/// unavailable data during enumeration, or a native platform error.
+inline result<std::vector<cache_information>> cache_descriptors() {
+    const result<std::vector<detail::cpu_common::cache_entry>> entries =
+        detail::cpu_common::validate_cache_entries(
+            detail::cpu_backend::cache_descriptors());
+    if (!entries) { return fail(entries.error()); }
+    std::vector<cache_information> output;
+    output.reserve(entries->size());
+    for (const detail::cpu_common::cache_entry& entry : *entries) {
+        cache_information converted;
+        converted.level = entry.level;
+        converted.kind = entry.kind;
+        converted.instance_size_bytes = entry.instance_size_bytes;
+        converted.line_size_bytes = entry.line_size_bytes;
+        converted.associativity_ways = entry.associativity_ways;
+        converted.sets_count = entry.sets_count;
+        converted.shared_logical_processor_count =
+            entry.shared_logical_processor_count;
+        output.push_back(std::move(converted));
+    }
+    return output;
+}
+
+/// Returns the instruction-set feature identifiers the platform reports
+/// for its processors.
+///
+/// Every identifier is the platform's own vocabulary rendered verbatim:
+/// Linux collects the whitespace-separated tokens of /proc/cpuinfo's
+/// documented per-architecture feature fields (flags on x86 families and
+/// Features on arm and arm64), Windows renders the documented
+/// IsProcessorFeaturePresent enumeration with lowercase labels derived
+/// from each PF_ constant name, and macOS collects the machdep.cpu
+/// feature renderings where present plus the documented hw.optional
+/// boolean keys whose suffixes become the identifiers. Identifiers are
+/// therefore comparable within one platform but not across platforms:
+/// Syscape does not normalize genuinely different processor vocabularies
+/// into invented names. An empty result is valid data meaning that the
+/// platform answered but no reported feature was present. Linux unions
+/// every processor block so heterogeneous populations merge into one set;
+/// architectures without a recognized rendering report not_found.
+/// @return Zero or more unique identifiers in first-seen order, not_found
+/// when the platform source contains no recognized feature vocabulary,
+/// not_supported when no acceptable source exists, malformed_data,
+/// invalid_encoding, or a native platform error.
+inline result<std::vector<std::string>> instruction_set_features() {
+    const result<std::vector<std::string>> features =
+        detail::cpu_backend::instruction_set_features();
+    if (!features) { return fail(features.error()); }
+    for (const std::string& identifier : *features) {
+        if (identifier.empty() ||
+            !detail::is_valid_utf8(identifier)) {
+            return fail(errc::invalid_encoding);
+        }
+    }
+    return features;
 }
 
 } // namespace cpu

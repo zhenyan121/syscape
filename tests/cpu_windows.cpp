@@ -23,6 +23,66 @@ struct relationship_header {
     return record;
 }
 
+struct cache_record {
+    relationship_header header;
+    ::CACHE_RELATIONSHIP cache;
+};
+
+cache_record make_cache_record(unsigned char level,
+                               unsigned char associativity,
+                               unsigned short line_size,
+                               unsigned long bytes,
+                               ::PROCESSOR_CACHE_TYPE type,
+                               ::KAFFINITY mask) {
+    cache_record record {};
+    record.header.relationship = RelationCache;
+    record.header.size = static_cast<DWORD>(sizeof(cache_record));
+    record.cache.Level = level;
+    record.cache.Associativity = associativity;
+    record.cache.LineSize = line_size;
+    record.cache.CacheSize = bytes;
+    record.cache.Type = type;
+    record.cache.GroupMask.Mask = mask;
+    record.cache.GroupMask.Group = 0U;
+    return record;
+}
+
+bool converts_to(const cache_record& record, std::uint32_t expected_level,
+                 syscape::cpu::cache_kind expected_kind,
+                 std::uint64_t expected_bytes,
+                 std::uint32_t expected_line,
+                 std::uint32_t expected_ways,
+                 std::uint32_t expected_sets,
+                 std::uint32_t expected_shared) {
+    const auto converted =
+        syscape::detail::cpu_backend::convert_cache_record(
+            reinterpret_cast<const unsigned char*>(&record.cache),
+            sizeof(record.cache));
+    if (!converted) { return false; }
+    return converted->level == expected_level &&
+           converted->kind == expected_kind &&
+           converted->instance_size_bytes == expected_bytes &&
+           converted->line_size_bytes == expected_line &&
+           converted->associativity_ways == expected_ways &&
+           converted->sets_count == expected_sets &&
+           converted->shared_logical_processor_count == expected_shared;
+}
+
+#if defined(PF_AVX2_INSTRUCTIONS_AVAILABLE) || \
+    defined(PF_ARM_FMAC_INSTRUCTIONS_AVAILABLE) || \
+    defined(PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE)
+bool has_feature_probe(int identifier, const char* name) {
+    for (const auto& probe :
+         syscape::detail::cpu_backend::processor_feature_probes) {
+        if (probe.identifier == identifier &&
+            std::strcmp(probe.name, name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+#endif
+
 } // namespace
 
 int main() {
@@ -43,6 +103,104 @@ int main() {
     }
 
     namespace backend = syscape::detail::cpu_backend;
+
+#if defined(PF_AVX2_INSTRUCTIONS_AVAILABLE)
+    if (!has_feature_probe(PF_AVX2_INSTRUCTIONS_AVAILABLE, "avx2")) {
+        return 43;
+    }
+#endif
+#if defined(PF_ARM_FMAC_INSTRUCTIONS_AVAILABLE)
+    if (!has_feature_probe(PF_ARM_FMAC_INSTRUCTIONS_AVAILABLE, "arm-fmac")) {
+        return 44;
+    }
+#endif
+#if defined(PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE)
+    if (!has_feature_probe(PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE,
+                           "armv81-atomic")) {
+        return 45;
+    }
+#endif
+
+    if (backend::count_affinity_bits(0U) != 0U ||
+        backend::count_affinity_bits(0xF0U) != 4U ||
+        backend::count_affinity_bits(~static_cast<::KAFFINITY>(0U)) !=
+            static_cast<std::uint32_t>(sizeof(::KAFFINITY) * 8U)) {
+        return 30;
+    }
+
+    const cache_record data_cache =
+        make_cache_record(1U, 8U, 64U, 32768UL, ::CacheData, 0x3U);
+    if (!converts_to(data_cache, 1U,
+                     syscape::cpu::cache_kind::data, 32768ULL,
+                     64U, 8U, 0U, 2U)) {
+        return 31;
+    }
+
+    const cache_record instruction_cache = make_cache_record(
+        1U, 8U, 64U, 32768UL, ::CacheInstruction, 0x3U);
+    if (!converts_to(instruction_cache, 1U,
+                     syscape::cpu::cache_kind::instruction,
+                     32768ULL, 64U, 8U, 0U, 2U)) {
+        return 32;
+    }
+
+    const cache_record unified_cache =
+        make_cache_record(2U, 16U, 64U, 1048576UL, ::CacheUnified, 0xFU);
+    if (!converts_to(unified_cache, 2U,
+                     syscape::cpu::cache_kind::unified,
+                     1048576ULL, 64U, 16U, 0U, 4U)) {
+        return 33;
+    }
+
+    // A fully associative cache is exactly one set holding every line.
+    const cache_record fully_associative =
+        make_cache_record(2U, ::CACHE_FULLY_ASSOCIATIVE, 64U, 65536UL,
+                          ::CacheUnified, 0x1U);
+    if (!converts_to(fully_associative, 2U,
+                     syscape::cpu::cache_kind::unified,
+                     65536ULL, 64U, 1024U, 1U, 1U)) {
+        return 34;
+    }
+
+    const cache_record trace_cache =
+        make_cache_record(1U, 8U, 64U, 4096UL, ::CacheTrace, 0x1U);
+    if (!converts_to(trace_cache, 1U,
+                     syscape::cpu::cache_kind::trace, 4096ULL,
+                     64U, 8U, 0U, 1U)) {
+        return 35;
+    }
+
+    const cache_record zero_level =
+        make_cache_record(0U, 8U, 64U, 32768UL, ::CacheData, 0x1U);
+    const cache_record zero_line =
+        make_cache_record(1U, 8U, 0U, 32768UL, ::CacheData, 0x1U);
+    const cache_record zero_size =
+        make_cache_record(1U, 8U, 64U, 0UL, ::CacheData, 0x1U);
+    const cache_record empty_mask =
+        make_cache_record(1U, 8U, 64U, 32768UL, ::CacheData, 0U);
+    const cache_record foreign_group =
+        make_cache_record(1U, 8U, 64U, 32768UL, ::CacheData, 0x1U);
+    foreign_group.cache.GroupMask.Group = 1U;
+    const cache_record unknown_type =
+        make_cache_record(1U, 8U, 64U, 32768UL,
+                          static_cast<::PROCESSOR_CACHE_TYPE>(99), 0x1U);
+    const cache_record torn_fully_associative =
+        make_cache_record(1U, ::CACHE_FULLY_ASSOCIATIVE, 96U, 32768UL,
+                          ::CacheUnified, 0x1U);
+    for (const cache_record* malformed :
+         {&zero_level, &zero_line, &zero_size, &empty_mask, &foreign_group,
+          &unknown_type, &torn_fully_associative}) {
+        if (syscape::detail::cpu_backend::convert_cache_record(
+                reinterpret_cast<const unsigned char*>(malformed),
+                sizeof(cache_record))) {
+            return 36;
+        }
+    }
+    if (backend::convert_cache_record(
+            reinterpret_cast<const unsigned char*>(&data_cache.cache),
+            sizeof(relationship_header))) {
+        return 37;
+    }
 
     const ::PROCESSOR_POWER_INFORMATION clocks[] = {
         make_record(800U, 2400U), make_record(1200U, 3100U)};
@@ -125,6 +283,33 @@ int main() {
         syscape::cpu::model_names().error() !=
             std::errc::operation_not_supported) {
         return 4;
+    }
+
+    const auto caches = syscape::cpu::cache_descriptors();
+    if (!caches) {
+        // Multi-group systems report not_supported for the same reason as
+        // the other group-relative queries.
+        if (caches.error() != std::errc::operation_not_supported) {
+            return 38;
+        }
+    } else {
+        if (caches->empty()) { return 39; }
+        for (std::size_t position = 1U; position < caches->size();
+             ++position) {
+            const auto& previous_entry = (*caches)[position - 1U];
+            const auto& current_entry = (*caches)[position];
+            if (current_entry.level < previous_entry.level ||
+                current_entry.instance_size_bytes == 0ULL ||
+                current_entry.line_size_bytes == 0U) {
+                return 40;
+            }
+        }
+    }
+
+    const auto features = syscape::cpu::instruction_set_features();
+    if (!features) { return 41; }
+    for (const std::string& identifier : *features) {
+        if (identifier.empty()) { return 42; }
     }
     return 0;
 }

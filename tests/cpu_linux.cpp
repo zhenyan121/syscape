@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cerrno>
 #include <cstdint>
 #include <iostream>
@@ -306,6 +307,227 @@ void test_runtime_frequencies() {
     }
 }
 
+void test_cache_attribute_parsers() {
+    using syscape::detail::cpu_backend::processor_sets_overlap;
+    using syscape::detail::cpu_backend::same_cache_geometry;
+    using syscape::detail::cpu_backend::parse_cache_size_bytes;
+    using syscape::detail::cpu_backend::parse_cache_type;
+    using syscape::detail::cpu_backend::parse_optional_cache_attribute;
+    using syscape::detail::cpu_backend::parse_positive_cache_attribute;
+
+    const auto kibibytes = parse_cache_size_bytes("32K\n");
+    expect(kibibytes && *kibibytes == 32768U,
+           "A documented kibibyte cache size must convert exactly");
+    expect(parse_cache_size_bytes("1024K") &&
+               *parse_cache_size_bytes("1024K") == 1048576U,
+           "A larger kibibyte rendering must stay exact");
+    expect(parse_cache_size_bytes("2M") && *parse_cache_size_bytes("2M") ==
+               2097152U,
+           "A mebibyte rendering must be accepted defensively");
+    expect(!parse_cache_size_bytes(""), "Empty size text must fail");
+    expect(!parse_cache_size_bytes("32"),
+           "A size without a suffix must be malformed");
+    expect(!parse_cache_size_bytes("32X"),
+           "An unknown suffix must be malformed");
+    expect(!parse_cache_size_bytes("-32K"),
+           "A negative size must be malformed");
+    expect(!parse_cache_size_bytes("0K"),
+           "A zero size cannot describe real hardware");
+    expect(!parse_cache_size_bytes("1.5M"),
+           "A fractional size rendering must be malformed");
+    expect(!parse_cache_size_bytes("18446744073709551616K"),
+           "An unrepresentable digit part must report value_too_large");
+    expect(parse_cache_size_bytes("18446744073709551616K").error() ==
+               syscape::errc::value_too_large,
+           "Cache size overflow must use the value_too_large condition");
+    expect(!parse_cache_size_bytes("17592186044416G"),
+           "A gigabyte rendering beyond uint64_t bytes must overflow");
+
+    const auto data_kind = parse_cache_type("Data\n");
+    expect(data_kind &&
+               *data_kind == syscape::cpu::cache_kind::data,
+           "The documented Data rendering must map to the data kind");
+    expect(parse_cache_type("Instruction") &&
+               *parse_cache_type("Instruction") ==
+                   syscape::cpu::cache_kind::instruction,
+           "The documented Instruction rendering must map exactly");
+    expect(parse_cache_type("Unified") &&
+               *parse_cache_type("Unified") ==
+                   syscape::cpu::cache_kind::unified,
+           "The documented Unified rendering must map exactly");
+    expect(!parse_cache_type("Trace"),
+           "A type the Linux source never renders must be malformed");
+    expect(!parse_cache_type("data"), "Case must match the ABI exactly");
+    expect(!parse_cache_type(""), "An empty type rendering must fail");
+
+    const auto level = parse_positive_cache_attribute("1\n");
+    expect(level && *level == 1U, "A positive attribute must parse exactly");
+    const auto line = parse_positive_cache_attribute("64");
+    expect(line && *line == 64U, "Line sizes must parse exactly");
+    expect(!parse_positive_cache_attribute("0"),
+           "Zero cannot describe a level or line size");
+    expect(!parse_positive_cache_attribute("-1"),
+           "The unknown marker cannot describe a required quantity");
+    expect(!parse_positive_cache_attribute("x"),
+           "Nonnumeric attributes must be malformed");
+    expect(!parse_positive_cache_attribute("99999999999"),
+           "Attributes beyond uint32_t must report value_too_large");
+
+    const auto ways = parse_optional_cache_attribute("16\n");
+    expect(ways && *ways == 16U, "Optional geometry must parse exactly");
+    expect(parse_optional_cache_attribute("") &&
+               *parse_optional_cache_attribute("") == 0U,
+           "An absent optional attribute must record not reported");
+    expect(parse_optional_cache_attribute("-1\n") &&
+               *parse_optional_cache_attribute("-1\n") == 0U,
+           "The kernel unknown marker must record not reported");
+    expect(!parse_optional_cache_attribute("-2"),
+           "Other negative geometry renderings must be malformed");
+
+    syscape::detail::cpu_common::cache_entry first;
+    first.level = 1U;
+    first.kind = syscape::cpu::cache_kind::data;
+    first.instance_size_bytes = 32768U;
+    first.line_size_bytes = 64U;
+    first.associativity_ways = 8U;
+    first.sets_count = 64U;
+    first.shared_logical_processor_count = 2U;
+    auto second = first;
+    expect(same_cache_geometry(first, second),
+           "Repeated observations must accept identical geometry");
+    second.instance_size_bytes *= 2U;
+    expect(!same_cache_geometry(first, second),
+           "Repeated observations must reject contradictory geometry");
+    expect(processor_sets_overlap({0U, 2U}, {1U, 2U}),
+           "Sharing-set overlap must be detected");
+    expect(!processor_sets_overlap({0U, 2U}, {1U, 3U}),
+           "Disjoint sharing sets must remain distinct");
+}
+
+void test_cpuinfo_features_parser() {
+    using syscape::detail::cpu_backend::parse_cpuinfo_features;
+
+    const std::string x86_style =
+        "processor : 0\n"
+        "vendor_id : Vendor A\n"
+        "flags : fpu sse sse2\n"
+        "\n"
+        "processor : 1\n"
+        "flags\t\t: fpu avx2 sse2\n";
+    const auto merged = parse_cpuinfo_features(x86_style);
+    const std::vector<std::string> expected{"fpu", "sse", "sse2", "avx2"};
+    expect(merged && *merged == expected,
+           "Feature tokens must union across blocks in first-seen order");
+
+    const std::string arm_style =
+        "processor : 0\n"
+        "CPU implementer : 0x41\n"
+        "Features : asimd aes pmull\n";
+    const auto single = parse_cpuinfo_features(arm_style);
+    expect(single && single->size() == 3U && (*single)[0] == "asimd",
+           "The arm Features rendering must supply its tokens verbatim");
+
+    const auto without_fields = parse_cpuinfo_features(
+        std::string("processor : 0\nisa : rv64imafdch\n"));
+    expect(!without_fields &&
+               without_fields.error() == syscape::errc::not_found,
+           "Blocks without any recognized feature field must mean "
+           "not found");
+
+    const auto partial = parse_cpuinfo_features(
+        "processor : 0\nflags : fpu\n\nprocessor : 1\nvendor_id : V\n");
+    expect(!partial && partial.error() == syscape::errc::malformed_data,
+           "Partially covered processor blocks must be malformed");
+
+    const auto empty_value = parse_cpuinfo_features(
+        std::string("processor : 0\nflags :   \n"));
+    expect(!empty_value && empty_value.error() == syscape::errc::malformed_data,
+           "An empty recognized rendering must be malformed");
+
+    const auto orphan = parse_cpuinfo_features(std::string("flags : fpu\n"));
+    expect(!orphan && orphan.error() == syscape::errc::malformed_data,
+           "A feature field outside a processor block must be malformed");
+
+    const auto bad_index = parse_cpuinfo_features(
+        std::string("processor : x\nflags : fpu\n"));
+    expect(!bad_index && bad_index.error() == syscape::errc::malformed_data,
+           "A nonnumeric processor index must be malformed");
+
+    const auto empty_text = parse_cpuinfo_features("");
+    expect(!empty_text && empty_text.error() == syscape::errc::malformed_data,
+           "Empty cpuinfo text must be malformed");
+
+    const auto no_trailing_newline = parse_cpuinfo_features(
+        std::string("processor : 0\nflags : fpu"));
+    expect(no_trailing_newline && no_trailing_newline->size() == 1U,
+           "A final block without a newline must still flush");
+}
+
+void test_runtime_caches() {
+    const auto caches = syscape::cpu::cache_descriptors();
+    if (!caches) {
+        expect(caches.error() == syscape::errc::not_supported ||
+                   caches.error() == syscape::errc::malformed_data ||
+                   caches.error() == syscape::errc::temporarily_unavailable,
+               "Linux cache failures must stay within documented "
+               "conditions");
+        return;
+    }
+    expect(!caches->empty(),
+           "A successful cache query must list at least one instance");
+    bool ordered = true;
+    for (std::size_t position = 1U; position < caches->size(); ++position) {
+        const auto& previous = (*caches)[position - 1U];
+        const auto& current = (*caches)[position];
+        if (current.level < previous.level ||
+            (current.level == previous.level &&
+             current.kind < previous.kind)) {
+            ordered = false;
+        }
+    }
+    expect(ordered, "Cache entries must follow the documented order");
+    for (const auto& entry : *caches) {
+        expect(entry.level > 0U, "Cache levels start at one");
+        expect(entry.instance_size_bytes > 0U, "Instance sizes are positive");
+        expect(entry.line_size_bytes > 0U, "Line sizes are positive");
+    }
+
+    // Every online logical processor owns exactly one level-one data
+    // instance, so their sharing counts must cover the online population.
+    const auto logical = syscape::cpu::online_logical_processor_count();
+    std::uint64_t level_one_data_shares = 0U;
+    for (const auto& entry : *caches) {
+        if (entry.level == 1U &&
+            entry.kind == syscape::cpu::cache_kind::data) {
+            level_one_data_shares += entry.shared_logical_processor_count;
+        }
+    }
+    if (logical && level_one_data_shares > 0U) {
+        expect(level_one_data_shares == static_cast<std::uint64_t>(*logical),
+               "Level-one data sharing counts must cover every online "
+               "processor exactly once");
+    }
+}
+
+void test_runtime_features() {
+    const auto features = syscape::cpu::instruction_set_features();
+    expect(features || features.error() == syscape::errc::not_found ||
+               features.error() == syscape::errc::not_supported,
+           "Feature failures must stay within documented conditions");
+    if (!features) { return; }
+
+    std::vector<std::string> unique_check;
+    for (const std::string& identifier : *features) {
+        expect(!identifier.empty(), "Identifiers must be nonempty");
+        expect(syscape::detail::is_valid_utf8(identifier),
+               "Identifiers must be valid UTF-8");
+        expect(std::find(unique_check.begin(), unique_check.end(),
+                         identifier) == unique_check.end(),
+               "Feature identifiers must be unique");
+        unique_check.push_back(identifier);
+    }
+}
+
 void test_runtime_usage() {
     const auto first = syscape::cpu::cumulative_processor_usage();
     if (!first) {
@@ -333,9 +555,13 @@ int main() {
     test_topology_id_parser();
     test_frequency_parsers();
     test_cpuinfo_frequencies_parser();
+    test_cache_attribute_parsers();
+    test_cpuinfo_features_parser();
     test_proc_stat_usage_parser();
     test_runtime_queries();
     test_runtime_frequencies();
+    test_runtime_caches();
+    test_runtime_features();
     test_runtime_usage();
     return failures == 0 ? 0 : 1;
 }

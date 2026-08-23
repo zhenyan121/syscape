@@ -31,6 +31,12 @@ bool other_os_backend_callable() {
 bool other_cpu_backend_callable() {
     const syscape::result<std::uint32_t> value =
         syscape::cpu::online_logical_processor_count();
+    const syscape::result<std::vector<syscape::cpu::cache_information>>
+        caches = syscape::cpu::cache_descriptors();
+    const syscape::result<std::vector<std::string>> features =
+        syscape::cpu::instruction_set_features();
+    static_cast<void>(caches);
+    static_cast<void>(features);
     return (value && *value > 0U) ||
            value.error() == std::errc::operation_not_supported;
 }

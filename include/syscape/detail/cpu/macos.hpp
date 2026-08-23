@@ -1,6 +1,7 @@
 #ifndef SYSCAPE_DETAIL_CPU_MACOS_HPP
 #define SYSCAPE_DETAIL_CPU_MACOS_HPP
 
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <cstdint>
@@ -140,6 +141,164 @@ inline result<std::vector<std::uint32_t>> current_frequencies_khz() {
     // Darwin documents no public source for instantaneous per-processor or
     // system-wide current clocks.
     return fail(errc::not_supported);
+}
+
+/// Darwin exposes per-level cache geometry but no documented mapping from
+/// those values to distinct sharing sets. The portable contract requires one
+/// entry per cache instance, so returning one aggregate entry per level would
+/// undercount multicore systems and is not an honest implementation.
+inline result<std::vector<cpu_common::cache_entry>> cache_descriptors() {
+    return fail(errc::not_supported);
+}
+
+/// Reads one documented string sysctl value.
+///
+/// A missing key means this platform exposes no such recording and reports
+/// not_supported; trailing NUL padding is removed so the text can be split
+/// into tokens safely.
+inline result<std::string> string_sysctl(const char* name) {
+    std::size_t size = 0U;
+    if (::sysctlbyname(name, nullptr, &size, nullptr, 0U) != 0) {
+        return errno == ENOENT || errno == EOPNOTSUPP
+                   ? result<std::string>(fail(errc::not_supported))
+                   : result<std::string>(fail(std::error_code(
+                         errno, std::generic_category())));
+    }
+    if (size == 0U) { return fail(errc::malformed_data); }
+    std::string value(size, '\0');
+    if (::sysctlbyname(name, &value[0], &size, nullptr, 0U) != 0) {
+        return fail(std::error_code(errno, std::generic_category()));
+    }
+    value.resize(size);
+    while (!value.empty() && value.back() == '\0') { value.pop_back(); }
+    return value;
+}
+
+/// Reads one documented boolean hw.optional probe.
+///
+/// A missing key means this platform records no such concept and reports
+/// not_supported; a response of another width is malformed platform data.
+inline result<int> optional_flag_sysctl(const char* name) {
+    int value = 0;
+    std::size_t size = sizeof(value);
+    if (::sysctlbyname(name, &value, &size, nullptr, 0U) != 0) {
+        return errno == ENOENT || errno == EOPNOTSUPP
+                   ? result<int>(fail(errc::not_supported))
+                   : result<int>(fail(std::error_code(
+                         errno, std::generic_category())));
+    }
+    if (size != sizeof(value)) { return fail(errc::malformed_data); }
+    return value;
+}
+
+/// Interprets the documented extensible hw.optional value convention.
+///
+/// Apple requires callers to test for nonzero because future selectors may
+/// return values greater than one.
+inline bool optional_flag_is_present(int value) noexcept {
+    return value != 0;
+}
+
+/// Appends every whitespace-separated token of one rendering, preserving
+/// first-seen order and skipping repeats.
+inline void append_whitespace_tokens(std::vector<std::string>& tokens,
+                                     const std::string& value) {
+    std::size_t offset = 0U;
+    while (offset < value.size()) {
+        const unsigned char current =
+            static_cast<unsigned char>(value[offset]);
+        if (current == ' ' || current == '\t' || current == '\r' ||
+            current == '\n') {
+            ++offset;
+            continue;
+        }
+        const std::size_t start = offset;
+        while (offset < value.size()) {
+            const unsigned char following =
+                static_cast<unsigned char>(value[offset]);
+            if (following == ' ' || following == '\t' ||
+                following == '\r' || following == '\n') {
+                break;
+            }
+            ++offset;
+        }
+        const std::string token = value.substr(start, offset - start);
+        if (std::find(tokens.begin(), tokens.end(), token) ==
+            tokens.end()) {
+            tokens.push_back(token);
+        }
+        ++offset;
+    }
+}
+
+/// One documented boolean capability probe with its rendered identifier.
+struct optional_flag_probe {
+    /// The documented sysctl key without its hw.optional. prefix.
+    const char* suffix;
+};
+
+/// The documented hw.optional keys this slice probes.
+///
+/// The table spans both Intel-era and Apple silicon renderings because the
+/// same interface serves both processor families; absent keys are skipped,
+/// so a platform simply reports the vocabulary it records.
+inline constexpr optional_flag_probe optional_flag_probes[] = {
+    {"neon"},         {"neon_fp16"},
+    {"neon_hpfp"},    {"neon_spfp"},
+    {"armv8_crc32"},  {"armv8_pmull_v8"},
+    {"armv8_sha1"},   {"armv8_sha2"},
+    {"armv8_1_atomics"},
+    {"armv8_2_fhm"},
+    {"armv8_2_sha512"},
+    {"armv8_2_sha3"},
+    {"mmx"},          {"sse"},
+    {"sse2"},         {"sse3"},
+    {"supplementalsse3"},
+    {"sse4_1"},       {"sse4_2"},
+    {"avx1_0"},       {"avx2_0"},
+    {"f16c"},         {"fma3"},
+    {"aes"},          {"sha256"},
+    {"sha512"},       {"bmi1"},
+    {"bmi2"},         {"adx"},
+    {"rdrand"},       {"rdseed"},
+};
+
+inline result<std::vector<std::string>> instruction_set_features() {
+    std::vector<std::string> features;
+    bool saw_any_source = false;
+
+    static constexpr const char* machdep_keys[] = {
+        "machdep.cpu.features", "machdep.cpu.leaf7_features"};
+    for (const char* name : machdep_keys) {
+        const result<std::string> text = string_sysctl(name);
+        if (text) {
+            saw_any_source = true;
+            append_whitespace_tokens(features, *text);
+        } else if (text.error() != errc::not_supported) {
+            return fail(text.error());
+        }
+    }
+
+    for (const optional_flag_probe& probe : optional_flag_probes) {
+        const std::string key =
+            std::string("hw.optional.") + probe.suffix;
+        const result<int> flag = optional_flag_sysctl(key.c_str());
+        if (flag) {
+            saw_any_source = true;
+            if (optional_flag_is_present(*flag) &&
+                std::find(features.begin(), features.end(),
+                          probe.suffix) == features.end()) {
+                features.emplace_back(probe.suffix);
+            }
+        } else if (flag.error() != errc::not_supported) {
+            return fail(flag.error());
+        }
+    }
+
+    if (!saw_any_source) {
+        return result<std::vector<std::string>>(fail(errc::not_supported));
+    }
+    return features;
 }
 
 /// Sums per-processor scheduler tick records into the portable usage

@@ -6,6 +6,7 @@
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <set>
 #include <string>
@@ -490,6 +491,465 @@ inline result<std::uint32_t> maximum_frequency_khz() {
         collect_cpufreq_bounds("cpuinfo_max_freq");
     if (!values) { return fail(values.error()); }
     return *std::max_element(values->begin(), values->end());
+}
+
+/// Parses one signed decimal sysfs cache attribute.
+///
+/// The kernel renders plain integers. The recorded unknown marker -1 maps
+/// to zero so that callers see the documented not-reported representation;
+/// every other negative rendering contradicts the attribute contract and is
+/// malformed platform data. Zero remains representable because optional
+/// geometry attributes legitimately render zero where a platform records no
+/// value.
+inline result<std::int64_t> parse_signed_cache_attribute(
+    std::string_view input) {
+    input = trim_cpu_field(input);
+    if (input.empty()) { return fail(errc::malformed_data); }
+    std::int64_t value = 0;
+    const std::from_chars_result parsed =
+        std::from_chars(input.data(), input.data() + input.size(), value);
+    if (parsed.ec == std::errc::result_out_of_range) {
+        return fail(errc::value_too_large);
+    }
+    if (parsed.ec != std::errc() ||
+        parsed.ptr != input.data() + input.size()) {
+        return fail(errc::malformed_data);
+    }
+    if (value == -1) { return 0; }
+    if (value < 0) { return fail(errc::malformed_data); }
+    return value;
+}
+
+/// Parses one unsigned decimal sysfs cache attribute whose zero rendering
+/// cannot describe real hardware.
+inline result<std::uint32_t> parse_positive_cache_attribute(
+    std::string_view input) {
+    const result<std::int64_t> value = parse_signed_cache_attribute(input);
+    if (!value) { return fail(value.error()); }
+    if (*value == 0) { return fail(errc::malformed_data); }
+    if (static_cast<std::uint64_t>(*value) >
+        static_cast<std::uint64_t>((std::numeric_limits<std::uint32_t>::max)())) {
+        return fail(errc::value_too_large);
+    }
+    return static_cast<std::uint32_t>(*value);
+}
+
+/// Converts an optional cache geometry attribute into the documented
+/// not-reported representation.
+///
+/// Empty text records an attribute that this platform does not expose and
+/// yields the documented zero, which no real geometry can equal.
+inline result<std::uint32_t> parse_optional_cache_attribute(
+    std::string_view input) {
+    if (trim_cpu_field(input).empty()) { return 0U; }
+    const result<std::int64_t> value = parse_signed_cache_attribute(input);
+    if (!value) { return fail(value.error()); }
+    if (static_cast<std::uint64_t>(*value) >
+        static_cast<std::uint64_t>((std::numeric_limits<std::uint32_t>::max)())) {
+        return fail(errc::value_too_large);
+    }
+    return static_cast<std::uint32_t>(*value);
+}
+
+/// Parses the documented cache size rendering such as "32K" into bytes.
+///
+/// The kernel renders whole kibibytes; mebibyte and gibibyte suffixes are
+/// accepted defensively for forward compatibility. Any other shape,
+/// including fractional sizes, is malformed platform data.
+inline result<std::uint64_t> parse_cache_size_bytes(std::string_view input) {
+    input = trim_cpu_field(input);
+    if (input.size() < 2U) { return fail(errc::malformed_data); }
+    std::uint64_t multiplier = 0U;
+    switch (input.back()) {
+    case 'K': multiplier = 1024ULL; break;
+    case 'M': multiplier = 1024ULL * 1024ULL; break;
+    case 'G': multiplier = 1024ULL * 1024ULL * 1024ULL; break;
+    default: return fail(errc::malformed_data);
+    }
+    const std::string_view digits =
+        input.substr(0U, input.size() - 1U);
+    std::uint64_t value = 0U;
+    const std::from_chars_result parsed =
+        std::from_chars(digits.data(), digits.data() + digits.size(), value);
+    if (parsed.ec == std::errc::result_out_of_range) {
+        return fail(errc::value_too_large);
+    }
+    if (parsed.ec != std::errc() ||
+        parsed.ptr != digits.data() + digits.size()) {
+        return fail(errc::malformed_data);
+    }
+    constexpr std::uint64_t maximum_size =
+        (std::numeric_limits<std::uint64_t>::max)();
+    if (value != 0U && multiplier > maximum_size / value) {
+        return fail(errc::value_too_large);
+    }
+    const std::uint64_t bytes = value * multiplier;
+    if (bytes == 0U) { return fail(errc::malformed_data); }
+    return bytes;
+}
+
+/// Maps the documented sysfs cache type rendering onto the portable kind.
+inline result<cpu_common::cache_kind> parse_cache_type(
+    std::string_view input) {
+    input = trim_cpu_field(input);
+    if (input == "Data") { return cpu_common::cache_kind::data; }
+    if (input == "Instruction") {
+        return cpu_common::cache_kind::instruction;
+    }
+    if (input == "Unified") { return cpu_common::cache_kind::unified; }
+    return fail(errc::malformed_data);
+}
+
+/// One observed cache instance together with its sharing-processor key.
+struct observed_cache_instance {
+    cpu_common::cache_entry entry;
+    std::vector<std::uint32_t> shared_processors;
+};
+
+/// Orders observed instances by level, kind, and sharing set so that the
+/// documented output order is deterministic.
+inline bool precedes(const observed_cache_instance& left,
+                     const observed_cache_instance& right) noexcept {
+    if (left.entry.level != right.entry.level) {
+        return left.entry.level < right.entry.level;
+    }
+    if (left.entry.kind != right.entry.kind) {
+        return left.entry.kind < right.entry.kind;
+    }
+    return left.shared_processors < right.shared_processors;
+}
+
+/// Returns true when two observations describe the same physical instance.
+///
+/// A logical processor belongs to exactly one cache instance of a given
+/// level and kind, so the sharing set identifies an instance uniquely.
+inline bool same_instance(const observed_cache_instance& left,
+                          const observed_cache_instance& right) noexcept {
+    return left.entry.level == right.entry.level &&
+           left.entry.kind == right.entry.kind &&
+           left.shared_processors == right.shared_processors;
+}
+
+/// Returns true when two observations agree on every recorded attribute.
+inline bool same_cache_geometry(const cpu_common::cache_entry& left,
+                                const cpu_common::cache_entry& right) noexcept {
+    return left.level == right.level && left.kind == right.kind &&
+           left.instance_size_bytes == right.instance_size_bytes &&
+           left.line_size_bytes == right.line_size_bytes &&
+           left.associativity_ways == right.associativity_ways &&
+           left.sets_count == right.sets_count &&
+           left.shared_logical_processor_count ==
+               right.shared_logical_processor_count;
+}
+
+/// Returns true when two sorted processor sets overlap.
+inline bool processor_sets_overlap(
+    const std::vector<std::uint32_t>& left,
+    const std::vector<std::uint32_t>& right) noexcept {
+    std::size_t left_position = 0U;
+    std::size_t right_position = 0U;
+    while (left_position < left.size() && right_position < right.size()) {
+        if (left[left_position] == right[right_position]) { return true; }
+        if (left[left_position] < right[right_position]) {
+            ++left_position;
+        } else {
+            ++right_position;
+        }
+    }
+    return false;
+}
+
+/// Reads one required cache attribute.
+///
+/// A vanished attribute means the sysfs snapshot changed during
+/// enumeration and is reported as temporarily unavailable; every other
+/// failure preserves its native error code.
+inline result<std::string> read_required_cache_attribute(
+    const std::string& path) {
+    const result<std::string> content =
+        linux_platform::read_text_file(path.c_str(), 4096U);
+    if (!content &&
+        content.error() == std::errc::no_such_file_or_directory) {
+        return fail(errc::temporarily_unavailable);
+    }
+    return content;
+}
+
+/// Reads one optional cache attribute.
+///
+/// A missing recording is valid platform shape and yields empty text that
+/// callers translate into the documented not-reported representation.
+inline result<std::string> read_optional_cache_attribute(
+    const std::string& path) {
+    const result<std::string> content =
+        linux_platform::read_text_file(path.c_str(), 4096U);
+    if (!content &&
+        content.error() == std::errc::no_such_file_or_directory) {
+        return std::string();
+    }
+    return content;
+}
+
+/// Enumerates every distinct cache instance of one online logical
+/// processor.
+///
+/// The kernel documents contiguous index directories beginning at index0,
+/// so a missing type attribute terminates this processor's walk: a missing
+/// first cache means the processor exposes no caches at all, and a later
+/// gap means the recorded population ended. A processor without any cache
+/// directory contributes nothing to the system-wide observation.
+inline result<void> observe_processor_caches(
+    std::uint32_t cpu, const std::vector<std::uint32_t>& online_processors,
+    std::vector<observed_cache_instance>& instances) {
+    constexpr unsigned int maximum_cache_index = 1024U;
+    const std::string base =
+        "/sys/devices/system/cpu/cpu" + std::to_string(cpu) + "/cache/";
+    for (unsigned int index = 0U;; ++index) {
+        if (index == maximum_cache_index) {
+            return fail(errc::value_too_large);
+        }
+        const std::string directory = base + "index" + std::to_string(index);
+
+        const result<std::string> type_text =
+            read_optional_cache_attribute(directory + "/type");
+        if (!type_text) { return fail(type_text.error()); }
+        if (type_text->empty()) { return result<void>(); }
+        const result<cpu_common::cache_kind> type =
+            parse_cache_type(*type_text);
+        if (!type) { return fail(type.error()); }
+
+        const result<std::string> level_text =
+            read_required_cache_attribute(directory + "/level");
+        if (!level_text) { return fail(level_text.error()); }
+        const result<std::uint32_t> level =
+            parse_positive_cache_attribute(*level_text);
+        if (!level) { return fail(level.error()); }
+
+        const result<std::string> size_text =
+            read_required_cache_attribute(directory + "/size");
+        if (!size_text) { return fail(size_text.error()); }
+        const result<std::uint64_t> size =
+            parse_cache_size_bytes(*size_text);
+        if (!size) { return fail(size.error()); }
+
+        const result<std::string> line_text = read_required_cache_attribute(
+            directory + "/coherency_line_size");
+        if (!line_text) { return fail(line_text.error()); }
+        const result<std::uint32_t> line =
+            parse_positive_cache_attribute(*line_text);
+        if (!line) { return fail(line.error()); }
+
+        const result<std::string> shared_text =
+            read_required_cache_attribute(directory + "/shared_cpu_list");
+        if (!shared_text) { return fail(shared_text.error()); }
+        const result<std::vector<std::uint32_t>> shared =
+            parse_cpu_list(*shared_text);
+        if (!shared) { return fail(shared.error()); }
+        if (shared->empty()) { return fail(errc::malformed_data); }
+        if (!std::binary_search(shared->begin(), shared->end(), cpu)) {
+            return fail(errc::temporarily_unavailable);
+        }
+
+        std::vector<std::uint32_t> online_shared;
+        std::set_intersection(
+            shared->begin(), shared->end(), online_processors.begin(),
+            online_processors.end(), std::back_inserter(online_shared));
+        if (online_shared.empty()) {
+            return fail(errc::temporarily_unavailable);
+        }
+
+        const result<std::string> ways_text = read_optional_cache_attribute(
+            directory + "/ways_of_associativity");
+        if (!ways_text) { return fail(ways_text.error()); }
+        const result<std::string> sets_text = read_optional_cache_attribute(
+            directory + "/number_of_sets");
+        if (!sets_text) { return fail(sets_text.error()); }
+        const result<std::uint32_t> ways =
+            parse_optional_cache_attribute(*ways_text);
+        if (!ways) { return fail(ways.error()); }
+        const result<std::uint32_t> sets =
+            parse_optional_cache_attribute(*sets_text);
+        if (!sets) { return fail(sets.error()); }
+
+        observed_cache_instance observed;
+        observed.entry.level = *level;
+        observed.entry.kind = *type;
+        observed.entry.instance_size_bytes = *size;
+        observed.entry.line_size_bytes = *line;
+        observed.entry.associativity_ways = *ways;
+        observed.entry.sets_count = *sets;
+        observed.entry.shared_logical_processor_count =
+            static_cast<std::uint32_t>(online_shared.size());
+        observed.shared_processors = std::move(online_shared);
+        instances.push_back(std::move(observed));
+    }
+}
+
+/// Enumerates one entry per distinct cache instance of the online
+/// population, ordered by level, kind, and sharing set.
+///
+/// The documented testing sysfs ABI lives under
+/// /sys/devices/system/cpu/cpuN/cache/indexI/. When no online processor
+/// exposes any cache directory, which happens on several virtual machine
+/// and embedded configurations, the platform exposes no acceptable source
+/// and the query reports not_supported.
+inline result<std::vector<cpu_common::cache_entry>> cache_descriptors() {
+    const result<std::string> online_text = linux_platform::read_text_file(
+        "/sys/devices/system/cpu/online", 1024U * 1024U);
+    if (!online_text) { return fail(online_text.error()); }
+    const result<std::vector<std::uint32_t>> online =
+        parse_cpu_list(*online_text);
+    if (!online) { return fail(online.error()); }
+    if (online->empty()) { return fail(errc::malformed_data); }
+
+    std::vector<observed_cache_instance> instances;
+    for (const std::uint32_t cpu : *online) {
+        const result<void> walked =
+            observe_processor_caches(cpu, *online, instances);
+        if (!walked) { return fail(walked.error()); }
+    }
+
+    const result<std::string> online_after_text =
+        linux_platform::read_text_file("/sys/devices/system/cpu/online",
+                                       1024U * 1024U);
+    if (!online_after_text) { return fail(online_after_text.error()); }
+    const result<std::vector<std::uint32_t>> online_after =
+        parse_cpu_list(*online_after_text);
+    if (!online_after) { return fail(online_after.error()); }
+    if (*online_after != *online) {
+        return fail(errc::temporarily_unavailable);
+    }
+    if (instances.empty()) {
+        return result<std::vector<cpu_common::cache_entry>>(
+            fail(errc::not_supported));
+    }
+    std::sort(instances.begin(), instances.end(), precedes);
+    std::vector<observed_cache_instance> unique_instances;
+    unique_instances.reserve(instances.size());
+    for (const observed_cache_instance& instance : instances) {
+        if (!unique_instances.empty() &&
+            same_instance(unique_instances.back(), instance)) {
+            if (!same_cache_geometry(unique_instances.back().entry,
+                                     instance.entry)) {
+                return fail(errc::temporarily_unavailable);
+            }
+            continue;
+        }
+        for (auto previous = unique_instances.rbegin();
+             previous != unique_instances.rend() &&
+             previous->entry.level == instance.entry.level &&
+             previous->entry.kind == instance.entry.kind;
+             ++previous) {
+            if (processor_sets_overlap(previous->shared_processors,
+                                       instance.shared_processors)) {
+                return fail(errc::temporarily_unavailable);
+            }
+        }
+        unique_instances.push_back(instance);
+    }
+
+    std::vector<cpu_common::cache_entry> entries;
+    entries.reserve(unique_instances.size());
+    for (const observed_cache_instance& instance : unique_instances) {
+        entries.push_back(instance.entry);
+    }
+    return entries;
+}
+
+/// Returns true when the key names a documented per-architecture
+/// instruction-set feature rendering of /proc/cpuinfo.
+inline bool is_feature_key(std::string_view key) noexcept {
+    return key == "flags" || key == "Features" || key == "features";
+}
+
+/// Splits one whitespace-separated feature rendering into unique tokens,
+/// preserving first-seen order.
+inline void append_feature_tokens(std::vector<std::string>& tokens,
+                                  std::string_view value) {
+    std::size_t offset = 0U;
+    while (offset < value.size()) {
+        while (offset < value.size() && cpu_space(value[offset])) {
+            ++offset;
+        }
+        if (offset >= value.size()) { break; }
+        const std::size_t start = offset;
+        while (offset < value.size() && !cpu_space(value[offset])) {
+            ++offset;
+        }
+        append_unique_label(tokens,
+                            value.substr(start, offset - start));
+    }
+}
+
+/// Extracts the union of instruction-set feature identifiers from
+/// /proc/cpuinfo text.
+///
+/// Every processor block must carry a recognized feature rendering once any
+/// block does; partially covered populations contradict the documented
+/// per-block format and are malformed platform data. When no block carries
+/// a recognized rendering, the architecture exposes no acceptable feature
+/// source here and the query reports not_found rather than inventing
+/// tokens.
+inline result<std::vector<std::string>> parse_cpuinfo_features(
+    std::string_view input) {
+    std::vector<std::string> tokens;
+    std::size_t blocks = 0U;
+    std::size_t blocks_with_features = 0U;
+    bool pending_block = false;
+    bool block_has_features = false;
+    std::size_t offset = 0U;
+    while (offset < input.size()) {
+        const std::size_t end = input.find('\n', offset);
+        const std::string_view line = input.substr(
+            offset, end == std::string_view::npos ? input.size() - offset
+                                                   : end - offset);
+        offset = end == std::string_view::npos ? input.size() : end + 1U;
+
+        const std::size_t separator = line.find(':');
+        if (separator == std::string_view::npos) { continue; }
+        const std::string_view key = trim_cpu_field(line.substr(0U, separator));
+        const std::string_view value =
+            trim_cpu_field(line.substr(separator + 1U));
+
+        if (key == "processor") {
+            std::uint32_t ignored_index = 0U;
+            const std::from_chars_result parsed = std::from_chars(
+                value.data(), value.data() + value.size(), ignored_index);
+            if (value.empty() || parsed.ec != std::errc() ||
+                parsed.ptr != value.data() + value.size()) {
+                return fail(errc::malformed_data);
+            }
+            if (pending_block) {
+                if (block_has_features) { ++blocks_with_features; }
+            }
+            ++blocks;
+            pending_block = true;
+            block_has_features = false;
+            continue;
+        }
+        if (!is_feature_key(key)) { continue; }
+        if (!pending_block) { return fail(errc::malformed_data); }
+        if (value.empty()) { return fail(errc::malformed_data); }
+        append_feature_tokens(tokens, value);
+        block_has_features = true;
+    }
+    if (pending_block && block_has_features) { ++blocks_with_features; }
+    if (blocks == 0U) { return fail(errc::malformed_data); }
+    if (blocks_with_features == 0U) {
+        return result<std::vector<std::string>>(fail(errc::not_found));
+    }
+    if (blocks_with_features != blocks) {
+        return fail(errc::malformed_data);
+    }
+    return tokens;
+}
+
+inline result<std::vector<std::string>> instruction_set_features() {
+    constexpr std::size_t maximum_cpuinfo_size = 16U * 1024U * 1024U;
+    const result<std::string> content = linux_platform::read_text_file(
+        "/proc/cpuinfo", maximum_cpuinfo_size);
+    if (!content) { return fail(content.error()); }
+    return parse_cpuinfo_features(*content);
 }
 
 /// Parses one unsigned /proc/stat counter field exactly.

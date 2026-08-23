@@ -1,7 +1,9 @@
 #include <cstring>
 #include <cstdint>
 #include <limits>
+#include <string>
 #include <system_error>
+#include <vector>
 
 #include <syscape/cpu.hpp>
 #include <syscape/detail/cpu/common.hpp>
@@ -89,6 +91,34 @@ int main() {
         second_usage->system_ticks < first_usage->system_ticks ||
         second_usage->idle_ticks < first_usage->idle_ticks) {
         return 7;
+    }
+
+    std::vector<std::string> tokens;
+    backend::append_whitespace_tokens(tokens, std::string(" fpu sse2"));
+    backend::append_whitespace_tokens(tokens, std::string("\tsse2\t avx2\n"));
+    backend::append_whitespace_tokens(tokens, std::string("  "));
+    const std::vector<std::string> expected{"fpu", "sse2", "avx2"};
+    if (tokens != expected) { return 10; }
+    if (backend::optional_flag_is_present(0) ||
+        !backend::optional_flag_is_present(1) ||
+        !backend::optional_flag_is_present(2)) {
+        return 18;
+    }
+
+    const auto caches = syscape::cpu::cache_descriptors();
+    if (caches || caches.error() != std::errc::operation_not_supported) {
+        return 11;
+    }
+
+    const auto features = syscape::cpu::instruction_set_features();
+    if (!features) { return 15; }
+    for (const std::string& identifier : *features) {
+        if (identifier.empty()) { return 16; }
+        std::size_t seen = 0U;
+        for (const std::string& other : *features) {
+            if (other == identifier) { ++seen; }
+        }
+        if (seen != 1U) { return 17; }
     }
     return 0;
 }

@@ -44,6 +44,14 @@ inline result<std::vector<std::uint32_t>> current_frequencies_khz() {
     return fail(errc::not_supported);
 }
 
+inline result<std::vector<cpu_common::cache_entry>> cache_descriptors() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<std::string>> instruction_set_features() {
+    return fail(errc::not_supported);
+}
+
 inline result<cpu_common::usage_information> cumulative_processor_usage() {
     return fail(errc::not_supported);
 }
