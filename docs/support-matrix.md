@@ -157,7 +157,7 @@ will be no all-modules umbrella header.
 | 1 | `cpu.hpp` | Architecture, vendor, model, packages, physical and logical cores, topology, caches, instruction-set features, frequency, affinity, and utilization | In progress; vendor identifiers, model labels, and online logical, physical-core, and package counts implemented where documented sources exist |
 | 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | In progress; page size, physical memory, the available-memory estimate, and swap or pagefile usage implemented where documented sources exist |
 | 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | Implemented; Linux verified, Windows and macOS unverified |
-| 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | In progress; real/effective user and group identifiers, login name, home directory, and recorded shell implemented where documented platform sources exist. Supplementary groups, elevation, and login session remain not started |
+| 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | Implemented; Linux verified, Windows and macOS unverified. Login-session metadata beyond the recorded session name, and fine-grained capability or per-privilege grants beyond the privilege classification, remain not started |
 | 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | In progress; mounted-filesystem enumeration plus per-path capacity, free, available, block-size, and read-only queries implemented where documented platform sources exist. Path limits and volume metadata beyond mount-table entries remain not started |
 | 1 | `network.hpp` | Network interfaces, addresses, prefix lengths, MAC addresses, MTU, state, routes, default gateways, DNS configuration, and host/domain names | In progress; interface enumeration with names, indices, operational state, loopback classification, link-layer addresses, and unicast IPv4/IPv6 addresses with prefix lengths implemented where documented platform sources exist. MTU, routes, default gateways, DNS configuration, host and domain names, and IPv6 zone identifiers remain not started |
 | 1 | `locale.hpp` | Locale, preferred languages, country or region, text encoding, time zone, and UTC offset | In progress; the current locale identifier, the non-Unicode text-encoding label, and the current UTC offset implemented where documented platform sources exist. Preferred languages, country or region, and time-zone identifiers or display names remain not started |
@@ -366,26 +366,40 @@ the official SDK and the tests execute on the real operating systems.
 
 ### User identity evidence
 
-This first user slice exposes the real and effective user and group
-identifiers plus the login name, home directory, and recorded shell of the
-effective user. Supplementary groups, elevation state, and login sessions
-remain not started. Numeric identifiers are operating-system-scoped values;
-zero is valid where the platform defines it and never acts as an error
-sentinel. Textual queries perform a fresh lookup on every call, so concurrent
-user-database changes become visible between calls.
+The user module exposes two slices. The first slice exposes the real and
+effective user and group identifiers plus the login name, home directory, and
+recorded shell of the effective user. The second slice exposes the recorded
+supplementary group set, a privilege classification of the effective
+identity, and the login name of the controlling-terminal session. Numeric
+identifiers are operating-system-scoped values; zero is valid where the
+platform defines it and never acts as an error sentinel, and an empty
+supplementary-group set is valid data meaning that the platform records no
+membership beyond the effective group. Textual queries perform a fresh lookup
+on every call, so concurrent user-database changes become visible between
+calls.
+
+The privilege classification reports whether the permission-checking identity
+holds the platform's privileged account or an equivalent elevated token:
+POSIX systems classify effective user identifier zero as privileged, and
+Windows classifies the documented elevation state of the process token.
+Finer-grained grants such as individual POSIX capabilities or Windows
+per-privilege assignments are outside the classification and report
+unprivileged rather than a fabricated elevated state. Session metadata beyond
+the recorded session name, such as terminal devices, timestamps, and remote
+hosts, remains not started.
 
 | Backend | Data sources and limitations | Evidence | State |
 | --- | --- | --- | --- |
 | Generic Hosted Full fallback | Portable `not_supported` results for every user query | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
-| Linux | POSIX `getuid`, `geteuid`, `getgid`, and `getegid`; POSIX [`getpwuid_r`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/getpwuid_r.html) for the effective user supplies name, absolute home directory, and recorded shell; each textual query validates only its own field, so an unusable field cannot fail unrelated queries; an empty recorded shell is valid data; entries without a usable name or with a relative home directory are malformed platform data | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors` and high-signal warnings; buffer-growth (`ERANGE`) retry, absent-entry, native-failure, malformed-entry, field-independence, UTF-8 boundary, live-query identifier cross-checks, forced fallback, C++11 rejection, standalone repeated inclusion, AddressSanitizer, UndefinedBehaviorSanitizer, and two-translation-unit ODR tests passed | Verified for this slice on the listed host |
-| Windows | `GetUserNameW` for the login name and `SHGetKnownFolderPath(FOLDERID_Profile)` for the profile directory, converted from UTF-16 at the boundary; Win32-facility HRESULT failures are narrowed to their Win32 code under the system category and other HRESULTs preserve their full value under an internal category, keeping permission failures comparable; all four numeric identifiers return `not_supported` because security identifiers are structured platform values rather than portable numbers | Backend written from public Microsoft APIs; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
-| macOS | The shared POSIX backend: `getuid`, `geteuid`, `getgid`, `getegid`, and `getpwuid_r` | Backend written from public POSIX interfaces; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
+| Linux | POSIX `getuid`, `geteuid`, `getgid`, and `getegid`; POSIX [`getpwuid_r`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/getpwuid_r.html) for the effective user supplies name, absolute home directory, and recorded shell; POSIX [`getgroups`](https://www.man7.org/linux/man-pages/man3/getgroups.3.html) supplies the supplementary set with insufficient-buffer retries capped before unbounded growth and reported ascending and unique because platforms document neither ordering nor uniqueness; privilege derives from `geteuid` alone; POSIX [`getlogin_r`](https://www.man7.org/linux/man-pages/man3/getlogin_r.3.html) supplies the controlling-terminal session name, whose absence conditions (`ENXIO`, `ENOTTY`, `ENOENT`) report `not_found` while other failures preserve their native codes; each textual query validates only its own field, so an unusable field cannot fail unrelated queries; an empty recorded shell is valid data while an empty session recording is malformed platform data; entries without a usable name or with a relative home directory are malformed platform data | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors` and high-signal warnings; buffer-growth (`ERANGE`) retry, permanently-insufficient-buffer, absent-entry, native-failure, malformed-entry, field-independence, group-normalization (unsorted, duplicated, empty), login-failure mapping, UTF-8 boundary, live-query identifier, group, and session cross-checks that tolerate hosts without a controlling terminal, forced fallback, C++11 rejection, standalone repeated inclusion, AddressSanitizer, UndefinedBehaviorSanitizer, and two-translation-unit ODR tests passed | Verified for this slice on the listed host |
+| Windows | `GetUserNameW` for the login name and `SHGetKnownFolderPath(FOLDERID_Profile)` for the profile directory, converted from UTF-16 at the boundary; [`OpenProcessToken`](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-openprocesstoken) with [`GetTokenInformation(TokenElevation)`](https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-gettokeninformation) classifies privilege, requires linking the Advapi32 import library, preserves native system errors including access-denied conditions, and reports a size mismatch as malformed data; Win32-facility HRESULT failures are narrowed to their Win32 code under the system category and other HRESULTs preserve their full value under an internal category, keeping permission failures comparable; all four numeric identifiers and the supplementary groups return `not_supported` because security identifiers are structured platform values rather than portable numbers; the login-session name returns `not_supported` because Windows exposes no acceptable source recorded separately from the process account | Backend written from public Microsoft APIs with synthetic invalid-token-handle failure-path tests; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | The shared POSIX backend: `getuid`, `geteuid`, `getgid`, `getegid`, `getpwuid_r`, `getgroups`, and `getlogin_r` | Backend written from public POSIX interfaces; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
 
-User names and home directories can identify persons or accounts. The queries
-are explicit, preserve permission errors, and perform no logging, persistence,
-telemetry, or network access. Windows and macOS statuses must not advance
-until their headers compile with the official SDK and the tests execute on the
-real operating systems.
+User names, home directories, and login-session names can identify persons
+or accounts. The queries are explicit, preserve permission errors, and
+perform no logging, persistence, telemetry, or network access. Windows and
+macOS statuses must not advance until their headers compile with the official
+SDK and the tests execute on the real operating systems.
 
 ### Filesystem evidence
 

@@ -3,7 +3,9 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
+#include <syscape/detail/user/common.hpp>
 #include <syscape/result.hpp>
 
 namespace syscape {
@@ -35,6 +37,18 @@ inline result<std::string> home_directory() {
 }
 
 inline result<std::string> shell() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<std::uint32_t>> supplementary_groups() {
+    return fail(errc::not_supported);
+}
+
+inline result<user_common::privilege_state> privilege() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::string> login_name() {
     return fail(errc::not_supported);
 }
 

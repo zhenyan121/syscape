@@ -1,6 +1,8 @@
+#include <algorithm>
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <string>
@@ -50,6 +52,40 @@ struct fake_lookup {
         target.pw_dir = const_cast<char*>(directory_value);
         target.pw_shell = const_cast<char*>(shell_value);
         *result = &target;
+        return 0;
+    }
+};
+
+struct fake_groups {
+    std::vector<::gid_t> membership;
+    int failure_code = 0;
+
+    int operator()(int size, ::gid_t* list) {
+        if (failure_code != 0) {
+            errno = failure_code;
+            return -1;
+        }
+        if (membership.size() > static_cast<std::size_t>(size)) {
+            errno = ERANGE;
+            return -1;
+        }
+        std::copy(membership.begin(), membership.end(), list);
+        return static_cast<int>(membership.size());
+    }
+};
+
+struct fake_login {
+    const char* name_value = nullptr;
+    std::size_t erange_until_size = 0U;
+    int failure_code = 0;
+
+    int operator()(char* buffer, std::size_t size) {
+        if (failure_code != 0) { return failure_code; }
+        if (size < erange_until_size) { return ERANGE; }
+        if (name_value != nullptr) {
+            std::strncpy(buffer, name_value, size);
+            buffer[size - 1U] = '\0';
+        }
         return 0;
     }
 };
@@ -198,6 +234,113 @@ void test_text_boundaries() {
            "Non-UTF-8 shells must fail at the public boundary");
 }
 
+void test_supplementary_groups_collection() {
+    fake_groups empty;
+    const auto none =
+        syscape::detail::user_backend::collect_supplementary_groups(empty);
+    expect(none && none->empty(),
+           "An empty supplementary-group recording is valid data");
+
+    fake_groups unordered;
+    unordered.membership = {30U, 10U, 20U, 10U, 30U};
+    const auto normalized =
+        syscape::detail::user_backend::collect_supplementary_groups(unordered);
+    expect(normalized && *normalized ==
+                              (std::vector<std::uint32_t>{10U, 20U, 30U}),
+           "Supplementary groups must be reported ascending and unique");
+
+    fake_groups growing;
+    growing.membership.assign(100U, 7U);
+    const auto grown =
+        syscape::detail::user_backend::collect_supplementary_groups(growing);
+    expect(grown && grown->size() == 1U && (*grown)[0] == 7U,
+           "Group collection must retry into larger buffers on ERANGE");
+
+    fake_groups failing;
+    failing.failure_code = EIO;
+    const auto failed =
+        syscape::detail::user_backend::collect_supplementary_groups(failing);
+    expect(!failed &&
+               failed.error() ==
+                   std::error_code(EIO, std::generic_category()),
+           "Native group-collection failures must preserve their error code");
+
+    fake_groups undersized;
+    undersized.failure_code = ERANGE;
+    const auto exhausted =
+        syscape::detail::user_backend::collect_supplementary_groups(undersized);
+    expect(!exhausted && exhausted.error() ==
+                             std::error_code(ERANGE,
+                                             std::generic_category()),
+           "Permanently insufficient group data must fail instead of looping");
+}
+
+void test_privilege_classification() {
+    using syscape::user::privilege_state;
+
+    const auto state = syscape::user::privilege();
+    expect(state && *state == (::geteuid() == 0
+                                   ? privilege_state::privileged
+                                   : privilege_state::unprivileged),
+           "Privilege classification must follow the effective identity");
+}
+
+void test_login_lookup_failures() {
+    fake_login named;
+    named.name_value = "alice";
+    const auto found =
+        syscape::detail::user_backend::lookup_login_with_growth(named);
+    expect(found && *found == "alice",
+           "A recorded session name must be reported verbatim");
+
+    fake_login growing;
+    growing.name_value = "bernard-and-a-long-session-name";
+    growing.erange_until_size = 4096U;
+    const auto grown =
+        syscape::detail::user_backend::lookup_login_with_growth(growing);
+    expect(grown && *grown == "bernard-and-a-long-session-name",
+           "Login lookups must retry into larger buffers on ERANGE");
+
+    fake_login unnamed;
+    unnamed.name_value = "";
+    const auto blank =
+        syscape::detail::user_backend::lookup_login_with_growth(unnamed);
+    expect(!blank &&
+               blank.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "An empty session recording is malformed platform data");
+
+    const int absent_codes[] = {ENXIO, ENOTTY, ENOENT};
+    for (const int code : absent_codes) {
+        fake_login detached;
+        detached.failure_code = code;
+        const auto absent =
+            syscape::detail::user_backend::lookup_login_with_growth(detached);
+        expect(!absent &&
+                   absent.error() ==
+                       syscape::make_error_code(syscape::errc::not_found),
+               "A process without a session record must report not_found");
+    }
+
+    fake_login failing;
+    failing.failure_code = EMFILE;
+    const auto failed =
+        syscape::detail::user_backend::lookup_login_with_growth(failing);
+    expect(!failed &&
+               failed.error() ==
+                   std::error_code(EMFILE, std::generic_category()),
+           "Other native login failures must preserve their error code");
+
+    fake_login undersized;
+    undersized.failure_code = ERANGE;
+    const auto exhausted =
+        syscape::detail::user_backend::lookup_login_with_growth(undersized);
+    expect(!exhausted && exhausted.error() ==
+                             std::error_code(ERANGE,
+                                             std::generic_category()),
+           "Permanently undersized session data must fail instead of looping");
+}
+
 void test_runtime_queries() {
     const auto real_user = syscape::user::real_user_id();
     expect(real_user && *real_user == static_cast<std::uint32_t>(::getuid()),
@@ -301,6 +444,68 @@ void test_runtime_queries() {
     }
 }
 
+void test_runtime_supplementary_groups() {
+    // The reference walk mirrors the backend's normalization so that an
+    // unsorted or duplicated native recording cannot produce a false
+    // mismatch; membership changes between calls are practically impossible
+    // in a test process and would surface as a rare flake.
+    const int reference_count = ::getgroups(0, nullptr);
+    expect(reference_count >= 0,
+           "The getgroups reference sizing call must not fail");
+
+    std::vector<::gid_t> reference;
+    if (reference_count > 0) {
+        reference.resize(static_cast<std::size_t>(reference_count));
+        const int fetched = ::getgroups(reference_count, reference.data());
+        expect(fetched == reference_count,
+               "The getgroups reference retrieval must stay consistent");
+    }
+
+    std::vector<std::uint32_t> expected;
+    expected.reserve(reference.size());
+    for (::gid_t identifier : reference) {
+        expected.push_back(static_cast<std::uint32_t>(identifier));
+    }
+    std::sort(expected.begin(), expected.end());
+    expected.erase(std::unique(expected.begin(), expected.end()),
+                   expected.end());
+
+    const auto groups = syscape::user::supplementary_groups();
+    expect(groups && *groups == expected,
+           "Linux must report the recorded supplementary groups normalized");
+}
+
+void test_runtime_login_name() {
+#ifdef LOGIN_NAME_MAX
+    constexpr std::size_t reference_size =
+        static_cast<std::size_t>(LOGIN_NAME_MAX);
+#else
+    constexpr std::size_t reference_size = 256U;
+#endif
+    std::vector<char> session_buffer(reference_size);
+    const int outcome =
+        ::getlogin_r(session_buffer.data(), session_buffer.size());
+    const auto session = syscape::user::login_name();
+
+    if (outcome == 0) {
+        expect(session &&
+                   *session == std::string(session_buffer.data()) &&
+                   !session->empty(),
+               "Linux must report the controlling-terminal session name");
+        return;
+    }
+    if (outcome == ENXIO || outcome == ENOTTY || outcome == ENOENT) {
+        expect(!session &&
+                   session.error() == syscape::errc::not_found,
+               "Without a session record login_name must report not_found");
+        return;
+    }
+    expect(!session &&
+               session.error() ==
+                   std::error_code(outcome, std::generic_category()),
+           "Native session-reference failures must match the query result");
+}
+
 } // namespace
 
 int main() {
@@ -309,6 +514,11 @@ int main() {
     test_passwd_buffer_growth();
     test_passwd_failures();
     test_text_boundaries();
+    test_supplementary_groups_collection();
+    test_privilege_classification();
+    test_login_lookup_failures();
     test_runtime_queries();
+    test_runtime_supplementary_groups();
+    test_runtime_login_name();
     return failures == 0 ? 0 : 1;
 }

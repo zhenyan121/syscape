@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <string>
 #include <system_error>
+#include <vector>
 
 #include <syscape/detail/user/windows.hpp>
 #include <syscape/detail/utf8.hpp>
@@ -8,7 +9,8 @@
 
 namespace {
 
-bool unsupported(const syscape::result<std::uint32_t>& value) {
+template <typename T>
+bool unsupported(const syscape::result<T>& value) {
     return !value && value.error() == std::errc::operation_not_supported;
 }
 
@@ -61,19 +63,44 @@ int main() {
         !unsupported(syscape::user::effective_user_id()) ||
         !unsupported(syscape::user::real_group_id()) ||
         !unsupported(syscape::user::effective_group_id()) ||
+        !unsupported(syscape::user::supplementary_groups()) ||
+        !unsupported(syscape::user::login_name()) ||
         !unsupported(syscape::user::shell())) {
         return 8;
+    }
+
+    // An invalid token handle exercises the documented native failure path
+    // of the token-elevation query without requiring elevated permissions.
+    const auto invalid_token =
+        syscape::detail::user_backend::classify_token_elevation(nullptr);
+    if (!invalid_token ||
+        invalid_token.error().category() != std::system_category()) {
+        return 9;
+    }
+
+    // The current process token query succeeds on every supported Windows
+    // release; sandboxed environments that deny access must preserve their
+    // native system error instead of a portable placeholder.
+    const auto privilege = syscape::user::privilege();
+    if (!privilege &&
+        privilege.error().category() != std::system_category()) {
+        return 10;
+    }
+    if (privilege &&
+        *privilege != syscape::user::privilege_state::privileged &&
+        *privilege != syscape::user::privilege_state::unprivileged) {
+        return 11;
     }
 
     const auto name = syscape::user::user_name();
     if (!name || name->empty() ||
         !syscape::detail::is_valid_utf8(*name)) {
-        return 9;
+        return 12;
     }
 
     const auto home = syscape::user::home_directory();
     if (!home || home->empty() || !syscape::detail::is_valid_utf8(*home)) {
-        return 10;
+        return 13;
     }
 
     return 0;

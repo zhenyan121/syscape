@@ -5,8 +5,12 @@
 /// @brief Hosted user identity queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note Linux and macOS share a POSIX backend; Windows provides a native
-/// backend for the textual queries. Other targets use the generic
-/// not-supported fallback.
+/// backend for the textual queries and for token-elevation classification.
+/// Other targets use the generic not-supported fallback.
+/// @note On Windows, privilege() uses the documented process-token
+/// interfaces; applications that use this query on Windows must link the
+/// Advapi32 import library. Syscape itself stays header-only and does not
+/// impose that linkage on unrelated Hosted Full consumers.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note Privacy: user names and home directories can identify persons or
@@ -21,6 +25,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include <syscape/detail/user/common.hpp>
 #include <syscape/result.hpp>
@@ -42,6 +47,9 @@
 
 namespace syscape {
 namespace user {
+
+/// Privilege classification of the calling process's effective identity.
+using privilege_state = detail::user_common::privilege_state;
 
 /// Returns the real user identifier of the calling process.
 ///
@@ -92,6 +100,65 @@ inline result<std::uint32_t> real_group_id() {
 /// portable width, or a native platform error.
 inline result<std::uint32_t> effective_group_id() {
     return detail::user_backend::effective_group_id();
+}
+
+/// Returns the supplementary group identifiers of the calling process.
+///
+/// The set contains the operating-system-recorded group memberships of the
+/// calling process at the time of the query, reported in ascending order
+/// with duplicates removed so that comparisons are deterministic. The set is
+/// a snapshot; concurrent membership changes become visible only to later
+/// calls. An empty set is valid data meaning that the platform records no
+/// supplementary membership beyond the effective group, and it is not an
+/// error. Platforms record this set per process; whether it includes the
+/// effective group identifier is platform-defined and is not normalized.
+/// @return Ascending unique group identifiers, not_supported when the
+/// platform defines no numeric supplementary-group concept, value_too_large
+/// when a native identifier exceeds the portable width, or a native platform
+/// error.
+inline result<std::vector<std::uint32_t>> supplementary_groups() {
+    return detail::user_backend::supplementary_groups();
+}
+
+/// Classifies the privilege of the effective identity used for permission
+/// checks.
+///
+/// The classification reports whether that identity holds the platform's
+/// privileged account or an equivalent elevated token: on POSIX platforms an
+/// effective user identifier of zero classifies as privileged; on Windows
+/// the documented token-elevation state of the process token classifies the
+/// token. Finer-grained grants such as individual POSIX capabilities or
+/// Windows per-privilege assignments are outside this classification and an
+/// identity holding only such grants reports unprivileged. The state can
+/// change where the platform permits identity change for the running
+/// program.
+/// @return A privilege classification, not_supported when the platform
+/// exposes no acceptable source, or a native platform error such as an
+/// access-denied token query failure.
+inline result<privilege_state> privilege() {
+    return detail::user_backend::privilege();
+}
+
+/// Returns the login name recorded by the platform for the calling process's
+/// login session.
+///
+/// POSIX platforms report the name recorded in the session database entry of
+/// the controlling terminal, which can differ from user_name() after tools
+/// such as su or sudo changed the effective identity without changing the
+/// login session. A process without a controlling terminal, or whose session
+/// carries no recorded entry, has no login-session identity and receives
+/// not_found rather than fabricated data. Each call performs a fresh lookup,
+/// and the name is reported verbatim and is not normalized across platforms.
+/// Session metadata beyond the recorded name, such as terminal devices,
+/// timestamps, or remote hosts, is outside this slice.
+/// @return A non-empty UTF-8 login name, not_found when the platform records
+/// no login-session identity for this process, malformed_data for invalid
+/// platform data, invalid_encoding when the native text is not valid UTF-8,
+/// not_supported when the platform exposes no acceptable source, or a native
+/// platform error.
+inline result<std::string> login_name() {
+    return detail::user_common::validate_utf8_name(
+        detail::user_backend::login_name());
 }
 
 /// Returns the login name recorded by the platform for the effective user.

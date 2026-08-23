@@ -1,6 +1,7 @@
 #ifndef SYSCAPE_DETAIL_USER_COMMON_HPP
 #define SYSCAPE_DETAIL_USER_COMMON_HPP
 
+#include <cstdint>
 #include <string>
 
 #include <syscape/detail/utf8.hpp>
@@ -9,6 +10,21 @@
 namespace syscape {
 namespace detail {
 namespace user_common {
+
+/// Privilege classification of the calling process's effective identity.
+///
+/// The classification describes whether the identity used for permission
+/// checks holds the platform's privileged account or an equivalent elevated
+/// token. Finer-grained grants such as individual POSIX capabilities or
+/// Windows per-privilege assignments are outside this classification; an
+/// identity that holds only such grants reports unprivileged.
+enum class privilege_state : std::uint8_t {
+    /// The effective identity carries no special platform privilege.
+    unprivileged,
+    /// The effective identity is the platform's privileged account or an
+    /// equivalently elevated token.
+    privileged
+};
 
 /// Validates a user name reported by a platform backend.
 ///

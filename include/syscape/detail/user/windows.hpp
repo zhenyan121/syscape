@@ -7,11 +7,13 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <vector>
 
 #include <windows.h>
 #include <lmcons.h>
 #include <shlobj.h>
 
+#include <syscape/detail/user/common.hpp>
 #include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
 
@@ -176,6 +178,69 @@ inline result<std::string> home_directory() {
 /// Returns not_supported because Windows exposes no recorded login shell
 /// through an acceptable public source.
 inline result<std::string> shell() {
+    return fail(errc::not_supported);
+}
+
+/// Returns not_supported because Windows defines no numeric supplementary
+/// group concept; group membership is expressed through security identifiers
+/// that are structured platform values rather than portable numbers.
+inline result<std::vector<std::uint32_t>> supplementary_groups() {
+    return fail(errc::not_supported);
+}
+
+/// Owns a native token handle and closes it on every path.
+class token_handle {
+public:
+    explicit token_handle(::HANDLE value) noexcept : value_(value) {}
+    token_handle(const token_handle&) = delete;
+    token_handle& operator=(const token_handle&) = delete;
+    ~token_handle() {
+        if (value_ != nullptr) { ::CloseHandle(value_); }
+    }
+
+    ::HANDLE get() const noexcept { return value_; }
+
+private:
+    ::HANDLE value_;
+};
+
+/// Classifies the elevation of the process token through the documented
+/// token-information interface.
+///
+/// The query reports whether the process token holds elevated authority
+/// under Windows access-control policy, which is the platform's documented
+/// equivalent of privileged execution. A token that passes only filtered or
+/// per-privilege grants classifies as unprivileged. Token queries preserve
+/// their native error codes, including access-denied conditions.
+inline result<user_common::privilege_state> classify_token_elevation(
+    ::HANDLE token) {
+    ::DWORD elevation = 0U;
+    ::DWORD returned = 0U;
+    if (!::GetTokenInformation(token, ::TokenElevation, &elevation,
+                               sizeof(elevation), &returned)) {
+        return fail(last_error());
+    }
+    if (returned != sizeof(elevation)) {
+        return fail(errc::malformed_data);
+    }
+    using syscape::detail::user_common::privilege_state;
+    return elevation != 0U ? privilege_state::privileged
+                           : privilege_state::unprivileged;
+}
+
+inline result<user_common::privilege_state> privilege() {
+    ::HANDLE raw = nullptr;
+    if (!::OpenProcessToken(::GetCurrentProcess(), TOKEN_QUERY, &raw)) {
+        return fail(last_error());
+    }
+    const token_handle guard(raw);
+    return classify_token_elevation(guard.get());
+}
+
+/// Returns not_supported because Windows exposes no login-session identity
+/// recorded separately from the process account through an acceptable
+/// public source.
+inline result<std::string> login_name() {
     return fail(errc::not_supported);
 }
 
