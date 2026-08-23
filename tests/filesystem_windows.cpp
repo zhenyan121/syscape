@@ -91,6 +91,91 @@ void test_drive_enumeration() {
            "omitted like unready media");
 }
 
+void test_volume_facts_queries() {
+    struct ready_volume_api {
+        bool fail_information = false;
+        std::uint32_t serial = 0x1234abcdU;
+        std::uint64_t component = 255U;
+
+        syscape::result<syscape::detail::filesystem_backend::volume_facts>
+        volume_information(const std::wstring&) const {
+            if (fail_information) {
+                return syscape::fail(
+                    std::error_code(5, std::system_category()));
+            }
+            syscape::detail::filesystem_backend::volume_facts facts;
+            facts.serial_number = serial;
+            facts.max_component_length = component;
+            return facts;
+        }
+    };
+
+    // The resolution half of these helpers contacts the real filesystem
+    // for an existing path, while all volume information comes from the
+    // injected facts.
+    const auto component =
+        syscape::detail::filesystem_backend::component_length_via(
+            ready_volume_api{}, ".");
+    expect(component && !component->indeterminate &&
+               component->length == 255U,
+           "The recorded MaximumComponentLength value is preserved "
+           "verbatim in UTF-16 code units");
+
+    const auto identifier =
+        syscape::detail::filesystem_backend::volume_id_via(
+            ready_volume_api{}, ".");
+    expect(identifier && *identifier == "1234abcd",
+           "The serial word renders as eight lowercase hexadecimal "
+           "digits");
+
+    ready_volume_api anonymous;
+    anonymous.serial = 0U;
+    const auto zero_identifier =
+        syscape::detail::filesystem_backend::volume_id_via(anonymous, ".");
+    expect(zero_identifier && *zero_identifier == "00000000",
+           "An all-zero serial recording renders verbatim as valid "
+           "data");
+
+    ready_volume_api denied;
+    denied.fail_information = true;
+    const auto failed =
+        syscape::detail::filesystem_backend::component_length_via(denied,
+                                                                  ".");
+    expect(!failed &&
+               failed.error() == std::error_code(5, std::system_category()),
+           "A failed volume-information query preserves its native "
+           "error");
+
+    const auto failed_identifier =
+        syscape::detail::filesystem_backend::volume_id_via(denied, ".");
+    expect(!failed_identifier &&
+               failed_identifier.error() ==
+                   std::error_code(5, std::system_category()),
+           "The identifier query preserves the native error too");
+
+    ready_volume_api degenerate;
+    degenerate.component = 0U;
+    const auto zero_component =
+        syscape::detail::filesystem_backend::component_length_via(
+            degenerate, ".");
+    const auto validated =
+        syscape::detail::filesystem_common::validate_path_length(
+            zero_component);
+    expect(!validated &&
+               validated.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "A determinate component bound of zero is malformed platform "
+           "data at the public boundary");
+
+    const auto unsupported =
+        syscape::detail::filesystem_backend::max_path_length(".");
+    expect(!unsupported &&
+               unsupported.error() ==
+                   syscape::make_error_code(syscape::errc::not_supported),
+           "Windows exposes no per-volume complete-path bound and "
+           "reports not_supported");
+}
+
 void test_runtime_space() {
     const auto relative = syscape::filesystem::space(".");
     expect(relative.has_value(),
@@ -107,6 +192,7 @@ void test_runtime_space() {
 
 int main() {
     test_drive_enumeration();
+    test_volume_facts_queries();
     test_runtime_space();
     return failures == 0 ? 0 : 1;
 }

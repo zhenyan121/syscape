@@ -8,6 +8,7 @@
 #include <system_error>
 
 #include <sys/statvfs.h>
+#include <unistd.h>
 
 #include <syscape/detail/filesystem/common.hpp>
 #include <syscape/result.hpp>
@@ -84,6 +85,44 @@ inline result<filesystem_common::space_snapshot> statvfs_space(
             return fail(std::error_code(errno, std::generic_category()));
         }
     }
+}
+
+/// Converts one raw pathconf outcome into a portable length bound.
+///
+/// POSIX reports a failing query as -1 with errno set and a limit with
+/// no fixed value as -1 with errno unchanged, so the return value and
+/// the saved errno must be examined together. A value below -1 violates
+/// the documented contract and a determinate bound of zero cannot name
+/// even one path component; both are malformed platform data rather
+/// than plausible values.
+inline result<filesystem_common::path_length_snapshot>
+convert_pathconf_outcome(long value, int saved_errno) {
+    if (value == -1) {
+        if (saved_errno == 0) {
+            filesystem_common::path_length_snapshot indeterminate;
+            indeterminate.indeterminate = true;
+            return indeterminate;
+        }
+        return fail(std::error_code(saved_errno, std::generic_category()));
+    }
+    if (value <= 0) {
+        return fail(errc::malformed_data);
+    }
+    filesystem_common::path_length_snapshot snapshot;
+    snapshot.length = static_cast<std::uint64_t>(value);
+    return snapshot;
+}
+
+/// Queries one documented pathconf limit for the volume holding path.
+///
+/// errno is cleared before the call because POSIX distinguishes a
+/// failing query from an indeterminate limit only by whether the call
+/// stored an error code.
+inline result<filesystem_common::path_length_snapshot> pathconf_limit(
+    const std::string& path, int resource) {
+    errno = 0;
+    const long value = ::pathconf(path.c_str(), resource);
+    return convert_pathconf_outcome(value, value == -1 ? errno : 0);
 }
 
 } // namespace filesystem_backend

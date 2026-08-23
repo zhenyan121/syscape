@@ -199,19 +199,17 @@ inline result<std::wstring> volume_mount_point(const std::wstring& file) {
     }
 }
 
-/// Queries capacity for the volume containing the given path.
+/// Resolves a validated UTF-8 path to the mount point of the volume
+/// actually holding it.
 ///
-/// Path input is validated at the public boundary before backend selection.
-/// Relative input is first resolved against the current working directory,
-/// and the resulting file or directory is checked for existence because
-/// GetVolumePathNameW can otherwise succeed for a missing endpoint on an
-/// existing volume. The interface then resolves junction points and mounted
-/// folders to the mount point of the volume actually holding the endpoint,
-/// which serves every capacity query below. Windows exposes no fundamental
-/// block size, so the cluster size reported by GetDiskFreeSpaceW is the
-/// closest documented equivalent and the public contract documents that
-/// approximation.
-inline result<filesystem_common::space_snapshot> space(
+/// This is the shared resolution half of every path-scoped query.
+/// Relative input is first resolved against the current working
+/// directory, and the resulting file or directory is checked for
+/// existence because GetVolumePathNameW can otherwise succeed for a
+/// missing endpoint on an existing volume. The interface then resolves
+/// junction points and mounted folders to the mount point of the volume
+/// actually holding the endpoint, which serves every per-volume query.
+inline result<std::wstring> resolved_volume_mount_point(
     const std::string& path) {
     if (path.empty()) { return fail(errc::invalid_argument); }
 
@@ -228,8 +226,18 @@ inline result<filesystem_common::space_snapshot> space(
         return fail(last_error());
     }
 
-    const result<std::wstring> volume =
-        volume_mount_point(absolute.native());
+    return volume_mount_point(absolute.native());
+}
+
+/// Queries capacity for the volume containing the given path.
+///
+/// Path input is validated at the public boundary before backend
+/// selection. Windows exposes no fundamental block size, so the cluster
+/// size reported by GetDiskFreeSpaceW is the closest documented
+/// equivalent and the public contract documents that approximation.
+inline result<filesystem_common::space_snapshot> space(
+    const std::string& path) {
+    const result<std::wstring> volume = resolved_volume_mount_point(path);
     if (!volume) { return fail(volume.error()); }
 
     ::ULARGE_INTEGER available {};
@@ -264,6 +272,92 @@ inline result<filesystem_common::space_snapshot> space(
         static_cast<std::uint64_t>(bytes_per_sector);
     snapshot.read_only = (flags & FILE_READ_ONLY_VOLUME) != 0U;
     return snapshot;
+}
+
+/// Volume facts recorded by one documented volume-information query.
+struct volume_facts {
+    /// The platform's recorded opaque volume serial word.
+    std::uint32_t serial_number = 0U;
+    /// The recorded maximum length of one file-name component, in UTF-16
+    /// code units as the platform documents it.
+    std::uint64_t max_component_length = 0U;
+};
+
+/// Platform call used to read per-volume facts.
+///
+/// The indirection exists so tests can drive the queries with synthetic
+/// facts instead of real volumes; production callers always use the
+/// native implementation.
+struct native_volume_api {
+    /// Queries the serial word and maximum component length of a volume
+    /// through its root or mounted directory in one documented call.
+    static result<volume_facts> volume_information(
+        const std::wstring& volume) {
+        ::DWORD serial = 0U;
+        ::DWORD component = 0U;
+        if (::GetVolumeInformationW(volume.c_str(), nullptr, 0U, &serial,
+                                    &component, nullptr, nullptr,
+                                    0U) == FALSE) {
+            return fail(last_error());
+        }
+        volume_facts facts;
+        facts.serial_number = serial;
+        facts.max_component_length =
+            static_cast<std::uint64_t>(component);
+        return facts;
+    }
+};
+
+/// Queries the platform-recorded maximum single-component name length
+/// for the volume containing the given path through the given API.
+///
+/// The value counts UTF-16 code units exactly as the platform documents
+/// its MaximumComponentLength record; that platform unit is preserved
+/// rather than being normalized into a byte count.
+template <typename Api>
+result<filesystem_common::path_length_snapshot> component_length_via(
+    const Api& api, const std::string& path) {
+    const result<std::wstring> volume = resolved_volume_mount_point(path);
+    if (!volume) { return fail(volume.error()); }
+    const result<volume_facts> facts = api.volume_information(*volume);
+    if (!facts) { return fail(facts.error()); }
+    filesystem_common::path_length_snapshot snapshot;
+    snapshot.length = facts->max_component_length;
+    return snapshot;
+}
+
+/// Renders the recorded opaque volume identifier through the given API
+/// as eight lowercase hexadecimal digits.
+///
+/// The identifier distinguishes formatted volume instances on this
+/// platform; it is rendered verbatim, including an all-zero recording.
+template <typename Api>
+result<std::string> volume_id_via(const Api& api,
+                                  const std::string& path) {
+    const result<std::wstring> volume = resolved_volume_mount_point(path);
+    if (!volume) { return fail(volume.error()); }
+    const result<volume_facts> facts = api.volume_information(*volume);
+    if (!facts) { return fail(facts.error()); }
+    return filesystem_common::render_hex32(facts->serial_number);
+}
+
+inline result<filesystem_common::path_length_snapshot>
+max_component_length(const std::string& path) {
+    return component_length_via(native_volume_api{}, path);
+}
+
+/// Reports the maximum complete-path length as unsupported.
+///
+/// Windows bounds complete paths by process-wide activation policy
+/// rather than by any per-volume fact exposed through a public
+/// documented interface, so no honest per-volume answer exists here.
+inline result<filesystem_common::path_length_snapshot> max_path_length(
+    const std::string& /*path*/) {
+    return fail(errc::not_supported);
+}
+
+inline result<std::string> volume_id(const std::string& path) {
+    return volume_id_via(native_volume_api{}, path);
 }
 
 } // namespace filesystem_backend

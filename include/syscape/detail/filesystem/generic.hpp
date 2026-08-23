@@ -20,6 +20,20 @@ inline result<filesystem_common::space_snapshot> space(
     return fail(errc::not_supported);
 }
 
+inline result<filesystem_common::path_length_snapshot>
+max_component_length(const std::string& /*path*/) {
+    return fail(errc::not_supported);
+}
+
+inline result<filesystem_common::path_length_snapshot> max_path_length(
+    const std::string& /*path*/) {
+    return fail(errc::not_supported);
+}
+
+inline result<std::string> volume_id(const std::string& /*path*/) {
+    return fail(errc::not_supported);
+}
+
 } // namespace filesystem_backend
 } // namespace detail
 } // namespace syscape

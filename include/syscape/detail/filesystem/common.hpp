@@ -42,6 +42,41 @@ struct space_snapshot {
     bool read_only = false;
 };
 
+/// One recorded path-length bound shared by the filesystem backends.
+///
+/// Platforms that define no fixed bound for a limit report that outcome
+/// as valid data instead of an error, so the indeterminate state is part
+/// of the value rather than a failure code.
+struct path_length_snapshot {
+    /// The platform's recorded bound. Meaningful only when indeterminate
+    /// is false; validation normalizes the value to zero otherwise.
+    std::uint64_t length = 0U;
+    /// True when the platform documents no fixed bound for the limit.
+    bool indeterminate = false;
+};
+
+/// Renders one 32-bit word as exactly eight lowercase hexadecimal digits.
+///
+/// Volume identifiers are opaque platform-recorded words, and a fixed
+/// width keeps renderings comparable within one platform.
+inline std::string render_hex32(std::uint32_t value) {
+    static const char digits[] = "0123456789abcdef";
+    std::string rendered(8U, '0');
+    for (std::size_t index = 0; index < 8U; ++index) {
+        const unsigned int shift = static_cast<unsigned int>(28U - 4U * index);
+        rendered[index] = digits[(value >> shift) & 0xFU];
+    }
+    return rendered;
+}
+
+/// Renders two recorded 32-bit identifier words in documented order.
+inline std::string render_hex_word_pair(std::uint32_t first,
+                                        std::uint32_t second) {
+    std::string rendered = render_hex32(first);
+    rendered += render_hex32(second);
+    return rendered;
+}
+
 /// Validates mount records at the public boundary.
 ///
 /// A usable record needs a non-empty mount point and file-system type in
@@ -67,12 +102,12 @@ inline result<std::vector<mount_record>> validate_mount_records(
 /// Validates caller-supplied path text before any backend runs.
 ///
 /// Empty text and embedded null characters are not paths accepted by the
-/// native interfaces. This is the single enforcement point for space() input,
-/// applied by the public header before backend selection, so every platform
-/// backend - including the generic fallback - observes identical
-/// invalid-argument and invalid-encoding behavior instead of each defining
-/// its own.
-inline result<void> validate_space_path(const std::string& path) {
+/// native interfaces. This is the single enforcement point for every
+/// path-taking filesystem query, applied by the public header before
+/// backend selection, so every platform backend - including the generic
+/// fallback - observes identical invalid-argument and invalid-encoding
+/// behavior instead of each defining its own.
+inline result<void> validate_path_input(const std::string& path) {
     if (path.empty() || path.find('\0') != std::string::npos) {
         return fail(errc::invalid_argument);
     }
@@ -96,6 +131,40 @@ inline result<space_snapshot> validate_space_snapshot(
         value->available_bytes > value->capacity_bytes) {
         return fail(errc::malformed_data);
     }
+    return value;
+}
+
+/// Validates a path-length bound at the public boundary.
+///
+/// An indeterminate limit is valid data and normalizes its length to
+/// zero so the pair is always self-consistent. A determinate bound of
+/// zero cannot name even one path component and contradicts any running
+/// filesystem, so it is malformed platform data rather than a plausible
+/// value.
+inline result<path_length_snapshot> validate_path_length(
+    result<path_length_snapshot> value) {
+    if (!value) { return fail(value.error()); }
+    if (value->indeterminate) {
+        value->length = 0U;
+        return value;
+    }
+    if (value->length == 0U) {
+        return fail(errc::malformed_data);
+    }
+    return value;
+}
+
+/// Validates a rendered volume identifier at the public boundary.
+///
+/// Every backend renders its platform's recorded identifier word or word
+/// pair at a fixed width, so an empty rendering means the backend failed
+/// to record anything and is malformed platform data. A rendering of
+/// zero digits is valid data wherever the platform records zeros,
+/// because some platforms define no distinguishing identifier for
+/// certain filesystems and zero is then their honest answer.
+inline result<std::string> validate_volume_id(result<std::string> value) {
+    if (!value) { return fail(value.error()); }
+    if (value->empty()) { return fail(errc::malformed_data); }
     return value;
 }
 

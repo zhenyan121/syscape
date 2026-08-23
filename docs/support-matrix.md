@@ -158,7 +158,7 @@ will be no all-modules umbrella header.
 | 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | Implemented; Linux verified, Windows and macOS unverified. Login-session metadata beyond the recorded session name, and fine-grained capability or per-privilege grants beyond the privilege classification, remain not started |
-| 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | In progress; mounted-filesystem enumeration plus per-path capacity, free, available, block-size, and read-only queries implemented where documented platform sources exist. Path limits and volume metadata beyond mount-table entries remain not started |
+| 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `network.hpp` | Network interfaces, addresses, prefix lengths, MAC addresses, MTU, state, routes, default gateways, DNS configuration, and host/domain names | In progress; interface enumeration with names, indices, operational state, loopback classification, link-layer addresses, and unicast IPv4/IPv6 addresses with prefix lengths implemented where documented platform sources exist. MTU, routes, default gateways, DNS configuration, host and domain names, and IPv6 zone identifiers remain not started |
 | 1 | `locale.hpp` | Locale, preferred languages, country or region, text encoding, time zone, and UTC offset | In progress; the current locale identifier, the non-Unicode text-encoding label, and the current UTC offset implemented where documented platform sources exist. Preferred languages, country or region, and time-zone identifiers or display names remain not started |
 | 2 | `storage.hpp` | Physical drives, partitions, bus and media type, model, firmware, capacity, logical and physical sector sizes, rotational state, removable state, and health data exposed by the OS | Not started |
@@ -499,8 +499,7 @@ read-only state, all in bytes at the moment of the query. POSIX enumeration
 reads only the mount table and never touches the listed volumes, so
 unresponsive network filesystems cannot block it; Windows enumeration queries
 each drive-letter volume and can block on unready media or unresponsive mapped
-shares. Path limits, volume labels, drive and media types, and per-volume
-file-system-type lookup remain not started.
+shares.
 
 | Backend | Data sources and limitations | Evidence | State |
 | --- | --- | --- | --- |
@@ -527,6 +526,42 @@ The macOS implementation follows Darwin's documented
 interface. Windows and macOS statuses must not advance until their headers
 compile with the official SDK and the tests execute on the real operating
 systems.
+
+### Filesystem path-limit and volume-identity evidence
+
+This second filesystem slice completes the module's planned coverage:
+per-volume path limits and an opaque volume identifier. The two path-limit
+queries report each platform's recorded bound verbatim rather than being
+normalized into one cross-platform unit: POSIX systems report the documented
+`pathconf` `_PC_NAME_MAX` and `_PC_PATH_MAX` records in bytes (whether a
+terminating null byte is included follows each platform's own limit
+documentation), while Windows reports the documented `MaximumComponentLength`
+record of `GetVolumeInformationW` in UTF-16 code units. A POSIX limit whose
+value the platform documents as indeterminate is valid data recorded through
+an explicit flag, never an error or sentinel; a determinate bound of zero is
+malformed platform data because no component could be named. Windows reports
+`not_supported` for the complete-path bound because the platform bounds
+complete paths through process-wide activation policy rather than any
+per-volume fact exposed by a documented interface. The identifier query
+renders each platform's recorded opaque volume word pair verbatim as
+fixed-width lowercase hexadecimal digits - Linux uses the kernel-documented
+`statfs` `f_fsid` words, macOS uses the `statfs` `f_fsid` words, and Windows
+uses the documented `GetVolumeInformationW` serial number - where an all-zero
+rendering is valid data because platforms that define no distinguishing
+identifier record zeros. Volume identifiers can distinguish machines or
+volume instances; the query is explicit, performs no logging or persistence,
+and documents that reformatting and remounting change the value, so it must
+not be presented as a permanent identity guarantee.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for all three queries; common public-boundary validation still rejects empty, embedded-null, and invalid-UTF-8 paths before backend selection | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | POSIX `pathconf` with `_PC_NAME_MAX` and `_PC_PATH_MAX`, where errno is cleared first because POSIX distinguishes failure from indeterminacy only by the stored error; glibc answers `_PC_PATH_MAX` from a recorded constant without validating the whole path, so whether missing paths fail follows the implementation and is compared against independent reference calls rather than assumed; kernel-documented [`statfs`](https://www.man7.org/linux/man-pages/man2/statfs.2.html) `f_fsid` words copied bit by bit and rendered in recorded order, so the output never depends on integer endianness; interrupted calls retry | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; synthetic outcome-conversion tests (determinate, indeterminate, native failure, below-contract negative, zero-bound), fixed-width hexadecimal rendering vectors, validator tests (indeterminate normalization, zero-bound rejection, empty-rendering rejection), live component and complete-path bounds cross-checked against independent `pathconf` records including a missing-path comparison, identifier cross-checked against an independent `statfs` word-pair rendering plus stability and lowercase-hex invariants, pseudofilesystem zero identifiers accepted as valid data, forced-fallback, AddressSanitizer, and UndefinedBehaviorSanitizer tests passed | Verified for this slice on the listed host |
+| Windows | Documented [`GetVolumeInformationW`](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getvolumeinformationw) supplies `MaximumComponentLength` and the serial word after shared resolution of files, directories, junction points, and mounted folders to the holding volume; the component length counts UTF-16 code units exactly as documented; the complete-path bound returns `not_supported` because MAX_PATH behavior is governed by process-wide activation policy rather than a per-volume documented fact; a determinate component bound of zero is malformed data | Backend written from public Microsoft APIs behind injectable volume-fact seams covered by synthetic-data tests including native-error preservation and zero-component rejection; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | Shared POSIX `pathconf` backend for both limits and Darwin `statfs` `f_fsid` words rendered in recorded order | Backend written from public POSIX and Darwin interfaces with synthetic outcome-conversion, rendering-vector, and reference-comparison tests; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
+
+Windows and macOS statuses must not advance until their headers compile with
+the official SDK and the tests execute on the real operating systems.
 
 ### Network interface evidence
 

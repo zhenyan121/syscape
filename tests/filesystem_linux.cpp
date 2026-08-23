@@ -1,5 +1,6 @@
 #include <cerrno>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <system_error>
@@ -7,6 +8,8 @@
 
 #include <stdio.h>
 #include <sys/statvfs.h>
+#include <sys/vfs.h>
+#include <unistd.h>
 #include <mntent.h>
 
 #include <syscape/detail/filesystem/common.hpp>
@@ -166,6 +169,54 @@ void test_space_snapshot_computation() {
            "wrapping");
 }
 
+void test_pathconf_conversion() {
+    namespace backend = syscape::detail::filesystem_backend;
+
+    const auto plain = backend::convert_pathconf_outcome(255L, 0);
+    expect(plain && !plain->indeterminate && plain->length == 255U,
+           "A positive pathconf record converts to a determinate bound");
+
+    const auto indeterminate = backend::convert_pathconf_outcome(-1L, 0);
+    expect(indeterminate && indeterminate->indeterminate &&
+               indeterminate->length == 0U,
+           "A -1 return with unchanged errno records an indeterminate "
+           "limit as valid data");
+
+    const auto failed = backend::convert_pathconf_outcome(-1L, ENOENT);
+    expect(!failed &&
+               failed.error() ==
+                   std::error_code(ENOENT, std::generic_category()),
+           "A -1 return with a stored errno preserves the native error");
+
+    const auto below_contract = backend::convert_pathconf_outcome(-2L, 0);
+    expect(!below_contract &&
+               below_contract.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "A value below the documented -1 contract is malformed "
+           "platform data");
+
+    const auto zero_bound = backend::convert_pathconf_outcome(0L, 0);
+    expect(!zero_bound &&
+               zero_bound.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "A determinate bound of zero cannot name any component and "
+           "is malformed platform data");
+}
+
+void test_hex_rendering() {
+    using syscape::detail::filesystem_common::render_hex32;
+    using syscape::detail::filesystem_common::render_hex_word_pair;
+
+    expect(render_hex32(0U) == "00000000",
+           "Zero renders at full fixed width");
+    expect(render_hex32(0xffffffffU) == "ffffffff",
+           "The maximum word renders as eight lowercase digits");
+    expect(render_hex32(0x1234abcdU) == "1234abcd",
+           "Digits render in conventional high-to-low order");
+    expect(render_hex_word_pair(1U, 0xdeadbeefU) == "00000001deadbeef",
+           "Word pairs render first word then second at fixed width");
+}
+
 void test_common_validation() {
     using syscape::detail::filesystem_common::mount_record;
     using syscape::detail::filesystem_common::space_snapshot;
@@ -250,6 +301,53 @@ void test_common_validation() {
             syscape::result<space_snapshot>(consistent));
     expect(static_cast<bool>(good) && good->read_only,
            "A consistent snapshot including read-only state passes");
+
+    using syscape::detail::filesystem_common::path_length_snapshot;
+
+    path_length_snapshot determinate;
+    determinate.length = 255U;
+    const auto accepted_bound =
+        syscape::detail::filesystem_common::validate_path_length(
+            syscape::result<path_length_snapshot>(determinate));
+    expect(static_cast<bool>(accepted_bound) &&
+               accepted_bound->length == 255U,
+           "A determinate nonzero bound passes boundary validation");
+
+    path_length_snapshot no_fixed_bound;
+    no_fixed_bound.indeterminate = true;
+    no_fixed_bound.length = 7U;
+    const auto normalized =
+        syscape::detail::filesystem_common::validate_path_length(
+            syscape::result<path_length_snapshot>(no_fixed_bound));
+    expect(normalized && normalized->indeterminate &&
+               normalized->length == 0U,
+           "An indeterminate bound is valid data and normalizes its "
+           "length to zero");
+
+    path_length_snapshot zero_bound;
+    zero_bound.length = 0U;
+    const auto rejected_bound =
+        syscape::detail::filesystem_common::validate_path_length(
+            syscape::result<path_length_snapshot>(zero_bound));
+    expect(!rejected_bound &&
+               rejected_bound.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "A determinate bound of zero is malformed platform data");
+
+    const auto empty_identifier =
+        syscape::detail::filesystem_common::validate_volume_id(
+            syscape::result<std::string>(std::string()));
+    expect(!empty_identifier &&
+               empty_identifier.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "An empty identifier rendering means the backend recorded "
+           "nothing and is malformed platform data");
+
+    const auto zero_identifier =
+        syscape::detail::filesystem_common::validate_volume_id(
+            syscape::result<std::string>(std::string("0000000000000000")));
+    expect(static_cast<bool>(zero_identifier),
+           "An all-zero identifier rendering is valid platform data");
 }
 
 std::vector<syscape::detail::filesystem_common::mount_record>
@@ -371,6 +469,178 @@ void test_runtime_space() {
            "An embedded null must not truncate the path passed to statvfs");
 }
 
+void expect_rejected_input(
+    const syscape::result<syscape::filesystem::path_length_limit>& value,
+    syscape::errc expected, const char* message) {
+    expect(!value && value.error() == syscape::make_error_code(expected),
+           message);
+}
+
+void test_runtime_path_limits() {
+    constexpr const char* probe = "/tmp";
+
+    errno = 0;
+    const long name_reference = ::pathconf(probe, _PC_NAME_MAX);
+    const int name_errno = name_reference == -1 ? errno : 0;
+    const auto component =
+        syscape::filesystem::max_component_length(probe);
+    if (!component) {
+        expect(false, "A live component-length query on /tmp must "
+                      "succeed on Linux");
+        return;
+    }
+    if (name_reference == -1 && name_errno == 0) {
+        expect(component->indeterminate,
+               "An indeterminate reference limit must be reported "
+               "through the explicit flag");
+    } else {
+        expect(!component->indeterminate &&
+                   component->length ==
+                       static_cast<std::uint64_t>(name_reference),
+               "The component bound must match an independent pathconf "
+               "record");
+    }
+
+    errno = 0;
+    const long path_reference = ::pathconf(probe, _PC_PATH_MAX);
+    const int path_errno = path_reference == -1 ? errno : 0;
+    const auto whole_path = syscape::filesystem::max_path_length(probe);
+    if (!whole_path) {
+        expect(false,
+               "A live complete-path query on /tmp must succeed on Linux");
+        return;
+    }
+    if (path_reference == -1 && path_errno == 0) {
+        expect(whole_path->indeterminate,
+               "An indeterminate reference path bound must reach the "
+               "explicit flag");
+    } else {
+        expect(!whole_path->indeterminate &&
+                   whole_path->length ==
+                       static_cast<std::uint64_t>(path_reference),
+               "The complete-path bound must match an independent "
+               "pathconf record");
+    }
+
+    const auto missing =
+        syscape::filesystem::max_component_length(
+            "/definitely-not-present-4711");
+    expect(!missing &&
+               missing.error() ==
+                   std::error_code(ENOENT, std::generic_category()),
+           "A missing path preserves its native ENOENT error");
+
+    // Whether a platform's limit interface validates the whole path
+    // before answering differs by resource and implementation, so the
+    // reference outcome is compared rather than assumed.
+    errno = 0;
+    const long missing_reference =
+        ::pathconf("/definitely-not-present-4711", _PC_PATH_MAX);
+    const int missing_errno = missing_reference == -1 ? errno : 0;
+    const auto missing_whole =
+        syscape::filesystem::max_path_length(
+            "/definitely-not-present-4711");
+    if (missing_reference == -1 && missing_errno != 0) {
+        expect(!missing_whole &&
+                   missing_whole.error() ==
+                       std::error_code(missing_errno,
+                                       std::generic_category()),
+               "A failing reference record matches the query outcome");
+    } else if (missing_reference == -1) {
+        expect(missing_whole && missing_whole->indeterminate,
+               "An indeterminate reference record reaches the explicit "
+               "flag even when the path does not exist");
+    } else {
+        expect(missing_whole && !missing_whole->indeterminate &&
+                   missing_whole->length ==
+                       static_cast<std::uint64_t>(missing_reference),
+               "A reference record answered without path validation "
+               "matches the query value");
+    }
+
+    expect_rejected_input(syscape::filesystem::max_component_length(""),
+                          syscape::errc::invalid_argument,
+                          "An empty path is an invalid argument for the "
+                          "component query");
+    expect_rejected_input(
+        syscape::filesystem::max_component_length(std::string("/a\xff", 3U)),
+        syscape::errc::invalid_encoding,
+        "A non-UTF-8 path fails at the public boundary for the "
+        "component query");
+    expect_rejected_input(
+        syscape::filesystem::max_path_length(std::string("/a\0b", 5U)),
+        syscape::errc::invalid_argument,
+        "An embedded null is an invalid argument for the whole-path "
+        "query");
+}
+
+void test_runtime_volume_id() {
+    constexpr const char* probe = "/tmp";
+
+    struct ::statfs reference {};
+    expect(::statfs(probe, &reference) == 0,
+           "The statfs reference lookup must not fail natively");
+    std::uint32_t first = 0U;
+    std::uint32_t second = 0U;
+    ::std::memcpy(&first, &reference.f_fsid.__val[0], sizeof(first));
+    ::std::memcpy(&second, &reference.f_fsid.__val[1], sizeof(second));
+
+    const auto queried = syscape::filesystem::volume_id(probe);
+    if (!queried) {
+        expect(false, "A live volume-identifier query must succeed on a "
+                      "mounted volume");
+        return;
+    }
+    expect(queried->size() == 16U,
+           "The identifier renders at the documented fixed width of "
+           "sixteen digits");
+    bool hexadecimal_only = true;
+    for (const char digit : *queried) {
+        const bool lowercase_hex =
+            (digit >= '0' && digit <= '9') ||
+            (digit >= 'a' && digit <= 'f');
+        hexadecimal_only = hexadecimal_only && lowercase_hex;
+    }
+    expect(hexadecimal_only,
+           "Every rendered digit is a lowercase hexadecimal digit");
+    expect(*queried == syscape::detail::filesystem_common::
+                           render_hex_word_pair(first, second),
+           "The rendering must match the recorded statfs word pair in "
+           "documented order");
+
+    const auto again = syscape::filesystem::volume_id(probe);
+    expect(again && *again == *queried,
+           "Two queries of one mounted volume agree on its identifier");
+
+    const auto pseudo =
+        syscape::filesystem::volume_id("/proc");
+    expect(pseudo && pseudo->size() == 16U,
+           "A pseudofilesystem without a distinguishing identifier is "
+           "valid data rendered verbatim");
+
+    const auto missing =
+        syscape::filesystem::volume_id("/definitely-not-present-4711");
+    expect(!missing &&
+               missing.error() ==
+                   std::error_code(ENOENT, std::generic_category()),
+           "A missing path preserves its native ENOENT error");
+
+    const auto empty_probe = syscape::filesystem::volume_id("");
+    expect(!empty_probe &&
+               empty_probe.error() ==
+                   syscape::make_error_code(syscape::errc::invalid_argument),
+           "An empty path is an invalid argument for the identifier "
+           "query");
+
+    const auto undecodable =
+        syscape::filesystem::volume_id(std::string("/tmp/\xffx", 7U));
+    expect(!undecodable &&
+               undecodable.error() ==
+                   syscape::make_error_code(syscape::errc::invalid_encoding),
+           "A non-UTF-8 path fails at the public boundary for the "
+           "identifier query");
+}
+
 } // namespace
 
 int main() {
@@ -378,8 +648,12 @@ int main() {
     test_parse_escapes();
     test_parse_malformed_records();
     test_space_snapshot_computation();
+    test_pathconf_conversion();
+    test_hex_rendering();
     test_common_validation();
     test_runtime_mounts();
     test_runtime_space();
+    test_runtime_path_limits();
+    test_runtime_volume_id();
     return failures == 0 ? 0 : 1;
 }

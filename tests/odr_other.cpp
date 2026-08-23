@@ -104,7 +104,16 @@ bool other_filesystem_backend_callable() {
         mounted = syscape::filesystem::mounts();
     const syscape::result<syscape::filesystem::space_info> capacity =
         syscape::filesystem::space("/");
+    const syscape::result<syscape::filesystem::path_length_limit> component =
+        syscape::filesystem::max_component_length("/");
+    const syscape::result<syscape::filesystem::path_length_limit> path =
+        syscape::filesystem::max_path_length("/");
+    const syscape::result<std::string> identifier =
+        syscape::filesystem::volume_id("/");
     static_cast<void>(capacity);
+    static_cast<void>(component);
+    static_cast<void>(path);
+    static_cast<void>(identifier);
     return (mounted && !mounted->empty()) ||
            mounted.error() == std::errc::operation_not_supported;
 }

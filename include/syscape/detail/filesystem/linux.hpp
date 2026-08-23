@@ -1,11 +1,16 @@
 #ifndef SYSCAPE_DETAIL_FILESYSTEM_LINUX_HPP
 #define SYSCAPE_DETAIL_FILESYSTEM_LINUX_HPP
 
+#include <cerrno>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <vector>
+
+#include <sys/statvfs.h>
+#include <sys/vfs.h>
 
 #include <syscape/detail/filesystem/common.hpp>
 #include <syscape/detail/filesystem/posix.hpp>
@@ -151,6 +156,63 @@ inline result<std::vector<filesystem_common::mount_record>> mounts() {
 inline result<filesystem_common::space_snapshot> space(
     const std::string& path) {
     return statvfs_space(path);
+}
+
+/// Queries the platform's maximum single-component name length for the
+/// volume containing the given path through POSIX pathconf.
+///
+/// The value is the documented _PC_NAME_MAX record in bytes. Native
+/// failures reported by the platform's limit interface are preserved.
+inline result<filesystem_common::path_length_snapshot>
+max_component_length(const std::string& path) {
+    return pathconf_limit(path, _PC_NAME_MAX);
+}
+
+/// Queries the platform's recorded maximum complete-path length for the
+/// volume containing the given path through POSIX pathconf.
+///
+/// The value is the documented _PC_PATH_MAX record in bytes. Whether the
+/// platform's convention counts a terminating null byte follows that
+/// platform's own limit documentation and is not normalized here. A
+/// limit with no fixed value is valid data reported through the explicit
+/// indeterminate flag.
+inline result<filesystem_common::path_length_snapshot> max_path_length(
+    const std::string& path) {
+    return pathconf_limit(path, _PC_PATH_MAX);
+}
+
+/// Renders the kernel's recorded filesystem identifier pair through the
+/// documented statfs interface with interrupted-call retries.
+///
+/// statfs reports f_fsid as two recorded words. Copying each word bit
+/// by bit avoids any integer-sign conversion, and rendering indexes the
+/// array in its recorded order, so the output never depends on integer
+/// endianness. Filesystems that define no distinguishing identifier
+/// record zeros, which are valid data rendered verbatim.
+inline result<std::string> statfs_volume_id(const std::string& path) {
+    for (;;) {
+        struct ::statfs status {};
+        if (::statfs(path.c_str(), &status) == 0) {
+            static_assert(
+                sizeof(status.f_fsid.__val[0]) == sizeof(std::uint32_t),
+                "The Linux backend requires 32-bit statfs identifier words");
+            std::uint32_t first = 0U;
+            std::uint32_t second = 0U;
+            ::std::memcpy(&first, &status.f_fsid.__val[0], sizeof(first));
+            ::std::memcpy(&second, &status.f_fsid.__val[1],
+                          sizeof(second));
+            return filesystem_common::render_hex_word_pair(first, second);
+        }
+        if (errno != EINTR) {
+            return fail(std::error_code(errno, std::generic_category()));
+        }
+    }
+}
+
+/// Returns the opaque platform-recorded identifier of the volume holding
+/// the given path, rendered as sixteen lowercase hexadecimal digits.
+inline result<std::string> volume_id(const std::string& path) {
+    return statfs_volume_id(path);
 }
 
 } // namespace filesystem_backend
