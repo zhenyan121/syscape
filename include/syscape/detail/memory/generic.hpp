@@ -26,6 +26,26 @@ inline result<memory_common::swap_usage> swap_status() {
     return fail(errc::not_supported);
 }
 
+inline result<memory_common::commit_usage> commit_status() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::uint64_t> huge_page_size_bytes() {
+    return fail(errc::not_supported);
+}
+
+inline result<memory_common::huge_page_pool_usage> huge_page_pool_status() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::uint32_t> memory_load_percent() {
+    return fail(errc::not_supported);
+}
+
+inline result<memory_common::pressure_status> memory_pressure() {
+    return fail(errc::not_supported);
+}
+
 } // namespace memory_backend
 } // namespace detail
 } // namespace syscape

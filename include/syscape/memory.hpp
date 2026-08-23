@@ -2,16 +2,20 @@
 #define SYSCAPE_MEMORY_HPP
 
 /// @file
-/// @brief Hosted system memory capacity and usage queries.
+/// @brief Hosted system memory capacity, commit accounting, huge pages,
+/// utilization, and pressure-stall usage queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note Linux implements every query through the kernel-documented
-/// /proc/meminfo interface and POSIX sysconf values. Windows implements the
-/// capacity queries through GlobalMemoryStatusEx and GetSystemInfo and
-/// reports not_supported for paging space because its public APIs expose
-/// only process-scoped commit accounting. macOS implements physical memory
-/// through sysctl, available memory through documented Mach host statistics,
-/// and swap through the binary struct xsw_usage reported by the
-/// vm.swapusage sysctl. Other targets use the not-supported fallback.
+/// /proc/meminfo interface, POSIX sysconf values, and the kernel-documented
+/// /proc/pressure/memory records. Windows implements the capacity, commit,
+/// load, and huge-page-size queries through GlobalMemoryStatusEx,
+/// GetSystemInfo, and GetLargePageMinimum, and reports not_supported for
+/// paging space because its public APIs expose only process-scoped commit
+/// accounting. macOS implements physical memory through sysctl, available
+/// memory and the load estimate through documented Mach host statistics, and
+/// swap through the binary struct xsw_usage reported by the vm.swapusage
+/// sysctl; Darwin exposes no public commit, huge-page, or pressure source.
+/// Other targets use the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
 
@@ -113,7 +117,161 @@ inline result<swap_information> swap_status() {
     return swap_information{usage->total_bytes, usage->free_bytes};
 }
 
+/// Virtual-memory commit accounting at the moment of the query.
+struct commit_information {
+    /// Currently committed virtual memory in bytes.
+    std::uint64_t committed_bytes;
+    /// The effective commit limit in bytes. The scope of this limit is
+    /// platform-defined: Linux reports the kernel's CommitLimit derived from
+    /// its overcommit configuration, while Windows reports the documented
+    /// limit for whichever is smaller, the system or the current process
+    /// (including job-object limits). The committed amount can legitimately
+    /// exceed the limit on platforms with heuristic overcommit.
+    std::uint64_t commit_limit_bytes;
+};
+
+/// Returns the platform's virtual-memory commit charge and limit in bytes.
+///
+/// Linux reads the kernel's documented Committed_AS and CommitLimit meminfo
+/// fields; Windows derives both values from GlobalMemoryStatusEx; platforms
+/// without public commit accounting report not_supported. Both values change
+/// continuously during normal operation. There is deliberately no ordering
+/// guarantee between the two fields.
+/// @return A snapshot of current commit accounting, not_supported when the
+/// platform exposes no acceptable source, not_found when the platform source
+/// omits either field, malformed_data for inconsistent platform data, or a
+/// native platform error.
+inline result<commit_information> commit_status() {
+    const result<detail::memory_common::commit_usage> usage =
+        detail::memory_backend::commit_status();
+    if (!usage) { return fail(usage.error()); }
+    return commit_information{usage->committed_bytes,
+                              usage->commit_limit_bytes};
+}
+
+/// Returns the default huge-page size in bytes.
+///
+/// Linux reports the Hugepagesize meminfo value; Windows reports the
+/// documented GetLargePageMinimum value. Gigantic page sizes beyond the
+/// platform's default (for example 1 GiB pages on x86-64 Linux) are outside
+/// this contract. The value is fixed while the system runs but reflects the
+/// boot-time configuration. Zero counts remain valid data elsewhere in this
+/// module, but a size query cannot honestly return zero, so an empty pool
+/// still reports the configured page size where one exists.
+/// @return A positive power-of-two byte count, not_supported when the
+/// platform exposes no acceptable source, not_found when the platform source
+/// omits the size, malformed_data, or a native platform error.
+inline result<std::uint64_t> huge_page_size_bytes() {
+    return detail::memory_backend::huge_page_size_bytes();
+}
+
+/// Huge-page pool occupancy at the moment of the query.
+struct huge_page_pool_information {
+    /// Configured pool size in default-size huge pages, including any
+    /// dynamically grown surplus population the platform records as part
+    /// of the pool. Zero is valid data that means no pool is configured.
+    std::uint64_t total_count;
+    /// Unallocated pool pages. Pages reserved by future allocations remain
+    /// part of this count where the platform records them that way, so a
+    /// positive free count does not guarantee a successful allocation.
+    std::uint64_t free_count;
+};
+
+/// Returns the configured huge-page pool occupancy in pages.
+///
+/// Linux reports the HugePages_Total and HugePages_Free meminfo values;
+/// platforms without public pool accounting report not_supported. The counts
+/// change with administrative reconfiguration and allocations. Reserved and
+/// surplus refinements beyond the two recorded populations are outside this
+/// contract.
+/// @return A snapshot whose free_count never exceeds total_count,
+/// not_supported when the platform exposes no acceptable source, not_found
+/// when the platform source omits either field, malformed_data for
+/// contradictory platform data, or a native platform error.
+inline result<huge_page_pool_information> huge_page_pool_status() {
+    const result<detail::memory_common::huge_page_pool_usage> pool =
+        detail::memory_common::validate_huge_page_pool(
+            detail::memory_backend::huge_page_pool_status());
+    if (!pool) { return fail(pool.error()); }
+    return huge_page_pool_information{pool->total_count, pool->free_count};
+}
+
+/// Returns the operating system's approximate physical-memory utilization as
+/// a whole percentage from 0 through 100.
+///
+/// Each platform reports its own recorded notion of memory load and the
+/// definitions are deliberately not normalized: Windows reports the
+/// documented dwMemoryLoad percentage verbatim; Linux estimates utilization
+/// as the share of physical memory outside the MemAvailable estimate; macOS
+/// computes the share outside the free and inactive populations that back
+/// available_memory_bytes(). The estimate changes continuously with system
+/// load and is not comparable across platforms at fine granularity.
+/// @return A percentage between 0 and 100, not_supported when the platform
+/// exposes no acceptable source or lacks the underlying availability
+/// estimate, not_found when the platform source omits total memory,
+/// malformed_data for inconsistent platform data, or a native platform error.
+inline result<std::uint32_t> memory_load_percent() {
+    return detail::memory_backend::memory_load_percent();
+}
+
+/// One pressure-stall window with unit-carrying fields.
+struct pressure_sample {
+    /// Fraction of wall-clock time with stalls over the last ten seconds, in
+    /// micro-percent (percent multiplied by exactly one million), so the
+    /// platform's two-fractional-digit rendering converts losslessly.
+    std::uint64_t average10_micro_percent;
+    /// Fraction of wall-clock time with stalls over the last sixty seconds,
+    /// in micro-percent.
+    std::uint64_t average60_micro_percent;
+    /// Fraction of wall-clock time with stalls over the last three hundred
+    /// seconds, in micro-percent.
+    std::uint64_t average300_micro_percent;
+    /// Cumulative stall duration since boot in microseconds.
+    std::uint64_t total_microseconds;
+};
+
+/// Pressure-stall snapshot for tasks stalled on memory.
+struct memory_pressure_status {
+    /// Stalls affecting at least one runnable task.
+    pressure_sample some;
+    /// Whether the platform exposed a full-stall record. Kernels whose
+    /// interface predates full accounting leave this false.
+    bool has_full;
+    /// Stalls affecting every concurrently runnable task simultaneously;
+    /// meaningful only when has_full is true.
+    pressure_sample full;
+};
+
+/// Returns how much wall-clock time tasks spend stalled on memory.
+///
+/// Linux parses the kernel-documented /proc/pressure/memory records, which
+/// exist only when the kernel was built with pressure-stall information and
+/// it has not been administratively disabled; other platforms expose no
+/// equivalent public source and report not_supported. All averages describe
+/// fractions of elapsed wall-clock time and every value is an instantaneous
+/// snapshot of continuously changing counters.
+/// @return A snapshot with a some record and possibly a full record,
+/// not_supported when the platform exposes no acceptable source, malformed_data
+/// for unparsable or contradictory records, or a native platform error.
+inline result<memory_pressure_status> memory_pressure() {
+    const result<detail::memory_common::pressure_status> status =
+        detail::memory_backend::memory_pressure();
+    if (!status) { return fail(status.error()); }
+    memory_pressure_status output;
+    output.some.average10_micro_percent = status->some.average10_micro_percent;
+    output.some.average60_micro_percent = status->some.average60_micro_percent;
+    output.some.average300_micro_percent =
+        status->some.average300_micro_percent;
+    output.some.total_microseconds = status->some.total_microseconds;
+    output.has_full = status->has_full;
+    output.full.average10_micro_percent = status->full.average10_micro_percent;
+    output.full.average60_micro_percent = status->full.average60_micro_percent;
+    output.full.average300_micro_percent =
+        status->full.average300_micro_percent;
+    output.full.total_microseconds = status->full.total_microseconds;
+    return output;
+}
+
 } // namespace memory
 } // namespace syscape
-
 #endif

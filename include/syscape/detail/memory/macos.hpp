@@ -75,13 +75,26 @@ inline result<std::uint64_t> physical_memory_bytes() {
     return value;
 }
 
+/// Queries the Mach host's 64-bit virtual-memory statistics into caller
+/// storage.
+///
+/// The Mach statistics call cannot preserve its kern_return_t code through a
+/// standard error category, so failures map to io_error.
+inline result<void> query_host_vm_statistics(
+    ::mach_port_t host, ::vm_statistics64_data_t& statistics) {
+    ::mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+    const ::kern_return_t status = ::host_statistics64(
+        host, HOST_VM_INFO64,
+        reinterpret_cast<::host_info64_t>(&statistics), &count);
+    if (status != KERN_SUCCESS) { return fail(errc::io_error); }
+    return result<void>();
+}
+
 /// Returns free and inactive pages as the operating system's estimate of
 /// allocatable-without-swapping memory.
 ///
 /// Volatile purgeable pages already reside in the kernel's inactive
 /// population, so purgeable_count is deliberately not added a second time.
-/// The Mach statistics call cannot preserve its kern_return_t code through a
-/// standard error category, so failures map to io_error.
 inline result<std::uint64_t> available_memory_bytes() {
     const host_port host;
     if (host.get() == MACH_PORT_NULL) { return fail(errc::io_error); }
@@ -89,11 +102,9 @@ inline result<std::uint64_t> available_memory_bytes() {
     if (!page_size) { return fail(page_size.error()); }
 
     ::vm_statistics64_data_t statistics {};
-    ::mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
-    const ::kern_return_t status = ::host_statistics64(
-        host.get(), HOST_VM_INFO64,
-        reinterpret_cast<::host_info64_t>(&statistics), &count);
-    if (status != KERN_SUCCESS) { return fail(errc::io_error); }
+    const result<void> queried =
+        query_host_vm_statistics(host.get(), statistics);
+    if (!queried) { return fail(queried.error()); }
 
     const std::uint64_t pages =
         static_cast<std::uint64_t>(statistics.free_count) +
@@ -103,6 +114,65 @@ inline result<std::uint64_t> available_memory_bytes() {
         return fail(errc::value_too_large);
     }
     return pages * *page_size;
+}
+
+/// Reports physical-memory utilization derived from the same host
+/// statistics that back available_memory_bytes().
+///
+/// The percentage is an estimate computed as used memory over installed
+/// memory, where used means everything outside the kernel's free and
+/// inactive populations. It changes continuously with system load and is
+/// not normalized against other platforms' load figures.
+inline result<std::uint32_t> memory_load_percent() {
+    const host_port host;
+    if (host.get() == MACH_PORT_NULL) { return fail(errc::io_error); }
+    const result<std::uint64_t> page_size = query_page_size(host.get());
+    if (!page_size) { return fail(page_size.error()); }
+
+    ::vm_statistics64_data_t statistics {};
+    const result<void> queried =
+        query_host_vm_statistics(host.get(), statistics);
+    if (!queried) { return fail(queried.error()); }
+
+    const result<std::uint64_t> physical = sysctl_u64("hw.memsize");
+    if (!physical) { return fail(physical.error()); }
+    if (*physical == 0U) { return fail(errc::malformed_data); }
+    if (*physical < *page_size) { return fail(errc::malformed_data); }
+
+    const std::uint64_t available_pages =
+        static_cast<std::uint64_t>(statistics.free_count) +
+        static_cast<std::uint64_t>(statistics.inactive_count);
+    if (available_pages > *physical / *page_size) {
+        // Free plus inactive populations cannot exceed installed memory on
+        // any real system; a contradictory rendering is malformed data.
+        return fail(errc::malformed_data);
+    }
+    return memory_common::utilization_percent(
+        *physical - available_pages * *page_size, *physical);
+}
+
+/// Returns not_supported because Darwin exposes no virtual-memory commit
+/// accounting through an acceptable public source.
+inline result<memory_common::commit_usage> commit_status() {
+    return fail(errc::not_supported);
+}
+
+/// Returns not_supported because Darwin exposes no huge-page size through
+/// an acceptable public source.
+inline result<std::uint64_t> huge_page_size_bytes() {
+    return fail(errc::not_supported);
+}
+
+/// Returns not_supported because Darwin exposes no huge-page pool counts
+/// through an acceptable public source.
+inline result<memory_common::huge_page_pool_usage> huge_page_pool_status() {
+    return fail(errc::not_supported);
+}
+
+/// Returns not_supported because Darwin exposes no pressure-stall
+/// accounting through an acceptable public source.
+inline result<memory_common::pressure_status> memory_pressure() {
+    return fail(errc::not_supported);
 }
 
 /// Reads the binary struct xsw_usage reported by the vm.swapusage sysctl.

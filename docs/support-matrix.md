@@ -155,7 +155,7 @@ will be no all-modules umbrella header.
 | Foundation | `capability.hpp` | Allocation-free capability state vocabulary for runtime and compile-time modules | Implemented |
 | 1 | `os.hpp` | Product name, version, build, kernel name and version, host name, boot time, uptime, and boot identifier where available | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `cpu.hpp` | Architecture, vendor, model, packages, physical and logical cores, topology, caches, instruction-set features, frequency, affinity, and utilization | Implemented; Linux verified, Windows and macOS unverified. Cache geometry reports each platform's recorded values verbatim, while a backend that cannot identify distinct cache instances reports `not_supported`. Feature identifiers preserve each platform's own vocabulary instead of normalizing names across platforms. Affinity of the calling context belongs to the process module's scheduling slice rather than being duplicated here |
-| 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | In progress; page size, physical memory, the available-memory estimate, and swap or pagefile usage implemented where documented sources exist |
+| 1 | `memory.hpp` | Physical memory, available memory, committed memory, swap or pagefile, page size, huge pages, pressure, and system utilization | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `process.hpp` | Current process identity, parent, executable, command line, working directory, start time, CPU time, memory use, priority, affinity, threads, and resource limits | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | Implemented; Linux verified, Windows and macOS unverified. Login-session metadata beyond the recorded session name, and fine-grained capability or per-privilege grants beyond the privilege classification, remain not started |
 | 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | In progress; mounted-filesystem enumeration plus per-path capacity, free, available, block-size, and read-only queries implemented where documented platform sources exist. Path limits and volume metadata beyond mount-table entries remain not started |
@@ -330,6 +330,39 @@ and the binary `xsw_usage` structure published by the `vm.swapusage` sysctl.
 | Windows | `GlobalMemoryStatusEx` physical fields; `GetSystemInfo` page size; paging space returns `not_supported` because the pagefile fields describe commit limits scoped to the system or current process and cannot express paging-space capacity | Backend implemented from public Windows APIs; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
 | macOS | `hw.memsize`; free and inactive pages from `host_statistics64` (volatile purgeable pages already reside in the kernel's inactive population); binary `xsw_usage` from `vm.swapusage`; Mach failures map to `io_error` because kern_return_t has no standard category; host send rights are owned by an internal RAII guard | Backend implemented from public Apple APIs; no Apple SDK or runtime available in the current environment | In progress; uncompiled and unverified |
 
+Windows and macOS statuses must not advance until their headers compile with
+the official SDK and the tests execute on the real operating system.
+
+### Memory commit, huge-page, utilization, and pressure evidence
+
+This second memory slice completes the module's planned coverage: virtual-memory
+commit accounting, huge-page facts, physical-memory utilization, and
+pressure-stall information. Commit accounting reports the currently committed
+charge and the effective limit in bytes; there is deliberately no ordering rule
+between them because platforms with heuristic overcommit legitimately report a
+committed charge above the limit, and each backend documents its limit's scope.
+The huge-page size query reports the platform's default application-visible
+huge page verbatim, so gigantic sizes beyond that default (such as 1 GiB pages)
+stay outside the contract; pool counts are page counts whose zero values are
+valid empty-pool data. The utilization estimate is a whole percentage whose
+definition is deliberately platform-specific rather than normalized: Windows
+reports its documented load percentage verbatim, while Linux and macOS compute
+the share of physical memory outside the same availability populations their
+available-memory queries use. Pressure reports wall-clock stall fractions in
+micro-percent (percent multiplied by exactly one million) so each platform's
+two-fractional-digit rendering converts losslessly, plus cumulative stall time
+in microseconds; kernels whose interface predates full accounting leave the
+full record explicitly absent instead of fabricating zeros.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every new query | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | `/proc/meminfo` `Committed_AS`, `CommitLimit`, `HugePages_Total`, `HugePages_Free`, and `Hugepagesize`; unitless count fields accept only bare integers while size fields require the documented kB suffix; utilization derives from MemTotal minus MemAvailable with exact overflow-checked integer rounding; pressure parses the kernel-documented [`PSI` records](https://docs.kernel.org/accounting/psi.html) requiring all four assignments per recognized record, exactly two fractional digits per average, averages within the documented 100-percent bound, an absent file mapped to `not_supported` for kernels built without pressure support, unknown record kinds skipped defensively, and a missing some record rejected as malformed; free pool counts exceeding totals are malformed data | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44 (AMD Ryzen 9 8945HX). Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; synthetic kilobyte and bare-count parser tests, table-driven key classification including wrong-unit and suffix-less shapes, micro-percent boundary tests (zero, bound, one/three decimals, leading dot, beyond-bound, negative), pressure-record tests (both records, pre-full kernels, truncated assignments, malformed averages or totals, future kinds, duplicates, blank lines), live queries cross-checked against independent meminfo reads (exact commit-limit match, volatility-tolerant committed-charge match) and independent PSI reads plus cumulative-total monotonicity, huge-page power-of-two and page-size-ordering bounds, forced-fallback, standalone repeated-inclusion, C++11-rejection, two-translation-unit ODR, AddressSanitizer, and UndefinedBehaviorSanitizer tests passed | Verified for this slice on the listed host |
+| Windows | `GlobalMemoryStatusEx` commit fields follow the documented meaning of `ullTotalPageFile` as the committed-memory limit for whichever is smaller, the system or the current process (job limits included), with the committed charge derived as the difference; `dwMemoryLoad` reports the documented approximate percentage verbatim; [`GetLargePageMinimum`](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-getlargepageminimum) supplies the large-page minimum with a zero return mapped to `not_supported`; contradictory snapshot fields (`ullAvailPhys` above total, `ullAvailPageFile` above its limit, a zero limit, or a load above 100) are malformed data; pool counts and pressure return `not_supported` because the platform documents no acceptable source | Backend written from public Microsoft APIs with synthetic snapshot-validation coverage planned alongside the existing conversion tests; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | Utilization computes used bytes as installed memory minus the free-plus-inactive populations that back available_memory_bytes(), rejecting contradictory statistics as malformed data and reusing the shared exact percentage helper; Darwin exposes no public commit-accounting, huge-page, or pressure-stall source, so those queries report `not_supported` | Backend written from public Apple APIs; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
+
+Transparent Huge Pages configuration state is deliberately outside this slice:
+it is administrative configuration rather than capacity or occupancy fact.
 Windows and macOS statuses must not advance until their headers compile with
 the official SDK and the tests execute on the real operating system.
 
