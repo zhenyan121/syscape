@@ -11,6 +11,7 @@
 #include <syscape/network.hpp>
 #include <syscape/os.hpp>
 #include <syscape/process.hpp>
+#include <syscape/resource.hpp>
 #include <syscape/result.hpp>
 #include <syscape/user.hpp>
 
@@ -118,6 +119,19 @@ bool other_locale_backend_callable() {
     static_cast<void>(offset);
     return locale.has_value() ||
            locale.error() == std::errc::operation_not_supported;
+}
+
+bool other_resource_backend_callable() {
+    const syscape::result<std::uint64_t> processes =
+        syscape::resource::process_count();
+    const syscape::result<syscape::resource::load_snapshot> loads =
+        syscape::resource::load_average();
+    const syscape::result<std::uint64_t> handles =
+        syscape::resource::open_handle_count();
+    static_cast<void>(loads);
+    static_cast<void>(handles);
+    return (processes && *processes > 0U) ||
+           processes.error() == std::errc::operation_not_supported;
 }
 
 bool other_environment_backend_callable() {

@@ -168,7 +168,7 @@ will be no all-modules umbrella header.
 | 2 | `gpu.hpp` | GPU name, vendor, device identity, driver, memory values exposed by the OS, and active adapter state | Not started |
 | 2 | `virtualization.hpp` | Hypervisor presence and vendor, virtual machine hints, containers, namespaces, cgroups, jails, zones, WSL, and application sandboxing | Not started |
 | 2 | `environment.hpp` | Process environment snapshot, temporary and configuration directories, terminal presence, and runtime environment characteristics | In progress; environment-variable lookup, standard user directories, and standard-stream terminal status implemented. Linux verified; Windows and macOS unverified. Environment snapshots and broader runtime characteristics remain not started |
-| 2 | `resource.hpp` | System load, scheduler information, system-wide process and thread counts, handle or file descriptor limits, and other capacity limits | Not started |
+| 2 | `resource.hpp` | System load, scheduler information, system-wide process and thread counts, open-file and open-handle totals, handle or file descriptor limits, and other capacity limits | Implemented; Linux verified, Windows and macOS unverified |
 | 3 | `security.hpp` | Secure Boot state, TPM presence, privilege state, filesystem encryption visibility, integrity facilities, and security capabilities publicly exposed by the OS | Not started |
 | 3 | `sensor.hpp` | Thermal zones, temperatures, fan speeds, and other sensors available through documented system interfaces | Not started |
 | 3 | `audio.hpp` | Audio input and output devices, default devices, capabilities, and connection state | Not started |
@@ -512,6 +512,41 @@ for the root directory).
 
 Windows and macOS statuses must not advance until their headers compile with
 the official SDK and the tests execute on the real operating systems.
+
+### System resource and capacity evidence
+
+This first resource slice exposes the system's one-, five-, and fifteen-minute
+load averages, the scheduler's runnable and total entity counts, the number of
+processes and threads existing system-wide, the operating system's open-file
+total, its open-handle total, and the system-wide limit on open files or
+handles. Every count is an instantaneous snapshot. Load averages are
+dimensionless and are not normalized across platforms: Linux derives them from
+runnable plus uninterruptible tasks, while macOS uses the BSD getloadavg
+equivalent, and Windows exposes no documented load-average source at all. The
+open-file total reports each platform's file-oriented notion, while the
+separate open-handle total reports the platform's population of handles to all
+kernel-object kinds; the two quantities are deliberately distinct queries, and
+a platform that exposes only one of them reports `not_supported` for the other
+rather than presenting unrelated data. Per-process resource limits remain in
+the process module; CPU utilization is not part of this module.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every resource query | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | Kernel-documented `/proc/loadavg` supplies the three load samples, the running/total entity pair, and a validated final identifier field; process counts enumerate numeric `/proc/[pid]` entries; thread counts sum the `num_threads` field across `/proc/[pid]/stat` records, where only records whose process exits between listing and reading (a vanished entry reporting `ENOENT`, or an empty read) are skipped as expected races while permission, input, and format failures propagate, so a returned total always covers every readable record; cost grows with the process count and visibility follows procfs mount options such as `hidepid`; `/proc/sys/fs/file-nr` supplies allocated kernel file handles (first value) and the system-wide maximum (third value), where its sysctl rendering separates values with tabs; no documented source exists for an all-kernel-object handle total, so open_handle_count() returns `not_supported`; zero load samples, zero entities, and zero allocated handles are valid data | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; synthetic sample, loadavg-record, file-nr-record (including tab-separated rendering), stat-thread extraction (nested parentheses in names, truncated, zero-thread, nonnumeric), walk-propagation, validator, live cross-checks against independent `getloadavg` reads and per-process stat parsing, standalone repeated inclusion, forced-fallback, C++11-rejection, two-translation-unit ODR, AddressSanitizer, and UndefinedBehaviorSanitizer tests passed | Verified for this slice on the listed host |
+| Windows | Documented [`GetPerformanceInfo`](https://learn.microsoft.com/en-us/windows/win32/api/psapi/nf-psapi-getperformanceinfo) supplies ProcessCount, ThreadCount, and HandleCount from one call; requires Windows 7 or later SDK declarations with Kernel32.lib linkage or Psapi.lib; HandleCount counts every kernel-object handle kind rather than files only, so it backs the separate open_handle_count() query while open_file_count() returns `not_supported`; load averages return `not_supported` because processor-time counters measure interval utilization rather than damped demand, scheduling-entity counts return `not_supported`, and the descriptor-limit query returns `not_supported` because Windows documents no configurable system-wide handle limit; zero process or thread totals are malformed data because the calling process and thread must exist | Backend written from public Microsoft APIs with synthetic snapshot-validation tests; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | Documented `getloadavg` interface for the three samples; process counts enumerate the documented `KERN_PROC_ALL` table through `sysctl` with growth retries capped before unbounded retries; the thread count reads `kern.num_threads`, the open-file count reads `kern.num_files`, and the limit reads `kern.maxfiles`; those three long-stable XNU sysctls are absent from Apple's formal documentation set and are used only because the platform exposes no stronger documented source; scheduling-entity counts and open_handle_count() return `not_supported` because Darwin documents neither a scheduling-entity nor an all-handles total | Backend written from public Darwin interfaces with synthetic nonnegative-scalar validation tests; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
+
+The Linux sources follow the kernel's documented
+[`proc`](https://docs.kernel.org/filesystems/proc.html) interface and the
+[file-handle sysctl](https://docs.kernel.org/admin-guide/sysctl/fs.html)
+documentation. The Windows implementation follows the public
+[performance information](https://learn.microsoft.com/en-us/windows/win32/api/psapi/nf-psapi-getperformanceinfo)
+API. The macOS enumeration follows Darwin's documented
+[`sysctl`](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/sysctlbyname.3.html)
+process-table interface. Windows and macOS statuses must not advance until
+their headers compile with the official SDK and the tests execute on the real
+operating systems.
 
 ### Sensitive and identifying information
 
