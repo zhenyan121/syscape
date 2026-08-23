@@ -145,10 +145,11 @@ if(WIN32)
     syscape_add_test(locale_windows 17 syscape::hosted locale_windows.cpp)
     syscape_add_test(environment_windows 17 syscape::hosted environment_windows.cpp)
     syscape_add_test(resource_windows 17 syscape::hosted resource_windows.cpp)
-    # Targets that call the resource performance API follow its documented
-    # Windows linkage contract (Kernel32.lib on Windows 7 or later SDKs,
-    # otherwise Psapi.lib) without imposing it on unrelated Hosted Full
-    # consumers.
+    # Targets that call GetPerformanceInfo follow its documented Windows
+    # linkage contract (Kernel32.lib on Windows 7 or later SDKs, otherwise
+    # Psapi.lib) without imposing it on unrelated Hosted Full consumers.
+    target_link_libraries(header_memory PRIVATE psapi)
+    target_link_libraries(memory_windows PRIVATE psapi)
     target_link_libraries(resource_windows PRIVATE psapi)
     # Targets that call the CPU power information API follow its documented
     # Windows linkage contract without imposing PowrProf on unrelated Hosted

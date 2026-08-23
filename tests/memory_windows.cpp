@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <iostream>
+#include <limits>
 #include <system_error>
 
 #include <syscape/memory.hpp>
@@ -18,6 +19,31 @@ void expect(bool condition, const char* message) {
 } // namespace
 
 int main() {
+    namespace backend = syscape::detail::memory_backend;
+
+    const auto interpreted = backend::interpret_commit_information(3U, 7U,
+                                                                    4096U);
+    expect(interpreted && interpreted->committed_bytes == 3U * 4096U &&
+               interpreted->commit_limit_bytes == 7U * 4096U,
+           "Windows commit page counts must convert to system-wide bytes");
+
+    const auto zero_page = backend::interpret_commit_information(3U, 7U, 0U);
+    expect(!zero_page && zero_page.error() == syscape::errc::malformed_data,
+           "A zero performance-information page size must be malformed");
+
+    const auto zero_limit =
+        backend::interpret_commit_information(0U, 0U, 4096U);
+    expect(!zero_limit &&
+               zero_limit.error() == syscape::errc::malformed_data,
+           "A zero system-wide commit limit must be malformed");
+
+    const std::uint64_t maximum =
+        (std::numeric_limits<std::uint64_t>::max)();
+    const auto overflow =
+        backend::interpret_commit_information(maximum, maximum, 2U);
+    expect(!overflow && overflow.error() == syscape::errc::value_too_large,
+           "Overflow while converting commit pages must be reported");
+
     const auto page_size = syscape::memory::page_size_bytes();
     expect(page_size && *page_size > 0U &&
                 (*page_size & (*page_size - 1U)) == 0U,
@@ -36,14 +62,15 @@ int main() {
 
     const auto commit = syscape::memory::commit_status();
     if (commit) {
-        // The documented limit covers RAM plus paging files scoped to
-        // whichever is smaller, the system or the current process; a
-        // heuristic-overcommit caller can legitimately exceed it.
+        // GetPerformanceInfo reports one system-wide committed-page snapshot.
         expect(commit->commit_limit_bytes > 0U,
-               "The effective commit limit must be positive");
+               "The system-wide commit limit must be positive");
     } else {
-        expect(commit.error().category() == std::system_category(),
-               "Commit failures must preserve native system errors");
+        expect(commit.error().category() == std::system_category() ||
+                   commit.error() == syscape::errc::malformed_data ||
+                   commit.error() == syscape::errc::value_too_large,
+               "Commit failures must be native or explicit validation "
+               "errors");
     }
 
     const auto load = syscape::memory::memory_load_percent();

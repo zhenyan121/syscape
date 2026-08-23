@@ -9,13 +9,16 @@
 /// /proc/meminfo interface, POSIX sysconf values, and the kernel-documented
 /// /proc/pressure/memory records. Windows implements the capacity, commit,
 /// load, and huge-page-size queries through GlobalMemoryStatusEx,
-/// GetSystemInfo, and GetLargePageMinimum, and reports not_supported for
-/// paging space because its public APIs expose only process-scoped commit
-/// accounting. macOS implements physical memory through sysctl, available
-/// memory and the load estimate through documented Mach host statistics, and
-/// swap through the binary struct xsw_usage reported by the vm.swapusage
-/// sysctl; Darwin exposes no public commit, huge-page, or pressure source.
-/// Other targets use the not-supported fallback.
+/// GetPerformanceInfo, GetSystemInfo, and GetLargePageMinimum, and reports
+/// not_supported for paging space because its public APIs do not separately
+/// expose paging-space capacity. macOS implements physical memory through
+/// sysctl, available memory and the load estimate through documented Mach
+/// host statistics, and swap through the binary struct xsw_usage reported by
+/// the vm.swapusage sysctl; Darwin exposes no public commit, huge-page, or
+/// pressure source. Other targets use the not-supported fallback.
+/// @note The Windows commit query uses GetPerformanceInfo declared in
+/// <psapi.h>, which maps to Kernel32.lib on Windows 7 or later SDKs and may
+/// require Psapi.lib with older declarations.
 
 #include <syscape/detail/config.hpp>
 
@@ -123,20 +126,20 @@ struct commit_information {
     std::uint64_t committed_bytes;
     /// The effective commit limit in bytes. The scope of this limit is
     /// platform-defined: Linux reports the kernel's CommitLimit derived from
-    /// its overcommit configuration, while Windows reports the documented
-    /// limit for whichever is smaller, the system or the current process
-    /// (including job-object limits). The committed amount can legitimately
-    /// exceed the limit on platforms with heuristic overcommit.
+    /// its overcommit configuration, while Windows reports the system-wide
+    /// CommitLimit from GetPerformanceInfo. The committed amount can
+    /// legitimately exceed the limit on platforms with heuristic overcommit.
     std::uint64_t commit_limit_bytes;
 };
 
 /// Returns the platform's virtual-memory commit charge and limit in bytes.
 ///
 /// Linux reads the kernel's documented Committed_AS and CommitLimit meminfo
-/// fields; Windows derives both values from GlobalMemoryStatusEx; platforms
-/// without public commit accounting report not_supported. Both values change
-/// continuously during normal operation. There is deliberately no ordering
-/// guarantee between the two fields.
+/// fields; Windows reads the system-wide CommitTotal, CommitLimit, and page
+/// size from GetPerformanceInfo and converts the page counts to bytes;
+/// platforms without public commit accounting report not_supported. Both
+/// values change continuously during normal operation. There is deliberately
+/// no ordering guarantee between the two fields.
 /// @return A snapshot of current commit accounting, not_supported when the
 /// platform exposes no acceptable source, not_found when the platform source
 /// omits either field, malformed_data for inconsistent platform data, or a
@@ -162,7 +165,8 @@ inline result<commit_information> commit_status() {
 /// platform exposes no acceptable source, not_found when the platform source
 /// omits the size, malformed_data, or a native platform error.
 inline result<std::uint64_t> huge_page_size_bytes() {
-    return detail::memory_backend::huge_page_size_bytes();
+    return detail::memory_common::validate_huge_page_size(
+        detail::memory_backend::huge_page_size_bytes());
 }
 
 /// Huge-page pool occupancy at the moment of the query.
@@ -234,8 +238,9 @@ struct pressure_sample {
 struct memory_pressure_status {
     /// Stalls affecting at least one runnable task.
     pressure_sample some;
-    /// Whether the platform exposed a full-stall record. Kernels whose
-    /// interface predates full accounting leave this false.
+    /// Whether the platform exposed a full-stall record. Linux always sets
+    /// this true because its documented memory-pressure format requires the
+    /// record; the field preserves room for other platform contracts.
     bool has_full;
     /// Stalls affecting every concurrently runnable task simultaneously;
     /// meaningful only when has_full is true.
@@ -250,7 +255,7 @@ struct memory_pressure_status {
 /// equivalent public source and report not_supported. All averages describe
 /// fractions of elapsed wall-clock time and every value is an instantaneous
 /// snapshot of continuously changing counters.
-/// @return A snapshot with a some record and possibly a full record,
+/// @return A snapshot with the platform's documented pressure records,
 /// not_supported when the platform exposes no acceptable source, malformed_data
 /// for unparsable or contradictory records, or a native platform error.
 inline result<memory_pressure_status> memory_pressure() {

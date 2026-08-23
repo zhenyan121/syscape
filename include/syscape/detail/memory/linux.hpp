@@ -421,10 +421,9 @@ inline result<bool> classify_pressure_line(std::string_view line,
 
 /// Parses the documented /proc/pressure/memory snapshot.
 ///
-/// The some record is required because it exists on every kernel that
-/// exposes the interface at all; the full record became part of the
-/// documented format later, so its absence leaves has_full false and the
-/// full record zeroed instead of failing.
+/// The kernel has documented both some and full records for memory pressure
+/// since PSI was introduced. A snapshot missing either record is truncated or
+/// malformed and cannot satisfy the portable contract.
 inline result<memory_common::pressure_status> parse_memory_pressure(
     std::string_view input) {
     memory_common::pressure_status status;
@@ -442,10 +441,10 @@ inline result<memory_common::pressure_status> parse_memory_pressure(
             classify_pressure_line(line, status, has_some, has_full);
         if (!recognized) { return fail(recognized.error()); }
     }
-    if (!has_some) { return fail(errc::malformed_data); }
+    if (!has_some || !has_full) { return fail(errc::malformed_data); }
     // The classifier records presence in caller-owned flags; publish them
     // on the returned snapshot before handing it to callers.
-    status.has_full = has_full;
+    status.has_full = true;
     return status;
 }
 

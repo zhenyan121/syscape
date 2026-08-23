@@ -93,6 +93,32 @@ void test_bare_count_parser() {
            "Trailing text after a count must be malformed");
 }
 
+void test_huge_page_size_validation() {
+    namespace common = syscape::detail::memory_common;
+    using syscape::errc;
+
+    const auto valid = common::validate_huge_page_size(
+        syscape::result<std::uint64_t>(2ULL * 1024ULL * 1024ULL));
+    expect(valid && *valid == 2ULL * 1024ULL * 1024ULL,
+           "A positive power-of-two huge-page size must pass validation");
+
+    const auto zero = common::validate_huge_page_size(
+        syscape::result<std::uint64_t>(0U));
+    expect(!zero && zero.error() == errc::malformed_data,
+           "A zero huge-page size must be malformed data");
+
+    const auto non_power_of_two = common::validate_huge_page_size(
+        syscape::result<std::uint64_t>(3U * 1024U * 1024U));
+    expect(!non_power_of_two &&
+               non_power_of_two.error() == errc::malformed_data,
+           "A non-power-of-two huge-page size must be malformed data");
+
+    const auto propagated = common::validate_huge_page_size(
+        syscape::result<std::uint64_t>(syscape::fail(errc::not_supported)));
+    expect(!propagated && propagated.error() == errc::not_supported,
+           "Huge-page validation must preserve backend errors");
+}
+
 void test_meminfo_parser() {
     const std::string input =
         "MemTotal:       16384252 kB\n"
@@ -257,13 +283,12 @@ void test_pressure_parser() {
                both->full.total_microseconds == 222U,
            "The full record must map every documented assignment");
 
-    const auto some_only = backend::parse_memory_pressure(
+    const auto missing_full = backend::parse_memory_pressure(
         "some avg10=1.00 avg60=2.00 avg300=3.00 total=42\n");
-    expect(some_only && !some_only->has_full &&
-               some_only->full.average10_micro_percent == 0U &&
-               some_only->full.total_microseconds == 0U,
-           "Kernels without a full record must leave it zeroed and flagged "
-           "absent");
+    expect(!missing_full &&
+               missing_full.error() == errc::malformed_data,
+           "A memory-pressure snapshot without its documented full record "
+           "must be malformed");
 
     const auto missing_some = backend::parse_memory_pressure(
         "full avg10=0.44 avg60=0.55 avg300=0.66 total=222\n");
@@ -290,21 +315,24 @@ void test_pressure_parser() {
 
     const auto unknown_kind_skipped = backend::parse_memory_pressure(
         "partial avg10=7.77 avg60=7.77 avg300=7.77 total=777\n"
-        "some avg10=0.11 avg60=0.22 avg300=0.33 total=111\n");
+        "some avg10=0.11 avg60=0.22 avg300=0.33 total=111\n"
+        "full avg10=0.44 avg60=0.55 avg300=0.66 total=222\n");
     expect(unknown_kind_skipped &&
                unknown_kind_skipped->some.total_microseconds == 111U,
            "Future kernel record kinds must never break existing queries");
 
     const auto duplicates_keep_final = backend::parse_memory_pressure(
         "some avg10=0.11 avg60=0.22 avg300=0.33 total=111\n"
-        "some avg10=9.90 avg60=0.22 avg300=0.33 total=999\n");
+        "some avg10=9.90 avg60=0.22 avg300=0.33 total=999\n"
+        "full avg10=0.44 avg60=0.55 avg300=0.66 total=222\n");
     expect(duplicates_keep_final &&
                duplicates_keep_final->some.average10_micro_percent == 9900000U &&
                duplicates_keep_final->some.total_microseconds == 999U,
            "Duplicate records keep the final value like sequential reads");
 
     const auto blank_lines = backend::parse_memory_pressure("\n"
-        "some avg10=0.11 avg60=0.22 avg300=0.33 total=111\n\n");
+        "some avg10=0.11 avg60=0.22 avg300=0.33 total=111\n\n"
+        "full avg10=0.44 avg60=0.55 avg300=0.66 total=222\n\n");
     expect(blank_lines && blank_lines->some.total_microseconds == 111U,
            "Blank lines must be skipped");
 }
@@ -450,10 +478,9 @@ void test_runtime_queries() {
                    pressure_first->some.average300_micro_percent <=
                        100000000U,
                "Stall fractions cannot exceed the 100-percent bound");
-        if (!pressure_first->has_full) {
-            expect(pressure_first->full.average10_micro_percent == 0U,
-                   "An absent full record must remain zeroed");
-        }
+        expect(pressure_first->has_full,
+               "Linux memory pressure must include its documented full "
+               "record");
         const auto pressure_second = syscape::memory::memory_pressure();
         expect(pressure_second &&
                    pressure_second->some.total_microseconds >=
@@ -496,6 +523,7 @@ void test_runtime_queries() {
 int main() {
     test_kilobyte_parser();
     test_bare_count_parser();
+    test_huge_page_size_validation();
     test_meminfo_parser();
     test_micro_percent_parser();
     test_pressure_parser();

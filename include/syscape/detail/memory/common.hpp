@@ -73,6 +73,20 @@ inline result<huge_page_pool_usage> validate_huge_page_pool(
     return value;
 }
 
+/// Validates a platform's default huge-page size.
+///
+/// A huge-page size is always a positive power-of-two byte count. Keeping
+/// this check at the portable boundary prevents malformed platform data from
+/// escaping as a value that violates the public contract.
+inline result<std::uint64_t> validate_huge_page_size(
+    result<std::uint64_t> value) {
+    if (!value) { return fail(value.error()); }
+    if (*value == 0U || (*value & (*value - 1U)) != 0U) {
+        return fail(errc::malformed_data);
+    }
+    return value;
+}
+
 /// Converts a used-over-total ratio into a whole percentage rounded half up.
 ///
 /// Both arguments are dimensionless counts of any shared unit, for example
@@ -122,9 +136,11 @@ struct pressure_sample {
 ///
 /// The some record describes intervals in which at least one runnable task
 /// stalled on memory; the full record describes intervals in which all
-/// concurrently runnable tasks stalled simultaneously. Platforms whose
-/// sources predate per-memory full accounting report has_full as false and
-/// leave the full record zeroed; that is valid data, not an error.
+/// concurrently runnable tasks stalled simultaneously. The presence flag is
+/// retained so future backends can express an honestly optional full record
+/// without changing the shared representation. Linux memory-pressure
+/// snapshots always set it because their documented format requires both
+/// records.
 struct pressure_status {
     /// Stalls affecting at least one task.
     pressure_sample some;
