@@ -16,6 +16,7 @@
 #include <syscape/resource.hpp>
 #include <syscape/result.hpp>
 #include <syscape/security.hpp>
+#include <syscape/sensor.hpp>
 #include <syscape/storage.hpp>
 #include <syscape/user.hpp>
 #include <syscape/virtualization.hpp>
@@ -39,6 +40,7 @@ bool other_virtualization_backend_callable();
 bool other_gpu_backend_callable();
 bool other_display_backend_callable();
 bool other_security_backend_callable();
+bool other_sensor_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -103,6 +105,9 @@ int main() {
     }
     if (!other_security_backend_callable()) {
         return 20;
+    }
+    if (!other_sensor_backend_callable()) {
+        return 21;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;

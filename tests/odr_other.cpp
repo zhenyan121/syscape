@@ -18,6 +18,7 @@
 #include <syscape/resource.hpp>
 #include <syscape/result.hpp>
 #include <syscape/security.hpp>
+#include <syscape/sensor.hpp>
 #include <syscape/storage.hpp>
 #include <syscape/user.hpp>
 #include <syscape/virtualization.hpp>
@@ -295,3 +296,13 @@ bool other_security_backend_callable() {
            sb.error() == std::errc::permission_denied;
 }
 
+bool other_sensor_backend_callable() {
+    const auto temps = syscape::sensor::temperatures();
+    const auto fans = syscape::sensor::fans();
+    const auto zones = syscape::sensor::thermal_zones();
+    static_cast<void>(fans);
+    static_cast<void>(zones);
+    return temps.has_value() ||
+           temps.error() == std::errc::operation_not_supported ||
+           temps.error() == std::errc::permission_denied;
+}

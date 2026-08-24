@@ -82,6 +82,7 @@ syscape_add_test(header_virtualization 17 syscape::hosted header_virtualization.
 syscape_add_test(header_gpu 17 syscape::hosted header_gpu.cpp)
 syscape_add_test(header_display 17 syscape::hosted header_display.cpp)
 syscape_add_test(header_security 17 syscape::hosted header_security.cpp)
+syscape_add_test(header_sensor 17 syscape::hosted header_sensor.cpp)
 syscape_add_test(foundation 17 syscape::hosted foundation.cpp)
 syscape_add_test(odr 17 syscape::hosted odr_main.cpp odr_other.cpp)
 
@@ -164,6 +165,11 @@ target_compile_definitions(
     security_force_generic
     PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
 
+syscape_add_test(sensor_force_generic 17 syscape::hosted sensor_force_generic.cpp)
+target_compile_definitions(
+    sensor_force_generic
+    PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(os_linux 17 syscape::hosted os_linux.cpp)
     syscape_add_test(cpu_linux 17 syscape::hosted cpu_linux.cpp)
@@ -182,6 +188,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(gpu_linux 17 syscape::hosted gpu_linux.cpp)
     syscape_add_test(display_linux 17 syscape::hosted display_linux.cpp)
     syscape_add_test(security_linux 17 syscape::hosted security_linux.cpp)
+    syscape_add_test(sensor_linux 17 syscape::hosted sensor_linux.cpp)
 endif()
 
 if(WIN32)
@@ -206,6 +213,7 @@ if(WIN32)
     syscape_add_test(gpu_windows 17 syscape::hosted gpu_windows.cpp)
     syscape_add_test(display_windows 17 syscape::hosted display_windows.cpp)
     syscape_add_test(security_windows 17 syscape::hosted security_windows.cpp)
+    syscape_add_test(sensor_windows 17 syscape::hosted sensor_windows.cpp)
     # Targets that call GetPerformanceInfo follow its documented Windows
     # linkage contract (Kernel32.lib on Windows 7 or later SDKs, otherwise
     # Psapi.lib) without imposing it on unrelated Hosted Full consumers.
@@ -248,6 +256,7 @@ if(APPLE)
     syscape_add_test(gpu_macos 17 syscape::hosted gpu_macos.cpp)
     syscape_add_test(display_macos 17 syscape::hosted display_macos.cpp)
     syscape_add_test(security_macos 17 syscape::hosted security_macos.cpp)
+    syscape_add_test(sensor_macos 17 syscape::hosted sensor_macos.cpp)
     # Targets that call the IOKit power-sources API follow its documented
     # Apple linkage contract without imposing the frameworks on unrelated
     # Hosted Full consumers.
@@ -414,3 +423,6 @@ syscape_expect_cpp11_rejection(
 syscape_expect_cpp11_rejection(
     "syscape/security.hpp"
     "syscape/security.hpp requires C++17 or later")
+syscape_expect_cpp11_rejection(
+    "syscape/sensor.hpp"
+    "syscape/sensor.hpp requires C++17 or later")
