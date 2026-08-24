@@ -79,6 +79,7 @@ syscape_add_test(header_power 17 syscape::hosted header_power.cpp)
 syscape_add_test(header_storage 17 syscape::hosted header_storage.cpp)
 syscape_add_test(header_hardware 17 syscape::hosted header_hardware.cpp)
 syscape_add_test(header_virtualization 17 syscape::hosted header_virtualization.cpp)
+syscape_add_test(header_gpu 17 syscape::hosted header_gpu.cpp)
 syscape_add_test(foundation 17 syscape::hosted foundation.cpp)
 syscape_add_test(odr 17 syscape::hosted odr_main.cpp odr_other.cpp)
 
@@ -146,6 +147,11 @@ target_compile_definitions(
     virtualization_force_generic
     PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
 
+syscape_add_test(gpu_force_generic 17 syscape::hosted gpu_force_generic.cpp)
+target_compile_definitions(
+    gpu_force_generic
+    PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(os_linux 17 syscape::hosted os_linux.cpp)
     syscape_add_test(cpu_linux 17 syscape::hosted cpu_linux.cpp)
@@ -161,6 +167,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(storage_linux 17 syscape::hosted storage_linux.cpp)
     syscape_add_test(hardware_linux 17 syscape::hosted hardware_linux.cpp)
     syscape_add_test(virtualization_linux 17 syscape::hosted virtualization_linux.cpp)
+    syscape_add_test(gpu_linux 17 syscape::hosted gpu_linux.cpp)
 endif()
 
 if(WIN32)
@@ -182,6 +189,7 @@ if(WIN32)
     syscape_add_test(storage_windows 17 syscape::hosted storage_windows.cpp)
     syscape_add_test(hardware_windows 17 syscape::hosted hardware_windows.cpp)
     syscape_add_test(virtualization_windows 17 syscape::hosted virtualization_windows.cpp)
+    syscape_add_test(gpu_windows 17 syscape::hosted gpu_windows.cpp)
     # Targets that call GetPerformanceInfo follow its documented Windows
     # linkage contract (Kernel32.lib on Windows 7 or later SDKs, otherwise
     # Psapi.lib) without imposing it on unrelated Hosted Full consumers.
@@ -221,6 +229,7 @@ if(APPLE)
     syscape_add_test(storage_macos 17 syscape::hosted storage_macos.cpp)
     syscape_add_test(hardware_macos 17 syscape::hosted hardware_macos.cpp)
     syscape_add_test(virtualization_macos 17 syscape::hosted virtualization_macos.cpp)
+    syscape_add_test(gpu_macos 17 syscape::hosted gpu_macos.cpp)
     # Targets that call the IOKit power-sources API follow its documented
     # Apple linkage contract without imposing the frameworks on unrelated
     # Hosted Full consumers.
@@ -268,6 +277,13 @@ if(APPLE)
         header_locale PRIVATE "-framework CoreFoundation")
     target_link_libraries(
         locale_macos PRIVATE "-framework CoreFoundation")
+    # Targets that call the IOKit graphics interfaces follow the documented
+    # Apple linkage contract without imposing the frameworks on unrelated
+    # Hosted Full consumers.
+    target_link_libraries(
+        header_gpu PRIVATE "-framework IOKit" "-framework CoreFoundation")
+    target_link_libraries(
+        gpu_macos PRIVATE "-framework IOKit" "-framework CoreFoundation")
 endif()
 
 # These smoke tests verify the language requirements propagated by each public
@@ -362,4 +378,7 @@ syscape_expect_cpp11_rejection(
 syscape_expect_cpp11_rejection(
     "syscape/virtualization.hpp"
     "syscape/virtualization.hpp requires C++17 or later")
+syscape_expect_cpp11_rejection(
+    "syscape/gpu.hpp"
+    "syscape/gpu.hpp requires C++17 or later")
 

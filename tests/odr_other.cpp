@@ -6,6 +6,7 @@
 #include <syscape/environment.hpp>
 #include <syscape/error.hpp>
 #include <syscape/filesystem.hpp>
+#include <syscape/gpu.hpp>
 #include <syscape/hardware.hpp>
 #include <syscape/locale.hpp>
 #include <syscape/memory.hpp>
@@ -22,7 +23,6 @@
 const std::error_category* other_error_category() {
     return &syscape::error_category();
 }
-
 syscape::architecture other_architecture() {
     return syscape::target_architecture();
 }
@@ -248,5 +248,18 @@ bool other_virtualization_backend_callable() {
     static_cast<void>(sb);
     return hv.has_value() ||
            hv.error() == std::errc::operation_not_supported;
+}
+
+bool other_gpu_backend_callable() {
+    const syscape::result<std::vector<syscape::gpu::gpu_device>> devs =
+        syscape::gpu::devices();
+    const syscape::result<std::size_t> count =
+        syscape::gpu::device_count();
+    const syscape::result<syscape::gpu::gpu_device> primary =
+        syscape::gpu::primary_device();
+    static_cast<void>(count);
+    static_cast<void>(primary);
+    return devs.has_value() ||
+           devs.error() == std::errc::operation_not_supported;
 }
 
