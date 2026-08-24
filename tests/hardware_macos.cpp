@@ -35,6 +35,67 @@ void test_fact_interpretation() {
            "presenting nothing as data");
 }
 
+void test_device_tree_data_conversion() {
+    namespace backend = syscape::detail::hardware_backend;
+
+    const ::UInt8 model_bytes[] = {
+        'M', 'a', 'c', '1', '6', ',', '1', 0U};
+    const ::CFDataRef model = ::CFDataCreate(
+        ::kCFAllocatorDefault, model_bytes,
+        static_cast<::CFIndex>(sizeof(model_bytes)));
+    expect(model != nullptr, "A synthetic device-tree value must allocate");
+    if (model != nullptr) {
+        const syscape::result<std::string> converted =
+            backend::copy_utf8_data(model);
+        expect(converted.has_value() && *converted == "Mac16,1",
+               "CFData identity text must discard its trailing terminator");
+        ::CFRelease(model);
+    }
+
+    const ::UInt8 embedded_null[] = {'M', 'a', 'c', 0U, 'X', 0U};
+    const ::CFDataRef malformed = ::CFDataCreate(
+        ::kCFAllocatorDefault, embedded_null,
+        static_cast<::CFIndex>(sizeof(embedded_null)));
+    expect(malformed != nullptr, "A malformed synthetic value must allocate");
+    if (malformed != nullptr) {
+        expect(backend::copy_utf8_data(malformed).error() ==
+                   syscape::errc::malformed_data,
+               "An interior null in device-tree text must be malformed");
+        ::CFRelease(malformed);
+    }
+}
+
+void test_property_type_contracts() {
+    namespace backend = syscape::detail::hardware_backend;
+
+    const ::UInt8 bytes[] = {'M', 'a', 'c', 0U};
+    const ::CFDataRef data = ::CFDataCreate(
+        ::kCFAllocatorDefault, bytes,
+        static_cast<::CFIndex>(sizeof(bytes)));
+    const ::CFStringRef string = CFSTR("Mac");
+    expect(data != nullptr, "A synthetic typed property must allocate");
+    if (data == nullptr) { return; }
+
+    const auto decoded_data = backend::copy_property_text(
+        data, backend::property_text_kind::device_tree_data);
+    expect(decoded_data.has_value() && *decoded_data == "Mac",
+           "A device-tree text property must accept CFData");
+    expect(backend::copy_property_text(
+               string, backend::property_text_kind::device_tree_data)
+               .error() == syscape::errc::malformed_data,
+           "A device-tree text property must reject CFString");
+
+    const auto decoded_string = backend::copy_property_text(
+        string, backend::property_text_kind::core_foundation_string);
+    expect(decoded_string.has_value() && *decoded_string == "Mac",
+           "A platform UUID text property must accept CFString");
+    expect(backend::copy_property_text(
+               data, backend::property_text_kind::core_foundation_string)
+               .error() == syscape::errc::malformed_data,
+           "A platform UUID text property must reject CFData");
+    ::CFRelease(data);
+}
+
 /// Exercises every public query against the running system. The checks stay
 /// tolerant about which facts this particular machine records, because the
 /// interface documents per-key absence, but they require every outcome to be
@@ -57,6 +118,8 @@ void check_live(const char* label, const Query& query) {
 
 int main() {
     test_fact_interpretation();
+    test_device_tree_data_conversion();
+    test_property_type_contracts();
 
     check_live("system_manufacturer", syscape::hardware::system_manufacturer);
     check_live("system_product_name", syscape::hardware::system_product_name);

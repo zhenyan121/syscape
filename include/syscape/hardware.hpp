@@ -14,20 +14,26 @@
 /// interface in its testing ABI classification rather than its stable ABI
 /// classification, so future kernels may evolve the rendered attributes.
 /// Machines whose firmware provides no DMI records expose no such directory,
-/// and every query then reports not_supported. The product_uuid attribute is
-/// readable by the privileged account only, so unprivileged callers receive
-/// the native permission failure instead of an absent value.
+/// and every query then reports not_supported. Native failures while probing
+/// that directory are preserved. The product_uuid attribute is readable by
+/// the privileged account only, so unprivileged callers receive the native
+/// permission failure instead of an absent value.
 /// @note Windows implements the queries through the documented
 /// GetSystemFirmwareTable('RSMB') interface and parses the returned raw
-/// SMBIOS structures according to the public DMTF SMBIOS specification. The
-/// first record of each relevant structure type wins, so multi-board
-/// machines report their primary board. The call lives in Kernel32 and needs
-/// no additional import library.
+/// SMBIOS structures according to the public DMTF SMBIOS specification.
+/// Duplicate singleton system or BIOS records are malformed. Multi-board
+/// machines use the hosting-board and board-type fields to identify the
+/// motherboard, whose chassis handle selects the system enclosure; an
+/// ambiguous topology reports not_supported instead of guessing by record
+/// order. The call lives in Kernel32 and needs no additional import library.
+/// UUID fields use the version-dependent byte ordering recorded by the raw
+/// table header, including the SMBIOS 2.6 little-endian clarification.
 /// @note macOS implements the queries through the documented IOKit registry
-/// properties of the platform-expert device. Darwin exposes no publicly
-/// documented firmware-version or chassis-classification source reachable
-/// there, so those queries report not_supported. Callers must link the IOKit
-/// and CoreFoundation frameworks.
+/// properties of the platform-expert device, enforcing their documented
+/// CFData or CFString representation at that boundary. Darwin exposes no
+/// publicly documented firmware-version or chassis-classification source
+/// reachable there, so those queries report not_supported. Callers must link
+/// the IOKit and CoreFoundation frameworks.
 /// @note hardware_uuid() exposes a machine identifier. The query is explicit,
 /// preserves permission failures, performs no logging, persistence, or
 /// network access, and reports the SMBIOS-documented absence renderings as

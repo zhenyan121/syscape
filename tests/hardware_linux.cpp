@@ -52,6 +52,37 @@ void test_number_parser() {
            "A blank rendering cannot describe this attribute");
 }
 
+void test_dmi_interface_probe() {
+    namespace backend = syscape::detail::hardware_backend;
+
+    const auto missing = [](const char*, struct ::stat*) {
+        errno = ENOENT;
+        return -1;
+    };
+    const auto absent = backend::dmi_interface_present_with(missing);
+    expect(absent.has_value() && !*absent,
+           "A missing DMI-id directory records an unsupported source");
+
+    const auto denied = [](const char*, struct ::stat*) {
+        errno = EACCES;
+        return -1;
+    };
+    const auto permission = backend::dmi_interface_present_with(denied);
+    expect(!permission &&
+               permission.error() ==
+                   std::error_code(EACCES, std::generic_category()),
+           "A DMI-id probe must preserve its native permission failure");
+
+    const auto io_failure = [](const char*, struct ::stat*) {
+        errno = EIO;
+        return -1;
+    };
+    const auto io = backend::dmi_interface_present_with(io_failure);
+    expect(!io && io.error() ==
+                      std::error_code(EIO, std::generic_category()),
+           "A DMI-id probe must preserve native I/O failures");
+}
+
 void test_chassis_classifier() {
     namespace common = syscape::detail::hardware_common;
     using classification = syscape::detail::hardware_common::
@@ -253,7 +284,13 @@ void check_text_query(const char* label, const char* attribute,
 void run_live_checks() {
     namespace backend = syscape::detail::hardware_backend;
 
-    if (!backend::dmi_interface_present()) {
+    const syscape::result<bool> interface =
+        backend::dmi_interface_present();
+    if (!interface) {
+        expect(false, "The DMI-id interface probe must preserve native errors");
+        return;
+    }
+    if (!*interface) {
         // Machines without firmware DMI records report the capability as
         // unsupported everywhere instead of pretending facts exist.
         expect(!backend::system_manufacturer() &&
@@ -389,6 +426,7 @@ void run_live_checks() {
 
 int main() {
     test_number_parser();
+    test_dmi_interface_probe();
     test_chassis_classifier();
     test_uuid_renderer();
     test_uuid_boundary_validator();

@@ -1,6 +1,7 @@
 #ifndef SYSCAPE_DETAIL_HARDWARE_MACOS_HPP
 #define SYSCAPE_DETAIL_HARDWARE_MACOS_HPP
 
+#include <cstddef>
 #include <string>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -66,6 +67,28 @@ inline result<std::string> copy_utf8_string(::CFStringRef value) {
     return output;
 }
 
+/// Copies one device-tree byte-string property into UTF-8 candidate storage.
+///
+/// IOKit exposes Open Firmware device-tree strings such as manufacturer,
+/// model, and board-id as CFData rather than CFString. Their byte payload can
+/// carry one trailing C terminator, which is representation rather than part
+/// of the public value. An interior null would truncate the recorded identity
+/// in C-oriented consumers and therefore reports malformed platform data.
+inline result<std::string> copy_utf8_data(::CFDataRef value) {
+    if (value == nullptr) { return fail(errc::io_error); }
+    const ::CFIndex recorded_length = ::CFDataGetLength(value);
+    if (recorded_length < 0) { return fail(errc::malformed_data); }
+    std::size_t length = static_cast<std::size_t>(recorded_length);
+    const ::UInt8* bytes = ::CFDataGetBytePtr(value);
+    if (length != 0U && bytes == nullptr) { return fail(errc::io_error); }
+    if (length != 0U && bytes[length - 1U] == 0U) { --length; }
+    for (std::size_t index = 0U; index < length; ++index) {
+        if (bytes[index] == 0U) { return fail(errc::malformed_data); }
+    }
+    if (length == 0U) { return std::string(); }
+    return std::string(reinterpret_cast<const char*>(bytes), length);
+}
+
 /// The plain identity facts recorded by the platform-expert properties.
 ///
 /// Keys the platform does not record leave the corresponding flags false so
@@ -87,22 +110,40 @@ struct platform_facts {
     std::string uuid;
 };
 
-/// Copies one recorded registry string property into plain storage.
+/// The CoreFoundation representation documented for one registry property.
+enum class property_text_kind {
+    device_tree_data,
+    core_foundation_string
+};
+
+/// Copies one already-owned registry property using its documented type.
+inline result<std::string> copy_property_text(
+    ::CFTypeRef value, property_text_kind expected_kind) {
+    if (value == nullptr) { return fail(errc::io_error); }
+    const ::CFTypeID type = ::CFGetTypeID(value);
+    if (expected_kind == property_text_kind::device_tree_data) {
+        if (type != ::CFDataGetTypeID()) { return fail(errc::malformed_data); }
+        return copy_utf8_data(static_cast<::CFDataRef>(value));
+    }
+    if (type != ::CFStringGetTypeID()) { return fail(errc::malformed_data); }
+    return copy_utf8_string(static_cast<::CFStringRef>(value));
+}
+
+/// Copies one recorded registry text property into plain storage.
 ///
 /// An absent key records an absent field because platforms legitimately omit
-/// individual identity properties. A present value of a foreign type
-/// contradicts the documented property contract and fails as malformed
-/// platform data instead of being coerced or skipped silently.
+/// individual identity properties. Platform-expert UUID properties are
+/// CFString values, while device-tree identity strings commonly arrive as
+/// CFData byte strings. A present value of any other type contradicts these
+/// contracts and fails as malformed platform data.
 inline result<void> read_property(::io_service_t service, ::CFStringRef key,
+                                  property_text_kind expected_kind,
                                   bool& present, std::string& destination) {
     const cf_object reference(::IORegistryEntryCreateCFProperty(
         service, key, ::kCFAllocatorDefault, 0));
     if (reference.get() == nullptr) { return {}; }
-    if (::CFGetTypeID(reference.get()) != ::CFStringGetTypeID()) {
-        return fail(errc::malformed_data);
-    }
-    result<std::string> text = copy_utf8_string(
-        static_cast<::CFStringRef>(reference.get()));
+    const result<std::string> text =
+        copy_property_text(reference.get(), expected_kind);
     if (!text) { return fail(text.error()); }
     present = true;
     destination = std::move(*text);
@@ -115,18 +156,25 @@ inline result<platform_facts> extract_platform_facts(
     platform_facts facts;
     const result<void> stored_manufacturer =
         read_property(service, CFSTR("manufacturer"),
+                      property_text_kind::device_tree_data,
                       facts.has_manufacturer, facts.manufacturer);
     if (!stored_manufacturer) { return fail(stored_manufacturer.error()); }
     const result<void> stored_model =
-        read_property(service, CFSTR("model"), facts.has_product_name,
+        read_property(service, CFSTR("model"),
+                      property_text_kind::device_tree_data,
+                      facts.has_product_name,
                       facts.product_name);
     if (!stored_model) { return fail(stored_model.error()); }
     const result<void> stored_board =
-        read_property(service, CFSTR("board-id"), facts.has_board_product,
+        read_property(service, CFSTR("board-id"),
+                      property_text_kind::device_tree_data,
+                      facts.has_board_product,
                       facts.board_product);
     if (!stored_board) { return fail(stored_board.error()); }
     const result<void> stored_uuid =
-        read_property(service, CFSTR("IOPlatformUUID"), facts.has_uuid,
+        read_property(service, CFSTR("IOPlatformUUID"),
+                      property_text_kind::core_foundation_string,
+                      facts.has_uuid,
                       facts.uuid);
     if (!stored_uuid) { return fail(stored_uuid.error()); }
     return facts;

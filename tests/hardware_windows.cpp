@@ -50,7 +50,7 @@ std::vector<std::uint8_t> make_table(
             blob.insert(blob.end(), text.begin(), text.end());
             blob.push_back(0U);
         }
-        blob.push_back(0U);
+        if (structure.strings.empty()) { blob.push_back(0U); }
         blob.push_back(0U);
     }
     if (end_marker) {
@@ -58,6 +58,8 @@ std::vector<std::uint8_t> make_table(
         blob.push_back(4U);
         blob.push_back(0xFEU);
         blob.push_back(0xFFU);
+        blob.push_back(0U);
+        blob.push_back(0U);
     }
     return blob;
 }
@@ -103,6 +105,31 @@ std::vector<std::uint8_t> chassis_structure(std::uint8_t type_byte) {
         1U, type_byte, 0U, 0U, 0U};
 }
 
+std::vector<std::uint8_t> identified_board_structure(
+    std::uint16_t handle, std::uint16_t chassis_handle,
+    bool hosting_board, std::uint8_t board_type) {
+    return {
+        2U, 0U,
+        static_cast<std::uint8_t>(handle & 0xFFU),
+        static_cast<std::uint8_t>(handle >> 8U),
+        1U, 2U, 3U, 0U, 0U,
+        static_cast<std::uint8_t>(hosting_board ? 1U : 0U),
+        0U,
+        static_cast<std::uint8_t>(chassis_handle & 0xFFU),
+        static_cast<std::uint8_t>(chassis_handle >> 8U),
+        board_type,
+        0U};
+}
+
+std::vector<std::uint8_t> identified_chassis_structure(
+    std::uint16_t handle, std::uint8_t type_byte) {
+    return {
+        3U, 0U,
+        static_cast<std::uint8_t>(handle & 0xFFU),
+        static_cast<std::uint8_t>(handle >> 8U),
+        1U, type_byte, 0U, 0U, 0U};
+}
+
 void test_full_table_parse() {
     namespace backend = syscape::detail::hardware_backend;
 
@@ -122,7 +149,7 @@ void test_full_table_parse() {
     });
 
     const syscape::result<backend::identity_facts> facts =
-        backend::parse_smbios_table(table.data(), table.size());
+        backend::parse_smbios_table(table.data(), table.size(), 2U, 6U);
     expect(facts.has_value(),
            "A conforming table must parse into plain facts");
     if (!facts) { return; }
@@ -171,6 +198,54 @@ void test_full_table_parse() {
            "and must render in presentation order");
 }
 
+void test_legacy_uuid_byte_order() {
+    namespace backend = syscape::detail::hardware_backend;
+
+    const std::uint8_t uuid[16] = {
+        0x00U, 0x11U, 0x22U, 0x33U,
+        0x44U, 0x55U,
+        0x66U, 0x77U,
+        0x88U, 0x99U, 0xAAU, 0xBBU, 0xCCU, 0xDDU, 0xEEU, 0xFFU};
+    const std::vector<std::uint8_t> table = make_table({
+        {with_uuid(system_structure(1U, 2U, 0U), uuid),
+         {"Vendor", "Product"}},
+    });
+    const syscape::result<backend::identity_facts> facts =
+        backend::parse_smbios_table(table.data(), table.size(), 2U, 5U);
+    expect(facts.has_value(), "A legacy SMBIOS table must parse");
+    if (!facts) { return; }
+    const syscape::result<std::string> rendered =
+        backend::interpret_uuid(*facts);
+    expect(rendered.has_value() &&
+               *rendered == "00112233-4455-6677-8899-aabbccddeeff",
+           "Pre-2.6 UUID fields must retain their recorded byte order");
+}
+
+void test_table_buffer_growth() {
+    namespace backend = syscape::detail::hardware_backend;
+
+    unsigned int calls = 0U;
+    const auto grows_once = [&calls](void*, ::UINT capacity) -> ::UINT {
+        ++calls;
+        if (capacity == 0U) { return 12U; }
+        if (capacity == 12U) { return 16U; }
+        return 16U;
+    };
+    const syscape::result<std::vector<std::uint8_t>> grown =
+        backend::fetch_table_with(grows_once);
+    expect(grown.has_value() && grown->size() == 16U && calls == 3U,
+           "A table that grows after sizing must be retried");
+
+    const auto keeps_growing = [](void*, ::UINT capacity) -> ::UINT {
+        return capacity == 0U ? 9U : capacity + 1U;
+    };
+    const syscape::result<std::vector<std::uint8_t>> unstable =
+        backend::fetch_table_with(keeps_growing);
+    expect(unstable.error() == syscape::errc::temporarily_unavailable,
+           "A table that keeps growing through the retry cap must be "
+           "temporarily unavailable");
+}
+
 void test_interpretation() {
     namespace backend = syscape::detail::hardware_backend;
 
@@ -201,7 +276,7 @@ void test_interpretation() {
            "Absent identity facts report not_found instead of emptiness");
 }
 
-void test_first_record_wins() {
+void test_duplicate_singleton_records_fail() {
     namespace backend = syscape::detail::hardware_backend;
 
     const std::vector<std::uint8_t> table = make_table({
@@ -210,10 +285,70 @@ void test_first_record_wins() {
     });
     const syscape::result<backend::identity_facts> facts =
         backend::parse_smbios_table(table.data(), table.size());
-    expect(facts.has_value() &&
-               facts->system_product_name_value == "First Product",
-           "Later duplicate records describe add-on components, so the "
-           "first record wins");
+    expect(!facts && facts.error() == syscape::errc::malformed_data,
+           "A table cannot contain duplicate System Information records");
+
+    const std::vector<std::uint8_t> duplicate_bios = make_table({
+        {firmware_structure(1U, 2U, 3U), {"V", "R", "D"}},
+        {firmware_structure(1U, 2U, 3U), {"V", "R", "D"}},
+    });
+    expect(backend::parse_smbios_table(duplicate_bios.data(),
+                                       duplicate_bios.size())
+                   .error() == syscape::errc::malformed_data,
+           "A table cannot contain duplicate BIOS Information records");
+}
+
+void test_primary_board_and_chassis_selection() {
+    namespace backend = syscape::detail::hardware_backend;
+
+    const std::vector<std::uint8_t> table = make_table({
+        {identified_board_structure(0x1000U, 0x2000U, false, 0x09U),
+         {"Addon Vendor", "Daughterboard", "A"}},
+        {identified_chassis_structure(0x2000U, 21U), {"Peripheral"}},
+        {identified_board_structure(0x1001U, 0x2001U, true, 0x0AU),
+         {"Main Vendor", "Motherboard", "B"}},
+        {identified_chassis_structure(0x2001U, 23U), {"Main enclosure"}},
+    });
+    const auto facts = backend::parse_smbios_table(
+        table.data(), table.size(), 3U, 0U);
+    expect(facts.has_value(), "A linked multi-board table must parse");
+    if (!facts) { return; }
+    expect(facts->has_board_product_name &&
+               facts->board_product_name_value == "Motherboard",
+           "The hosting motherboard must win over an earlier daughterboard");
+    expect(facts->has_chassis_type && facts->chassis_type_value == 23U,
+           "The motherboard's chassis handle must select the main enclosure");
+
+    const std::vector<std::uint8_t> ambiguous = make_table({
+        {identified_board_structure(1U, 10U, false, 0x09U),
+         {"A", "Board A", "1"}},
+        {identified_board_structure(2U, 11U, false, 0x09U),
+         {"B", "Board B", "2"}},
+    });
+    const auto ambiguous_facts = backend::parse_smbios_table(
+        ambiguous.data(), ambiguous.size(), 3U, 0U);
+    expect(ambiguous_facts.has_value() &&
+               ambiguous_facts->board_selection_ambiguous,
+           "Multiple boards without one motherboard must stay ambiguous");
+    if (ambiguous_facts) {
+        expect(backend::interpret_board_text(
+                   *ambiguous_facts,
+                   ambiguous_facts->has_board_product_name,
+                   ambiguous_facts->board_product_name_value)
+                       .error() == syscape::errc::not_supported,
+               "An ambiguous board selection must not guess one record");
+    }
+
+    const std::vector<std::uint8_t> ambiguous_chassis = make_table({
+        {identified_chassis_structure(20U, 21U), {"Peripheral"}},
+        {identified_chassis_structure(21U, 23U), {"Main"}},
+    });
+    const auto ambiguous_chassis_facts = backend::parse_smbios_table(
+        ambiguous_chassis.data(), ambiguous_chassis.size(), 3U, 0U);
+    expect(ambiguous_chassis_facts.has_value() &&
+               backend::interpret_chassis(*ambiguous_chassis_facts).error() ==
+                   syscape::errc::not_supported,
+           "Multiple unassociated enclosures must not guess by record order");
 }
 
 void test_string_extraction() {
@@ -223,12 +358,12 @@ void test_string_extraction() {
         1U, 8U, 0U, 4U,
         1U, 2U, 0U, 0U,
         'V', 'E', 'N', 0U,
-        0U, 0U};
+        0U};
     backend::structure_view view;
     view.formatted = payload;
     view.formatted_size = 8U;
     view.strings = payload + 8U;
-    view.strings_size = 4U;
+    view.strings_size = 3U;
 
     const auto named =
         backend::extract_string(view, static_cast<std::uint8_t>(1U));
@@ -324,8 +459,9 @@ void test_missing_uuid_field() {
 void test_malformed_tables() {
     namespace backend = syscape::detail::hardware_backend;
 
-    const std::vector<std::uint8_t> unterminated = make_table(
+    std::vector<std::uint8_t> unterminated = make_table(
         {{system_structure(1U, 2U, 0U), {"Vendor", "Product"}}}, false);
+    unterminated.pop_back();
     expect(!backend::parse_smbios_table(unterminated.data(),
                                         unterminated.size()),
            "Every structure requires its double-null string terminator");
@@ -379,14 +515,51 @@ void test_malformed_tables() {
                                         foreign_index.size()),
            "An index beyond the recorded strings contradicts the "
            "specification's indexing");
+
+    const std::vector<std::uint8_t> no_end_marker = make_table({
+        {system_structure(1U, 2U, 0U), {"Vendor", "Product"}},
+    }, false);
+    expect(backend::parse_smbios_table(no_end_marker.data(),
+                                       no_end_marker.size(), 3U, 0U)
+                   .error() == syscape::errc::malformed_data,
+           "SMBIOS 2.2 and later tables require an end-of-table record");
+    expect(backend::parse_smbios_table(no_end_marker.data(),
+                                       no_end_marker.size(), 2U, 1U)
+               .has_value(),
+           "A pre-2.2 table remains valid without the later end marker");
+
+    const std::uint8_t short_end_marker[] = {127U, 0U, 0U, 0U, 0U, 0U};
+    expect(backend::parse_smbios_table(short_end_marker,
+                                       sizeof(short_end_marker), 3U, 0U)
+                   .error() == syscape::errc::malformed_data,
+           "An end-of-table record still requires a four-byte header");
+
+    const std::uint8_t unterminated_end_marker[] = {127U, 4U, 0U, 0U};
+    expect(backend::parse_smbios_table(
+               unterminated_end_marker, sizeof(unterminated_end_marker),
+               3U, 0U)
+                   .error() == syscape::errc::malformed_data,
+           "An end-of-table record requires its double-null terminator");
+
+    const std::vector<std::uint8_t> short_multiple_boards = make_table({
+        {board_structure(1U, 2U, 0U), {"A", "Board A"}},
+        {board_structure(1U, 2U, 0U), {"B", "Board B"}},
+    });
+    expect(backend::parse_smbios_table(short_multiple_boards.data(),
+                                       short_multiple_boards.size())
+                   .error() == syscape::errc::malformed_data,
+           "Multiple boards require their containment fields");
 }
 
 } // namespace
 
 int main() {
     test_full_table_parse();
+    test_legacy_uuid_byte_order();
+    test_table_buffer_growth();
     test_interpretation();
-    test_first_record_wins();
+    test_duplicate_singleton_records_fail();
+    test_primary_board_and_chassis_selection();
     test_string_extraction();
     test_absent_and_empty_strings();
     test_missing_uuid_field();

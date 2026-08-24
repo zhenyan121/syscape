@@ -44,10 +44,22 @@ inline std::string_view trim_attribute(std::string_view value) noexcept {
 /// boards and some virtual machines, create no such directory. Every query
 /// then reports not_supported so an unusable source can never masquerade as
 /// recorded facts.
-inline bool dmi_interface_present() noexcept {
+template <typename Stat>
+inline result<bool> dmi_interface_present_with(const Stat& stat_call) {
     struct ::stat info;
-    if (::stat(dmi_id_root, &info) != 0) { return false; }
+    if (stat_call(dmi_id_root, &info) != 0) {
+        const int saved_errno = errno;
+        if (saved_errno == ENOENT || saved_errno == ENOTDIR) { return false; }
+        return fail(std::error_code(saved_errno, std::generic_category()));
+    }
     return S_ISDIR(info.st_mode);
+}
+
+inline result<bool> dmi_interface_present() {
+    const auto stat_call = [](const char* path, struct ::stat* info) {
+        return ::stat(path, info);
+    };
+    return dmi_interface_present_with(stat_call);
 }
 
 /// Reads one DMI-id attribute and reduces it to a plain UTF-8 candidate.
@@ -76,6 +88,14 @@ inline result<std::string> read_attribute(const char* attribute) {
     return std::string(trimmed);
 }
 
+/// Verifies the shared DMI-id source before reading one attribute from it.
+inline result<std::string> read_dmi_attribute(const char* attribute) {
+    const result<bool> present = dmi_interface_present();
+    if (!present) { return fail(present.error()); }
+    if (!*present) { return fail(errc::not_supported); }
+    return read_attribute(attribute);
+}
+
 /// Parses one strict nonnegative decimal rendering shared by numeric
 /// attributes.
 ///
@@ -97,53 +117,43 @@ inline result<std::uint32_t> parse_number(std::string_view input) {
 }
 
 inline result<std::string> system_manufacturer() {
-    if (!dmi_interface_present()) { return fail(errc::not_supported); }
-    return read_attribute("sys_vendor");
+    return read_dmi_attribute("sys_vendor");
 }
 
 inline result<std::string> system_product_name() {
-    if (!dmi_interface_present()) { return fail(errc::not_supported); }
-    return read_attribute("product_name");
+    return read_dmi_attribute("product_name");
 }
 
 inline result<std::string> system_product_version() {
-    if (!dmi_interface_present()) { return fail(errc::not_supported); }
-    return read_attribute("product_version");
+    return read_dmi_attribute("product_version");
 }
 
 inline result<std::string> motherboard_manufacturer() {
-    if (!dmi_interface_present()) { return fail(errc::not_supported); }
-    return read_attribute("board_vendor");
+    return read_dmi_attribute("board_vendor");
 }
 
 inline result<std::string> motherboard_product_name() {
-    if (!dmi_interface_present()) { return fail(errc::not_supported); }
-    return read_attribute("board_name");
+    return read_dmi_attribute("board_name");
 }
 
 inline result<std::string> motherboard_version() {
-    if (!dmi_interface_present()) { return fail(errc::not_supported); }
-    return read_attribute("board_version");
+    return read_dmi_attribute("board_version");
 }
 
 inline result<std::string> firmware_vendor() {
-    if (!dmi_interface_present()) { return fail(errc::not_supported); }
-    return read_attribute("bios_vendor");
+    return read_dmi_attribute("bios_vendor");
 }
 
 inline result<std::string> firmware_version() {
-    if (!dmi_interface_present()) { return fail(errc::not_supported); }
-    return read_attribute("bios_version");
+    return read_dmi_attribute("bios_version");
 }
 
 inline result<std::string> firmware_release_date() {
-    if (!dmi_interface_present()) { return fail(errc::not_supported); }
-    return read_attribute("bios_date");
+    return read_dmi_attribute("bios_date");
 }
 
 inline result<hardware_common::chassis_classification> chassis_form_factor() {
-    if (!dmi_interface_present()) { return fail(errc::not_supported); }
-    const result<std::string> rendered = read_attribute("chassis_type");
+    const result<std::string> rendered = read_dmi_attribute("chassis_type");
     if (!rendered) { return fail(rendered.error()); }
     const result<std::uint32_t> recorded = parse_number(
         std::string_view(*rendered));
@@ -154,12 +164,11 @@ inline result<hardware_common::chassis_classification> chassis_form_factor() {
 }
 
 inline result<std::string> hardware_uuid() {
-    if (!dmi_interface_present()) { return fail(errc::not_supported); }
     // The public boundary validates the hyphenated rendering and reports
     // both SMBIOS-documented absence markers as not_found. The underlying
     // attribute file is readable by the privileged account only, so
     // unprivileged callers receive the native permission failure unchanged.
-    return read_attribute("product_uuid");
+    return read_dmi_attribute("product_uuid");
 }
 
 } // namespace hardware_backend
