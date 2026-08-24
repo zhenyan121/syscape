@@ -14,8 +14,11 @@
 #include <netinet/in.h>
 #include <ifaddrs.h>
 
+#include <CoreFoundation/CoreFoundation.h>
+
 #include <syscape/detail/network/common.hpp>
 #include <syscape/detail/network/posix.hpp>
+#include <syscape/detail/network/dns_macos.hpp>
 #include <syscape/network.hpp>
 
 namespace {
@@ -432,6 +435,263 @@ void test_darwin_unusable_routes_are_filtered() {
     expect(down && routes.empty(), "Darwin routes that are not up are omitted");
 }
 
+/// Injected dynamic-store reader shared by the DNS tests.
+struct fake_store_api {
+    static ::CFDictionaryRef value;
+
+    static syscape::result<::CFDictionaryRef> global_dns() {
+        if (value == nullptr) {
+            return syscape::fail(syscape::errc::not_found);
+        }
+        ::CFRetain(value);
+        return value;
+    }
+};
+
+::CFDictionaryRef fake_store_api::value = nullptr;
+
+/// Creates one retained UTF-8 CoreFoundation string.
+::CFStringRef make_cf_string(const char* text) {
+    return ::CFStringCreateWithCString(
+        ::kCFAllocatorDefault, text, ::kCFStringEncodingUTF8);
+}
+
+/// Creates one retained CoreFoundation string from an explicit UTF-8 byte
+/// count, including embedded null characters.
+::CFStringRef make_cf_string(const char* text, ::CFIndex length) {
+    return ::CFStringCreateWithBytes(
+        ::kCFAllocatorDefault, reinterpret_cast<const UInt8*>(text), length,
+        ::kCFStringEncodingUTF8, false);
+}
+
+/// Creates one retained array over retained elements.
+::CFArrayRef make_cf_array(const void** values, ::CFIndex count) {
+    return ::CFArrayCreate(::kCFAllocatorDefault, values, count,
+                           &::kCFTypeArrayCallBacks);
+}
+
+void test_macos_dns_full_extraction() {
+    ::CFStringRef address_strings[2] = {make_cf_string("192.168.1.53"),
+                                        make_cf_string("fe80::1%9")};
+    ::CFStringRef domain_strings[2] = {make_cf_string("example.net"),
+                                       make_cf_string("example.com")};
+    const void* addresses[] = {address_strings[0U], address_strings[1U]};
+    const void* domains[] = {domain_strings[0U], domain_strings[1U]};
+    ::CFArrayRef server_array = make_cf_array(addresses, 2);
+    ::CFArrayRef search_array = make_cf_array(domains, 2);
+    ::CFStringRef domain_name = make_cf_string("example.org");
+
+    const void* keys[] = {
+        static_cast<const void*>(::kSCPropNetDNSServerAddresses),
+        static_cast<const void*>(::kSCPropNetDNSSearchDomains),
+        static_cast<const void*>(::kSCPropNetDNSDomainName)};
+    const void* values[] = {server_array, search_array, domain_name};
+    fake_store_api::value = ::CFDictionaryCreate(
+        ::kCFAllocatorDefault, keys, values, 3, &::kCFTypeDictionaryKeyCallBacks,
+        &::kCFTypeDictionaryValueCallBacks);
+
+    const auto collected =
+        syscape::detail::network_backend::collect_dns(fake_store_api{});
+    expect(collected && collected->servers.size() == 2U &&
+               collected->search_domains &&
+               collected->search_domains->size() == 2U &&
+               collected->domain_name &&
+               *collected->domain_name == "example.org",
+           "The documented macOS DNS entity yields its recorded facts");
+    if (!collected) { return; }
+
+    using syscape::detail::network_common::address_family;
+    expect(collected->servers[0U].address.family ==
+                   address_family::ipv4 &&
+               collected->servers[0U].address.value[3U] == 53U &&
+               !collected->servers[0U].interface_index,
+           "The macOS IPv4 resolver keeps its bytes and no binding");
+    expect(collected->servers[1U].address.family ==
+                   address_family::ipv6 &&
+               collected->servers[1U].address.scope_id == 9U &&
+               collected->servers[1U].address.value[15U] == 1U,
+           "The macOS IPv6 resolver keeps its zone identifier");
+    expect((*collected->search_domains)[0U] == "example.net" &&
+               (*collected->search_domains)[1U] == "example.com",
+           "macOS search domains keep the recorded order");
+    expect(::CFGetRetainCount(fake_store_api::value) == 1,
+           "The extraction releases its owned dictionary reference");
+
+    ::CFRelease(address_strings[0U]);
+    ::CFRelease(address_strings[1U]);
+    ::CFRelease(domain_strings[0U]);
+    ::CFRelease(domain_strings[1U]);
+    ::CFRelease(server_array);
+    ::CFRelease(search_array);
+    ::CFRelease(domain_name);
+    ::CFRelease(fake_store_api::value);
+    fake_store_api::value = nullptr;
+}
+
+void test_macos_dns_partial_and_absent() {
+    ::CFStringRef domain_name = make_cf_string("only.example.org");
+    const void* keys[] = {
+        static_cast<const void*>(::kSCPropNetDNSDomainName)};
+    const void* values[] = {domain_name};
+    fake_store_api::value = ::CFDictionaryCreate(
+        ::kCFAllocatorDefault, keys, values, 1,
+        &::kCFTypeDictionaryKeyCallBacks,
+        &::kCFTypeDictionaryValueCallBacks);
+
+    const auto partial =
+        syscape::detail::network_backend::collect_dns(fake_store_api{});
+    expect(partial && partial->servers.empty() && partial->search_domains &&
+               partial->search_domains->empty() && partial->domain_name &&
+               *partial->domain_name == "only.example.org",
+           "Absent DNS keys record absent fields");
+    ::CFRelease(fake_store_api::value);
+    fake_store_api::value = nullptr;
+
+    const auto absent =
+        syscape::detail::network_backend::collect_dns(fake_store_api{});
+    expect(!absent && absent.error() == syscape::errc::not_found,
+           "An absent global DNS dictionary reports not-found data");
+
+    ::CFIndex zero = 0;
+    ::CFArrayRef empty_array =
+        ::CFArrayCreate(::kCFAllocatorDefault, nullptr, zero,
+                        &::kCFTypeArrayCallBacks);    const void* empty_keys[] = {
+        static_cast<const void*>(::kSCPropNetDNSServerAddresses)};
+    const void* empty_values[] = {empty_array};
+    fake_store_api::value = ::CFDictionaryCreate(
+        ::kCFAllocatorDefault, empty_keys, empty_values, 1,
+        &::kCFTypeDictionaryKeyCallBacks,
+        &::kCFTypeDictionaryValueCallBacks);
+    const auto empty_list =
+        syscape::detail::network_backend::collect_dns(fake_store_api{});
+    expect(empty_list && empty_list->servers.empty(),
+           "Empty recorded lists are valid data");
+    ::CFRelease(empty_array);
+    ::CFRelease(fake_store_api::value);
+    fake_store_api::value = nullptr;
+}
+
+void test_macos_dns_type_mismatches_fail() {
+    ::CFStringRef not_an_array = make_cf_string("wrong type");
+    const void* key[] = {
+        static_cast<const void*>(::kSCPropNetDNSServerAddresses)};
+    const void* value[] = {not_an_array};
+    fake_store_api::value = ::CFDictionaryCreate(
+        ::kCFAllocatorDefault, key, value, 1,
+        &::kCFTypeDictionaryKeyCallBacks,
+        &::kCFTypeDictionaryValueCallBacks);
+    auto converted =
+        syscape::detail::network_backend::collect_dns(fake_store_api{});
+    expect(!converted && converted.error() == syscape::errc::malformed_data,
+           "A non-array ServerAddresses record is malformed");
+
+    const unsigned char bytes[] = {1U};
+    ::CFDataRef not_a_string = ::CFDataCreate(
+        ::kCFAllocatorDefault, bytes, sizeof(bytes));
+    const void* string_values[] = {not_a_string};
+    ::CFArrayRef wrong_element_array =
+        make_cf_array(string_values, 1);
+    const void* element_key[] = {
+        static_cast<const void*>(::kSCPropNetDNSServerAddresses)};
+    const void* element_value[] = {wrong_element_array};
+    ::CFRelease(fake_store_api::value);
+    fake_store_api::value = ::CFDictionaryCreate(
+        ::kCFAllocatorDefault, element_key, element_value, 1,
+        &::kCFTypeDictionaryKeyCallBacks,
+        &::kCFTypeDictionaryValueCallBacks);
+    converted = syscape::detail::network_backend::collect_dns(
+        fake_store_api{});
+    expect(!converted && converted.error() == syscape::errc::malformed_data,
+           "A non-string resolver entry is malformed platform data");
+
+    const void* search_key[] = {
+        static_cast<const void*>(::kSCPropNetDNSSearchDomains)};
+    const void* search_value[] = {wrong_element_array};
+    ::CFRelease(fake_store_api::value);
+    fake_store_api::value = ::CFDictionaryCreate(
+        ::kCFAllocatorDefault, search_key, search_value, 1,
+        &::kCFTypeDictionaryKeyCallBacks,
+        &::kCFTypeDictionaryValueCallBacks);
+    converted = syscape::detail::network_backend::collect_dns(
+        fake_store_api{});
+    expect(!converted && converted.error() == syscape::errc::malformed_data,
+           "A non-string search-domain entry is malformed");
+
+    const void* name_key[] = {
+        static_cast<const void*>(::kSCPropNetDNSDomainName)};
+    const void* name_value[] = {wrong_element_array};
+    ::CFRelease(fake_store_api::value);
+    fake_store_api::value = ::CFDictionaryCreate(
+        ::kCFAllocatorDefault, name_key, name_value, 1,
+        &::kCFTypeDictionaryKeyCallBacks,
+        &::kCFTypeDictionaryValueCallBacks);
+    converted = syscape::detail::network_backend::collect_dns(
+        fake_store_api{});
+    expect(!converted && converted.error() == syscape::errc::malformed_data,
+           "A non-string local-domain entry is malformed");
+
+    ::CFRelease(not_an_array);
+    ::CFRelease(not_a_string);
+    ::CFRelease(wrong_element_array);
+    ::CFRelease(fake_store_api::value);
+    fake_store_api::value = nullptr;
+}
+
+void test_macos_dns_address_shapes() {
+    ::CFStringRef malformed_address = make_cf_string("not-an-address");
+    const void* addresses[] = {malformed_address};
+    ::CFArrayRef server_array = make_cf_array(addresses, 1);
+    const void* keys[] = {
+        static_cast<const void*>(::kSCPropNetDNSServerAddresses)};
+    const void* values[] = {server_array};
+    fake_store_api::value = ::CFDictionaryCreate(
+        ::kCFAllocatorDefault, keys, values, 1,
+        &::kCFTypeDictionaryKeyCallBacks,
+        &::kCFTypeDictionaryValueCallBacks);
+
+    const auto malformed =
+        syscape::detail::network_backend::collect_dns(fake_store_api{});
+    expect(!malformed &&
+               malformed.error() == syscape::errc::malformed_data,
+           "An unusable textual resolver address is malformed");
+
+    const char embedded_bytes[] = {'1', '9', '2', '.', '0', '.', '2', '.',
+                                   '1', '\0', 'x'};
+    ::CFStringRef embedded_null = make_cf_string(
+        embedded_bytes, static_cast<::CFIndex>(sizeof(embedded_bytes)));
+    const auto truncated =
+        syscape::detail::network_backend::convert_server_address(
+            embedded_null);
+    expect(!truncated &&
+               truncated.error() == syscape::errc::malformed_data,
+           "An embedded null cannot truncate a macOS resolver address");
+
+    ::CFStringRef zero_zone = make_cf_string("fe80::1%0");
+    const void* zero_zone_value[] = {zero_zone};
+    ::CFArrayRef zero_zone_array = make_cf_array(zero_zone_value, 1);
+    const void* zone_keys[] = {
+        static_cast<const void*>(::kSCPropNetDNSServerAddresses)};
+    const void* zone_values[] = {zero_zone_array};
+    ::CFRelease(fake_store_api::value);
+    fake_store_api::value = ::CFDictionaryCreate(
+        ::kCFAllocatorDefault, zone_keys, zone_values, 1,
+        &::kCFTypeDictionaryKeyCallBacks,
+        &::kCFTypeDictionaryValueCallBacks);
+    const auto invalid_zone =
+        syscape::detail::network_backend::collect_dns(fake_store_api{});
+    expect(!invalid_zone &&
+               invalid_zone.error() == syscape::errc::malformed_data,
+           "A zero IPv6 resolver zone is malformed");
+
+    ::CFRelease(malformed_address);
+    ::CFRelease(embedded_null);
+    ::CFRelease(server_array);
+    ::CFRelease(zero_zone);
+    ::CFRelease(zero_zone_array);
+    ::CFRelease(fake_store_api::value);
+    fake_store_api::value = nullptr;
+}
+
 } // namespace
 
 int main() {
@@ -445,5 +705,9 @@ int main() {
     test_darwin_route_dump_conversion();
     test_darwin_ipv6_sockaddr_alignment();
     test_darwin_unusable_routes_are_filtered();
+    test_macos_dns_full_extraction();
+    test_macos_dns_partial_and_absent();
+    test_macos_dns_type_mismatches_fail();
+    test_macos_dns_address_shapes();
     return failures == 0 ? 0 : 1;
 }

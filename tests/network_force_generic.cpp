@@ -8,10 +8,12 @@ int main() {
         interfaces = syscape::network::interfaces();
     const auto routes = syscape::network::routes();
     const auto gateways = syscape::network::default_gateways();
-    return !interfaces && !routes && !gateways &&
+    const auto dns = syscape::network::dns();
+    return !interfaces && !routes && !gateways && !dns &&
                    interfaces.error() == std::errc::operation_not_supported &&
                    routes.error() == std::errc::operation_not_supported &&
-                   gateways.error() == std::errc::operation_not_supported
+                   gateways.error() == std::errc::operation_not_supported &&
+                   dns.error() == std::errc::operation_not_supported
                ? 0
                : 1;
 }

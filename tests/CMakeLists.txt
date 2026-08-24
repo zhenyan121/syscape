@@ -194,6 +194,18 @@ if(APPLE)
         power_macos PRIVATE "-framework IOKit" "-framework CoreFoundation")
     target_link_libraries(
         odr PRIVATE "-framework IOKit" "-framework CoreFoundation")
+    # Targets that call the SystemConfiguration DNS interface follow its
+    # documented Apple linkage contract without imposing the frameworks on
+    # unrelated Hosted Full consumers.
+    target_link_libraries(
+        header_network PRIVATE "-framework CoreFoundation"
+        "-framework SystemConfiguration")
+    target_link_libraries(
+        network_macos PRIVATE "-framework CoreFoundation"
+        "-framework SystemConfiguration")
+    target_link_libraries(
+        odr PRIVATE "-framework CoreFoundation"
+        "-framework SystemConfiguration")
 endif()
 
 # These smoke tests verify the language requirements propagated by each public

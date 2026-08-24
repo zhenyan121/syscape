@@ -2,7 +2,9 @@
 #include <cstdint>
 #include <cstring>
 #include <deque>
+#include <fstream>
 #include <iostream>
+#include <limits>
 #include <set>
 #include <string>
 #include <system_error>
@@ -1009,6 +1011,377 @@ void test_live_routes() {
            "Default gateways are exactly explicit next hops from /0 routes");
 }
 
+/// Injected resolver-configuration reader shared by the DNS tests.
+struct fake_resolver_reader {
+    static std::string content;
+    static bool succeed;
+    static std::error_code failure;
+    static bool portable_too_large;
+
+    static syscape::result<std::string> read() {
+        if (!succeed) {
+            if (portable_too_large) {
+                return syscape::fail(syscape::errc::value_too_large);
+            }
+            return syscape::fail(failure);
+        }
+        return content;
+    }
+};
+
+std::string fake_resolver_reader::content;
+bool fake_resolver_reader::succeed = true;
+std::error_code fake_resolver_reader::failure;
+bool fake_resolver_reader::portable_too_large = false;
+
+/// Injected zone resolver shared by the scoped-name-server tests.
+struct fake_dns_index_api {
+    static bool fail_resolution;
+    static std::uint32_t next_index;
+
+    static void reset() {
+        fail_resolution = false;
+        next_index = 7U;
+    }
+
+    static syscape::result<std::uint32_t> index_of(const std::string&) {
+        if (fail_resolution) {
+            return syscape::fail(
+                std::error_code(ENXIO, std::generic_category()));
+        }
+        return next_index++;
+    }
+};
+
+bool fake_dns_index_api::fail_resolution = false;
+std::uint32_t fake_dns_index_api::next_index = 7U;
+
+void test_dns_parses_documented_file() {
+    const auto parsed =
+        syscape::detail::network_backend::
+            parse_resolver_conf<fake_dns_index_api>(
+        "# leading comment\n"
+        "; also a comment\n"
+        "nameserver 192.168.1.1\n"
+        "\t nameserver\t2001:db8::53\t\n"
+        "\r\n"
+        "options edns0 trust-ad\r\n"
+        "sortlist 10.0.0.0/8 192.0.2.0/24\n"
+        "unknown-directive whatever value\n"
+        "   # indented comment line\n"
+        "search example.net example.com\n");
+    expect(parsed && parsed->servers.size() == 2U &&
+               parsed->search_domains &&
+               parsed->search_domains->size() == 2U &&
+               (*parsed->search_domains)[0U] == "example.net" &&
+               (*parsed->search_domains)[1U] == "example.com" &&
+               !parsed->domain_name.has_value(),
+           "Comments, options, sortlist, and unknown lines are skipped");
+    if (!parsed || parsed->servers.size() != 2U) { return; }
+
+    using syscape::detail::network_common::address_family;
+    expect((*parsed).servers[0U].address.family == address_family::ipv4 &&
+               (*parsed).servers[0U].address.value[0U] == 192U &&
+               (*parsed).servers[0U].address.value[3U] == 1U &&
+               !(*parsed).servers[0U].interface_index,
+           "The first Linux resolver keeps its IPv4 bytes and no binding");
+    expect((*parsed).servers[1U].address.family == address_family::ipv6 &&
+               (*parsed).servers[1U].address.value[0U] == 0x20U &&
+               (*parsed).servers[1U].address.value[1U] == 0x01U &&
+               (*parsed).servers[1U].address.value[2U] == 0x0DU &&
+               (*parsed).servers[1U].address.value[3U] == 0xB8U &&
+               (*parsed).servers[1U].address.value[15U] == 0x53U,
+           "The second Linux resolver keeps its IPv6 bytes verbatim");
+
+    const auto empty = syscape::detail::network_backend::
+        parse_resolver_conf<fake_dns_index_api>(
+            "# nothing configured\n\n");
+    expect(empty && empty->servers.empty() &&
+               empty->search_domains && empty->search_domains->empty() &&
+               !empty->domain_name,
+           "An empty configuration is valid data with no facts");
+}
+
+void test_dns_domain_directive_is_single_entry_list() {
+    const auto parsed =
+        syscape::detail::network_backend::
+            parse_resolver_conf<fake_dns_index_api>(
+                "domain internal.example.org\n");
+    expect(parsed && parsed->servers.empty() &&
+               parsed->search_domains &&
+               parsed->search_domains->size() == 1U &&
+               (*parsed->search_domains)[0U] == "internal.example.org" &&
+               parsed->domain_name &&
+               *parsed->domain_name == "internal.example.org",
+           "A domain directive records one list entry and the local domain");
+}
+
+void test_dns_search_and_domain_last_wins() {
+    const auto search_wins =
+        syscape::detail::network_backend::
+            parse_resolver_conf<fake_dns_index_api>(
+                "domain stale.example.org\n"
+                "search fresh.example.org other.example.org\n");
+    expect(search_wins &&
+               search_wins->search_domains &&
+               search_wins->search_domains->size() == 2U &&
+               (*search_wins->search_domains)[0U] == "fresh.example.org" &&
+               !search_wins->domain_name.has_value(),
+           "A later search directive overrides an earlier domain");
+
+    const auto domain_wins =
+        syscape::detail::network_backend::
+            parse_resolver_conf<fake_dns_index_api>(
+                "search a.example.org b.example.org\n"
+                "domain final.example.org\n");
+    expect(domain_wins &&
+               domain_wins->search_domains &&
+               domain_wins->search_domains->size() == 1U &&
+               (*domain_wins->search_domains)[0U] == "final.example.org" &&
+               domain_wins->domain_name &&
+               *domain_wins->domain_name == "final.example.org",
+           "A later domain directive overrides an earlier search list");
+
+    const auto repeated_search =
+        syscape::detail::network_backend::
+            parse_resolver_conf<fake_dns_index_api>(
+                "nameserver 10.0.0.1\n"
+                "nameserver 10.0.0.2\n"
+                "search old.example.org\n"
+                "search new.example.org extra.example.org\n");
+    expect(repeated_search && repeated_search->servers.size() == 2U &&
+               repeated_search->search_domains &&
+               repeated_search->search_domains->size() == 2U &&
+               (*repeated_search->search_domains)[0U] == "new.example.org",
+           "Later directives replace earlier instances of the same kind");
+}
+
+void test_dns_scoped_nameserver_values() {
+    fake_dns_index_api::reset();
+    const auto resolved =
+        syscape::detail::network_backend::
+            parse_resolver_conf<fake_dns_index_api>(
+                "nameserver fe80::1%wlo1\n");
+    expect(resolved && resolved->servers.size() == 1U &&
+               resolved->servers[0U].address.scope_id == 7U,
+           "A de-facto scoped resolver records its numeric zone");
+
+    const std::vector<std::string> malformed = {
+        "nameserver fe80::1%\n",
+        "nameserver fe80::1%wlo1%x\n",
+        "nameserver 192.168.1.1%eth0\n",
+        "nameserver fe80::1%" + std::string(IF_NAMESIZE, 'x') + "\n"};
+    for (const std::string& text : malformed) {
+        const auto parsed =
+            syscape::detail::network_backend::
+                parse_resolver_conf<fake_dns_index_api>(text);
+        expect(!parsed &&
+                   parsed.error() == syscape::errc::malformed_data,
+               "An unusable scoped nameserver record is malformed data");
+    }
+
+    fake_dns_index_api::reset();
+    fake_dns_index_api::fail_resolution = true;
+    const auto vanished =
+        syscape::detail::network_backend::
+            parse_resolver_conf<fake_dns_index_api>(
+                "nameserver fe80::1%gone0\n"
+                "nameserver 10.0.0.9\n");
+    expect(vanished && vanished->servers.size() == 1U &&
+               vanished->servers[0U].address.value[0U] == 10U,
+           "A zone naming a vanished interface skips only its own entry");
+    fake_dns_index_api::fail_resolution = false;
+}
+
+void test_dns_malformed_records_fail() {
+    fake_dns_index_api::reset();
+    const char* malformed[] = {
+        "nameserver not-an-address\n",
+        "nameserver 999.168.1.1\n",
+        "nameserver 192.168.001.001\n",
+        "nameserver 192.168.1.1 extra-token\n",
+        "nameserver 192.168.1.1 # trailing comment text is not documented\n",
+        "nameserver\n",
+        "domain one.example.org two.example.org\n",
+        "domain\n",
+        "search\n"};
+    for (const char* text : malformed) {
+        const auto parsed =
+            syscape::detail::network_backend::
+                parse_resolver_conf<fake_dns_index_api>(text);
+        expect(!parsed &&
+                   parsed.error() == syscape::errc::malformed_data,
+               "An unusable resolv.conf record is malformed platform data");
+    }
+
+    std::string embedded_null("nameserver 192.0.2.1", 20U);
+    embedded_null.push_back('\0');
+    embedded_null.append("trailing\n");
+    const auto truncated_address =
+        syscape::detail::network_backend::
+            parse_resolver_conf<fake_dns_index_api>(embedded_null);
+    expect(!truncated_address &&
+               truncated_address.error() == syscape::errc::malformed_data,
+           "An embedded null cannot truncate a resolver address");
+}
+
+void test_dns_reader_errors() {
+    fake_resolver_reader::portable_too_large = false;
+    fake_resolver_reader::succeed = false;
+    fake_resolver_reader::failure =
+        std::error_code(ENOENT, std::generic_category());
+    auto loaded = syscape::detail::network_backend::
+        load_dns(fake_resolver_reader{});
+    expect(!loaded && loaded.error() == syscape::errc::not_found,
+           "An absent resolv.conf reports not-found data");
+
+    fake_resolver_reader::failure =
+        std::error_code(EACCES, std::generic_category());
+    loaded = syscape::detail::network_backend::
+        load_dns(fake_resolver_reader{});
+    expect(!loaded &&
+               loaded.error().value() == EACCES &&
+               loaded.error().category() == std::generic_category(),
+           "A native reader failure preserves its error code");
+
+    fake_resolver_reader::portable_too_large = true;
+    loaded = syscape::detail::network_backend::
+        load_dns(fake_resolver_reader{});
+    expect(!loaded &&
+               loaded.error() ==
+                   make_error_code(syscape::errc::value_too_large),
+           "An oversized configuration file reports the size limit");
+    fake_resolver_reader::succeed = true;
+}
+
+void test_dns_boundary_validation() {
+    using namespace syscape::detail;
+    network_common::ip_address_record address;
+    address.family = network_common::address_family::ipv4;
+    address.value[0U] = 127U;
+    address.value[1U] = 0U;
+    address.value[2U] = 0U;
+    address.value[3U] = 53U;
+
+    network_common::dns_record valid;
+    valid.servers.push_back(network_common::dns_server_record{
+        address, std::uint32_t(4U)});
+    valid.search_domains.emplace();
+    valid.search_domains->push_back("example.net");
+    valid.domain_name = "example.net";
+    const auto accepted = network_common::validate_dns_record(valid);
+    expect(accepted && accepted->servers.size() == 1U,
+           "A consistent DNS snapshot passes boundary validation");
+
+    network_common::dns_record unavailable_search = valid;
+    unavailable_search.search_domains.reset();
+    expect(static_cast<bool>(
+               network_common::validate_dns_record(unavailable_search)),
+           "An unavailable search list is distinct from an empty list");
+
+    network_common::dns_record zero_binding = valid;
+    zero_binding.servers[0U].interface_index = std::uint32_t(0U);
+    expect(!network_common::validate_dns_record(zero_binding) &&
+               network_common::validate_dns_record(zero_binding).error() ==
+                   syscape::errc::malformed_data,
+           "A zero interface binding is malformed");
+
+    network_common::dns_record empty_search = valid;
+    (*empty_search.search_domains)[0U] = "";
+    expect(!network_common::validate_dns_record(empty_search),
+           "An empty search-domain entry is malformed");
+
+    network_common::dns_record invalid_encoding = valid;
+    (*invalid_encoding.search_domains)[0U] = "bad\xff text";
+    expect(network_common::validate_dns_record(invalid_encoding)
+                   .error() == syscape::errc::invalid_encoding,
+           "A non-UTF-8 search domain reports an encoding failure");
+
+    network_common::dns_record embedded_null = valid;
+    (*embedded_null.search_domains)[0U] =
+        std::string("good.example\0hidden", 19U);
+    expect(network_common::validate_dns_record(embedded_null).error() ==
+               syscape::errc::malformed_data,
+           "An embedded null search domain is malformed");
+
+    network_common::dns_record embedded_null_domain = valid;
+    embedded_null_domain.domain_name =
+        std::string("good.example\0hidden", 19U);
+    expect(network_common::validate_dns_record(embedded_null_domain).error() ==
+               syscape::errc::malformed_data,
+           "An embedded null local domain is malformed");
+
+    network_common::dns_record bad_domain = valid;
+    bad_domain.domain_name = "";
+    expect(!network_common::validate_dns_record(bad_domain),
+           "An empty recorded local domain is malformed");
+
+    network_common::dns_record trailing_ipv4_bytes = valid;
+    trailing_ipv4_bytes.servers[0U].address.value[4U] = 9U;
+    expect(!network_common::validate_dns_record(trailing_ipv4_bytes),
+           "IPv4 resolver bytes beyond four are malformed");
+}
+
+void test_live_dns() {
+    const auto configuration = syscape::network::dns();
+    if (!configuration) {
+        expect(configuration.error() == syscape::errc::not_found ||
+                   configuration.error().category() ==
+                       std::generic_category(),
+               "Live DNS fails only for absence or a native read error");
+        return;
+    }
+
+    std::ifstream file("/etc/resolv.conf");
+    expect(file.is_open(), "A successful live query implies a readable file");
+    std::size_t expected_servers = 0U;
+    std::string directive;
+    while (file >> directive) {
+        std::string value;
+        if (directive == "nameserver") { file >> value; }
+        file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        if (directive != "nameserver") { continue; }
+        const std::size_t zone_start = value.find('%');
+        if (zone_start == std::string::npos ||
+            ::if_nametoindex(value.substr(zone_start + 1U).c_str()) != 0U) {
+            ++expected_servers;
+        }
+    }
+    expect(configuration->servers.size() == expected_servers,
+           "Live resolver entries match the documented file's servers");
+
+    for (const syscape::network::dns_server_entry& server :
+         configuration->servers) {
+        expect(!server.interface_index,
+               "The Linux source binds no resolver to an interface");
+        if (server.address.family ==
+            syscape::network::address_family::ipv4) {
+            bool trailing = false;
+            for (std::size_t offset = 4U; offset < 16U; ++offset) {
+                trailing = trailing ||
+                    server.address.value[offset] != 0U;
+            }
+            expect(!trailing && server.address.scope_id == 0U,
+                   "Live IPv4 resolvers carry no trailing bytes or scope");
+        }
+    }
+    expect(configuration->search_domains.has_value(),
+           "The Linux file source exposes the search list");
+    if (!configuration->search_domains) { return; }
+    for (const std::string& domain : *configuration->search_domains) {
+        expect(!domain.empty(), "Live search domains are never empty");
+    }
+    if (configuration->domain_name) {
+        expect(!configuration->domain_name->empty() &&
+                   configuration->search_domains->size() == 1U &&
+                   (*configuration->search_domains)[0U] ==
+                       *configuration->domain_name,
+               "A recorded local domain matches its single-entry list");
+    } else {
+        expect(true, "No local domain is a valid live outcome");
+    }
+}
+
 } // namespace
 
 int main() {
@@ -1032,5 +1405,13 @@ int main() {
     test_linux_multipath_and_ipv6_scope();
     test_linux_nexthop_object_route();
     test_live_routes();
+    test_dns_parses_documented_file();
+    test_dns_domain_directive_is_single_entry_list();
+    test_dns_search_and_domain_last_wins();
+    test_dns_scoped_nameserver_values();
+    test_dns_malformed_records_fail();
+    test_dns_reader_errors();
+    test_dns_boundary_validation();
+    test_live_dns();
     return failures == 0 ? 0 : 1;
 }

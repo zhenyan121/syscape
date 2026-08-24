@@ -90,6 +90,34 @@ struct route_record {
     std::optional<std::uint32_t> metric;
 };
 
+/// One configured DNS resolver server reported by a platform backend.
+struct dns_server_record {
+    /// Resolver address recorded by the platform.
+    ip_address_record address;
+    /// Interface the platform binds the resolver to, when the source
+    /// records a binding. A set binding is always nonzero because every
+    /// platform that exposes indices reserves zero.
+    std::optional<std::uint32_t> interface_index;
+};
+
+/// One platform DNS resolver configuration snapshot shared by the network
+/// backends awaiting boundary validation. The server collection is valid
+/// while empty. A present search-domain collection is likewise valid while
+/// empty; no collection means that the backend cannot expose that field.
+struct dns_record {
+    /// Resolver addresses in resolution-attempt order, duplicates
+    /// preserved verbatim.
+    std::vector<dns_server_record> servers;
+    /// Ordered search domains when the platform source exposes the global
+    /// search list. A present empty vector means that it records no search
+    /// list; no value means that the source cannot expose this field.
+    std::optional<std::vector<std::string>> search_domains;
+    /// Local domain name recorded separately by the platform source, when
+    /// it exposes one. No value means that the source records no distinct
+    /// local domain.
+    std::optional<std::string> domain_name;
+};
+
 inline result<void> validate_ip_address(const ip_address_record& address) {
     if (address.family != address_family::ipv4 &&
         address.family != address_family::ipv6) {
@@ -197,6 +225,45 @@ inline result<std::vector<interface_record>> validate_interface_records(
         }
     }
     return records;
+}
+
+/// Validates one converted DNS snapshot at the public boundary.
+///
+/// Every resolver address must pass the shared address rules, and a
+/// recorded interface binding must be nonzero. Search domains and the
+/// local domain must be non-empty and valid UTF-8. One unusable field
+/// fails the whole snapshot so that silently dropping entries can never
+/// hide platform damage.
+inline result<dns_record> validate_dns_record(result<dns_record> record) {
+    if (!record) { return fail(record.error()); }
+    for (const dns_server_record& server : record->servers) {
+        const result<void> address_valid =
+            validate_ip_address(server.address);
+        if (!address_valid) { return fail(address_valid.error()); }
+        if (server.interface_index && *server.interface_index == 0U) {
+            return fail(errc::malformed_data);
+        }
+    }
+    if (record->search_domains) {
+        for (const std::string& domain : *record->search_domains) {
+            if (domain.empty() || domain.find('\0') != std::string::npos) {
+                return fail(errc::malformed_data);
+            }
+            if (!is_valid_utf8(domain)) {
+                return fail(errc::invalid_encoding);
+            }
+        }
+    }
+    if (record->domain_name) {
+        if (record->domain_name->empty() ||
+            record->domain_name->find('\0') != std::string::npos) {
+            return fail(errc::malformed_data);
+        }
+        if (!is_valid_utf8(*record->domain_name)) {
+            return fail(errc::invalid_encoding);
+        }
+    }
+    return record;
 }
 
 } // namespace network_common

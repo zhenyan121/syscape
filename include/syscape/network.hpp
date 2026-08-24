@@ -19,10 +19,14 @@
 /// operational state, loopback classification, link-layer (hardware)
 /// addresses, MTU values, and unicast IPv4/IPv6 addresses with prefix lengths
 /// and numeric IPv6 scope identifiers, together with forwarding unicast
-/// routes and explicit default gateways. DNS configuration and host and
-/// domain names are outside these slices. Expected failures are
+/// routes, explicit default gateways, and the system DNS resolver
+/// configuration (resolver addresses, ordered search domains where exposed,
+/// and the separately recorded local domain name). Host-name queries are
+/// provided by syscape/os.hpp rather than duplicated here. Expected failures are
 /// returned as native error codes where available, or as syscape::errc values for
-/// missing, malformed, or unsupported data.
+/// missing, malformed, or unsupported data. On macOS this header also
+/// requires linking the SystemConfiguration and CoreFoundation frameworks;
+/// on Windows it requires the Iphlpapi import library documented below.
 
 #include <syscape/detail/config.hpp>
 
@@ -268,6 +272,98 @@ inline result<std::vector<gateway_entry>> default_gateways() {
         }
     }
     return gateways;
+}
+
+/// One configured DNS resolver server address.
+struct dns_server_entry {
+    /// Resolver address recorded by the platform. An IPv6 link-local
+    /// resolver carries its numeric zone in the scope identifier.
+    ip_address address;
+    /// Interface the platform binds this resolver to, when the source
+    /// records a binding. No value means that the source binds the
+    /// resolver to no particular interface. A set binding is nonzero and
+    /// can be reassigned after interfaces are removed.
+    std::optional<std::uint32_t> interface_index;
+};
+
+/// One snapshot of the platform's DNS resolver configuration.
+///
+/// The server collection is valid while empty. A present search-domain list
+/// is likewise valid while empty; an absent list means that the backend's
+/// documented sources cannot expose that field. The snapshot reflects the
+/// configuration observed during the call; concurrent reconfiguration
+/// becomes visible only to later calls.
+struct dns_configuration {
+    /// Resolver addresses in resolution-attempt order as recorded by the
+    /// platform, duplicates preserved verbatim when several sources list
+    /// the same resolver.
+    std::vector<dns_server_entry> servers;
+    /// Ordered global search domains when the platform source exposes that
+    /// list. A present empty vector means that it records no search list;
+    /// no value means that no documented source used by this backend can
+    /// expose the field.
+    std::optional<std::vector<std::string>> search_domains;
+    /// Local domain name recorded separately by the platform source, when
+    /// it exposes one. No value means that the source records no distinct
+    /// local domain; an empty string is never reported instead.
+    std::optional<std::string> domain_name;
+};
+
+/// Returns a snapshot of the platform's DNS resolver configuration.
+///
+/// The query performs no network requests; it reads only local
+/// configuration records.
+///
+/// On Linux the snapshot parses /etc/resolv.conf, the documented resolver
+/// file: nameserver directives supply resolver addresses, the last
+/// instance of the mutually exclusive search or domain directives
+/// determines both the search list and the local domain, and options,
+/// sortlist, and unrecognized directives are skipped exactly as the
+/// documented consumer ignores them. Environment overrides such as
+/// LOCALDOMAIN and RES_OPTIONS, nsswitch policy, and dynamically managed
+/// stub-resolver arrangements are outside this verbatim file view. An
+/// absent file reports not_found because the platform then records no
+/// DNS configuration.
+///
+/// On Windows resolver servers come from the documented per-adapter
+/// GetAdaptersAddresses chains concatenated in adapter enumeration order
+/// and preserved within each adapter, including duplicates across adapters,
+/// each bound to its adapter's interface index; the local domain name comes
+/// from the documented global GetNetworkParams DomainName field. These APIs
+/// do not expose the distinct global suffix search list, so search_domains
+/// has no value. The per-adapter binding means two entries can carry one
+/// address with different bindings. The Windows resolver merges these
+/// records by its own rules during resolution, which this snapshot does not
+/// reproduce.
+///
+/// On macOS the snapshot reads the State:/Network/Global/DNS entity of
+/// the documented SystemConfiguration dynamic store; its keys are absent
+/// on a system that records no global DNS configuration, which reports
+/// not_found. Resolvers reported there carry no interface binding.
+///
+/// @return The configuration snapshot, invalid_encoding for text that is
+/// not valid UTF-8, malformed_data for unusable platform records,
+/// not_found where the platform records no configuration at all,
+/// not_supported where no documented source exists, or a native platform
+/// error.
+inline result<dns_configuration> dns() {
+    const result<detail::network_common::dns_record> validated =
+        detail::network_common::validate_dns_record(
+            detail::network_backend::dns());
+    if (!validated) { return fail(validated.error()); }
+    dns_configuration configuration;
+    configuration.servers.reserve(validated->servers.size());
+    for (const detail::network_common::dns_server_record& server :
+         validated->servers) {
+        configuration.servers.push_back(dns_server_entry {
+            ip_address {server.address.family,
+                        server.address.value,
+                        server.address.scope_id},
+            server.interface_index});
+    }
+    configuration.search_domains = std::move(validated->search_domains);
+    configuration.domain_name = std::move(validated->domain_name);
+    return configuration;
 }
 
 } // namespace network

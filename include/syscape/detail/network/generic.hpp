@@ -16,6 +16,10 @@ inline result<std::vector<network_common::route_record>> routes() {
     return fail(errc::not_supported);
 }
 
+inline result<network_common::dns_record> dns() {
+    return fail(errc::not_supported);
+}
+
 } // namespace network_backend
 } // namespace detail
 } // namespace syscape

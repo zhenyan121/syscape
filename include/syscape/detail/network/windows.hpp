@@ -481,6 +481,170 @@ inline result<std::vector<network_common::route_record>> routes() {
     return enumerate_routes(native_route_api {});
 }
 
+/// Platform calls used to read the system's global resolver identity.
+///
+/// The indirection exists so tests can drive loading with synthetic
+/// records instead of the real platform; production callers always use
+/// the native implementation.
+struct native_dns_params_api {
+    /// Returns an owned GetNetworkParams record, growing the
+    /// caller-allocated buffer while the platform reports overflow.
+    ///
+    /// The documented buffer-growth contract updates Size on overflow, so
+    /// the loop converges; once the required size exceeds a fixed ceiling
+    /// the loop stops and surfaces the native overflow code instead of
+    /// growing without bound.
+    static result<::FIXED_INFO*> params() {
+        constexpr ::ULONG maximum_size = 1024U * 1024U;
+        ::ULONG size = sizeof(::FIXED_INFO);
+        for (;;) {
+            ::FIXED_INFO* value =
+                static_cast<::FIXED_INFO*>(::malloc(size));
+            if (value == nullptr) { return fail(errc::resource_exhausted); }
+            const ::DWORD outcome = ::GetNetworkParams(value, &size);
+            if (outcome == ERROR_SUCCESS) { return value; }
+            ::free(value);
+            if (outcome == ERROR_BUFFER_OVERFLOW && size <= maximum_size) {
+                continue;
+            }
+            return fail(std::error_code(static_cast<int>(outcome),
+                                        std::system_category()));
+        }
+    }
+
+    /// Releases a record obtained from params().
+    static void release(::FIXED_INFO* value) noexcept { ::free(value); }
+};
+
+/// Copies one fixed-size null-terminated ANSI field into bounded storage.
+///
+/// The documented fields are null-terminated character arrays; an array
+/// without any terminator cannot be read safely and is malformed platform
+/// data.
+template <std::size_t Capacity>
+inline result<std::string> copy_ansi_field(
+    const char (&field)[Capacity]) {
+    std::size_t end = 0U;
+    while (end < Capacity && field[end] != '\0') { ++end; }
+    if (end >= Capacity) { return fail(errc::malformed_data); }
+    return std::string(field, end);
+}
+
+/// Converts one recorded resolver-server socket address.
+///
+/// Families this slice does not represent are skipped without failing the
+/// query. A missing or truncated socket address is malformed platform data
+/// because no safe reading exists.
+inline result<std::optional<network_common::ip_address_record>>
+convert_dns_server_address(const ::IP_ADAPTER_DNS_SERVER_ADDRESS& entry) {
+    if (entry.Address.lpSockaddr == nullptr ||
+        entry.Address.iSockaddrLength <
+            static_cast<int>(sizeof(::sockaddr))) {
+        return fail(errc::malformed_data);
+    }
+    const unsigned int family =
+        static_cast<unsigned int>(entry.Address.lpSockaddr->sa_family);
+    network_common::ip_address_record address;
+    if (family == static_cast<unsigned int>(AF_INET)) {
+        if (entry.Address.iSockaddrLength <
+            static_cast<int>(sizeof(::sockaddr_in))) {
+            return fail(errc::malformed_data);
+        }
+        const auto* socket_address =
+            reinterpret_cast<const ::sockaddr_in*>(entry.Address.lpSockaddr);
+        address.family = network_common::address_family::ipv4;
+        const unsigned char* bytes =
+            reinterpret_cast<const unsigned char*>(&socket_address->sin_addr);
+        for (std::size_t offset = 0U; offset < 4U; ++offset) {
+            address.value[offset] = bytes[offset];
+        }
+    } else if (family == static_cast<unsigned int>(AF_INET6)) {
+        if (entry.Address.iSockaddrLength <
+            static_cast<int>(sizeof(::sockaddr_in6))) {
+            return fail(errc::malformed_data);
+        }
+        const auto* socket_address =
+            reinterpret_cast<const ::sockaddr_in6*>(entry.Address.lpSockaddr);
+        address.family = network_common::address_family::ipv6;
+        const unsigned char* bytes =
+            reinterpret_cast<const unsigned char*>(&socket_address->sin6_addr);
+        for (std::size_t offset = 0U; offset < 16U; ++offset) {
+            address.value[offset] = bytes[offset];
+        }
+        address.scope_id =
+            static_cast<std::uint32_t>(socket_address->sin6_scope_id);
+    } else {
+        return std::optional<network_common::ip_address_record> {};
+    }
+    return std::optional<network_common::ip_address_record>(
+        std::move(address));
+}
+
+/// Collects the platform DNS resolver configuration through the given
+/// platform APIs.
+///
+/// Resolver servers come from the documented per-adapter
+/// GetAdaptersAddresses chains concatenated in adapter enumeration order
+/// and preserved verbatim within each adapter, including duplicates that
+/// appear through several adapters. The local domain name comes from the
+/// documented global DomainName field of GetNetworkParams. Neither source
+/// exposes the distinct global suffix search list, so that optional field
+/// remains unavailable instead of being fabricated from per-adapter suffixes.
+template <typename AdapterApi, typename ParamsApi>
+inline result<network_common::dns_record> collect_dns(
+    AdapterApi /*adapter_api*/, ParamsApi /*params_api*/) {
+    const result<::IP_ADAPTER_ADDRESSES*> table = AdapterApi::adapters();
+    if (!table) { return fail(table.error()); }
+    const adapter_table_guard<AdapterApi> guard(*table);
+
+    network_common::dns_record collected;
+    for (const ::IP_ADAPTER_ADDRESSES* cursor = guard.get();
+         cursor != nullptr; cursor = cursor->Next) {
+        // IfIndex is documented as zero when IPv4 is unavailable; fall
+        // back to the IPv6 index so that a valid binding survives, and
+        // leave the server unbound when neither exists.
+        const std::uint32_t binding = static_cast<std::uint32_t>(
+            cursor->IfIndex != 0U ? cursor->IfIndex : cursor->Ipv6IfIndex);
+        const std::optional<std::uint32_t> bound_index =
+            binding != 0U ? std::optional<std::uint32_t>(binding)
+                          : std::nullopt;
+
+        for (const ::IP_ADAPTER_DNS_SERVER_ADDRESS* server =
+                 cursor->FirstDnsServerAddress;
+             server != nullptr; server = server->Next) {
+            result<std::optional<network_common::ip_address_record>>
+                address = convert_dns_server_address(*server);
+            if (!address) { return fail(address.error()); }
+            if (!address->has_value()) { continue; }
+            collected.servers.push_back(network_common::dns_server_record{
+                **address, bound_index});
+        }
+    }
+
+    const result<::FIXED_INFO*> parameters = ParamsApi::params();
+    if (!parameters) { return fail(parameters.error()); }
+    const route_table_guard<ParamsApi, ::FIXED_INFO> parameter_guard(
+        *parameters);
+    // The global domain name field is an ANSI rendering; validate it as
+    // UTF-8 at the boundary so that an unusable encoding surfaces instead
+    // of corrupted text.
+    result<std::string> domain_name =
+        copy_ansi_field(parameter_guard.get()->DomainName);
+    if (!domain_name) { return fail(domain_name.error()); }
+    if (!domain_name->empty()) {
+        if (!is_valid_utf8(*domain_name)) {
+            return fail(errc::invalid_encoding);
+        }
+        collected.domain_name = std::move(*domain_name);
+    }
+    return collected;
+}
+
+/// Returns a snapshot of the platform's DNS resolver configuration.
+inline result<network_common::dns_record> dns() {
+    return collect_dns(native_adapter_api{}, native_dns_params_api{});
+}
+
 } // namespace network_backend
 } // namespace detail
 } // namespace syscape

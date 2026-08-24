@@ -3,5 +3,6 @@
 
 #include <syscape/detail/network/posix.hpp>
 #include <syscape/detail/network/routes_linux.hpp>
+#include <syscape/detail/network/dns_linux.hpp>
 
 #endif

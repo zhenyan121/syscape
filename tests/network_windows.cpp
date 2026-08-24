@@ -536,6 +536,201 @@ void test_windows_non_forwarding_routes_are_filtered() {
     expect(ipv6 && ipv6->empty(), "Windows IPv6 multicast routes are omitted");
 }
 
+/// Injected global resolver identity shared by the DNS tests.
+struct fake_params_api {
+    static ::FIXED_INFO value;
+    static bool fail_call;
+    static ::DWORD native_error;
+
+    static syscape::result<::FIXED_INFO*> params() {
+        if (fail_call) {
+            return syscape::fail(std::error_code(
+                static_cast<int>(native_error), std::system_category()));
+        }
+        return &value;
+    }
+
+    static void release(::FIXED_INFO*) noexcept {}
+};
+
+::FIXED_INFO fake_params_api::value {};
+bool fake_params_api::fail_call = false;
+::DWORD fake_params_api::native_error = 0U;
+
+/// Builds one synthetic per-adapter resolver-server entry.
+::IP_ADAPTER_DNS_SERVER_ADDRESS make_dns_server_storage(
+    ::SOCKADDR_INET& storage, const unsigned char* bytes,
+    std::size_t size, std::uint16_t family, std::uint32_t scope_id = 0U) {
+    std::memset(&storage, 0, sizeof(storage));
+    int length = 0;
+    if (family == AF_INET) {
+        storage.Ipv4.sin_family = AF_INET;
+        std::memcpy(&storage.Ipv4.sin_addr, bytes, size);
+        length = static_cast<int>(sizeof(::sockaddr_in));
+    } else if (family == AF_INET6) {
+        storage.Ipv6.sin6_family = AF_INET6;
+        std::memcpy(&storage.Ipv6.sin6_addr, bytes, size);
+        storage.Ipv6.sin6_scope_id = scope_id;
+        length = static_cast<int>(sizeof(::sockaddr_in6));
+    } else {
+        storage.Ipv4.sin_family = family;
+        length = static_cast<int>(sizeof(::sockaddr));
+    }
+    ::IP_ADAPTER_DNS_SERVER_ADDRESS entry {};
+    entry.Address.lpSockaddr =
+        reinterpret_cast<::sockaddr*>(&storage);
+    entry.Address.iSockaddrLength = length;
+    return entry;
+}
+
+void test_windows_dns_collection_order_and_bindings() {
+    const unsigned char first_ipv4[4] = {192U, 168U, 1U, 53U};
+    const unsigned char link_local[16] = {0xFEU, 0x80U, 0U, 0U, 0U, 0U, 0U,
+                                          0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U,
+                                          1U};
+    const unsigned char duplicate_ipv4[4] = {10U, 0U, 0U, 53U};
+
+    ::SOCKADDR_INET server_one_storage {};
+    ::IP_ADAPTER_DNS_SERVER_ADDRESS server_one = make_dns_server_storage(
+        server_one_storage, first_ipv4, sizeof(first_ipv4), AF_INET);
+    ::SOCKADDR_INET server_two_storage {};
+    ::IP_ADAPTER_DNS_SERVER_ADDRESS server_two = make_dns_server_storage(
+        server_two_storage, link_local, sizeof(link_local), AF_INET6, 5U);
+    ::SOCKADDR_INET server_three_storage {};
+    ::IP_ADAPTER_DNS_SERVER_ADDRESS server_three = make_dns_server_storage(
+        server_three_storage, duplicate_ipv4, sizeof(duplicate_ipv4),
+        AF_INET);
+
+    server_one.Next = &server_two;
+
+    ::IP_ADAPTER_ADDRESSES first {};
+    first.IfIndex = 5U;
+    first.FirstDnsServerAddress = &server_one;
+
+    ::IP_ADAPTER_ADDRESSES second {};
+    second.IfIndex = 0U;
+    second.Ipv6IfIndex = 7U;
+    second.FirstDnsServerAddress = &server_three;
+
+    first.Next = &second;
+    fake_adapter_api::table = &first;
+    fake_adapter_api::fail_enumeration = false;
+    std::strcpy(fake_params_api::value.DomainName, "corp.example.com");
+    fake_params_api::fail_call = false;
+
+    const auto collected = syscape::detail::network_backend::collect_dns(
+        fake_adapter_api{}, fake_params_api{});
+    expect(collected && collected->servers.size() == 3U &&
+               !collected->search_domains &&
+               collected->domain_name &&
+               *collected->domain_name == "corp.example.com",
+           "Windows DNS records concatenate in adapter enumeration order");
+    if (!collected) { return; }
+
+    using syscape::detail::network_common::address_family;
+    expect(collected->servers[0U].address.family ==
+                   address_family::ipv4 &&
+               collected->servers[0U].interface_index &&
+               *collected->servers[0U].interface_index == 5U,
+           "The first adapter's IPv4 resolver keeps its binding");
+    expect(collected->servers[1U].address.family ==
+                   address_family::ipv6 &&
+               collected->servers[1U].address.scope_id == 5U &&
+               collected->servers[1U].interface_index &&
+               *collected->servers[1U].interface_index == 5U,
+           "A link-local resolver keeps its zone and adapter binding");
+    expect(collected->servers[2U].interface_index &&
+               *collected->servers[2U].interface_index == 7U &&
+               collected->servers[2U].address.value[0U] == 10U,
+           "An IPv6-only adapter binds through its documented fallback");
+    expect(!collected->search_domains,
+           "The unavailable global suffix list is not fabricated from "
+           "per-adapter suffixes");
+}
+
+void test_windows_dns_edge_cases() {
+    const unsigned char server_ipv4[4] = {10U, 0U, 0U, 53U};
+    ::SOCKADDR_INET unknown_family_storage {};
+    ::IP_ADAPTER_DNS_SERVER_ADDRESS unknown_family =
+        make_dns_server_storage(unknown_family_storage, server_ipv4,
+                                sizeof(server_ipv4), AF_UNSPEC);
+    unknown_family.Address.iSockaddrLength =
+        static_cast<int>(sizeof(::sockaddr));
+
+    ::IP_ADAPTER_ADDRESSES row {};
+    row.IfIndex = 0U;
+    row.Ipv6IfIndex = 0U;
+    row.FirstDnsServerAddress = &unknown_family;
+    fake_adapter_api::table = &row;
+    fake_adapter_api::fail_enumeration = false;
+    fake_params_api::value.DomainName[0U] = '\0';
+    fake_params_api::fail_call = false;
+
+    const auto unbound = syscape::detail::network_backend::collect_dns(
+        fake_adapter_api{}, fake_params_api{});
+    expect(unbound && unbound->servers.empty() &&
+               !unbound->search_domains && !unbound->domain_name,
+           "Unrepresented families and empty fields stay valid data");
+
+    const unsigned char truncated_bytes[4] = {10U, 0U, 0U, 54U};
+    ::SOCKADDR_INET truncated_storage {};
+    ::IP_ADAPTER_DNS_SERVER_ADDRESS truncated = make_dns_server_storage(
+        truncated_storage, truncated_bytes, sizeof(truncated_bytes),
+        AF_INET6, 3U);
+    truncated.Address.iSockaddrLength =
+        static_cast<int>(sizeof(::sockaddr));
+    row.FirstDnsServerAddress = &truncated;
+    const auto short_in6 =
+        syscape::detail::network_backend::collect_dns(
+            fake_adapter_api{}, fake_params_api{});
+    expect(!short_in6 &&
+               short_in6.error() == syscape::errc::malformed_data,
+           "A truncated IPv6 resolver record is malformed");
+
+    ::SOCKADDR_INET missing_storage {};
+    ::IP_ADAPTER_DNS_SERVER_ADDRESS missing = make_dns_server_storage(
+        missing_storage, truncated_bytes, sizeof(truncated_bytes), AF_INET);
+    missing.Address.lpSockaddr = nullptr;
+    row.FirstDnsServerAddress = &missing;
+    const auto missing_address =
+        syscape::detail::network_backend::collect_dns(
+            fake_adapter_api{}, fake_params_api{});
+    expect(!missing_address &&
+               missing_address.error() == syscape::errc::malformed_data,
+           "A missing resolver socket address is malformed");
+
+    row.FirstDnsServerAddress = nullptr;
+    std::memset(fake_params_api::value.DomainName, 0xABU,
+                sizeof(fake_params_api::value.DomainName));
+    const auto unterminated =
+        syscape::detail::network_backend::collect_dns(
+            fake_adapter_api{}, fake_params_api{});
+    expect(!unterminated &&
+               unterminated.error() == syscape::errc::malformed_data,
+           "An unterminated domain-name field is malformed");
+
+    std::strcpy(fake_params_api::value.DomainName, "bad\xff domain");
+    const auto invalid_encoding =
+        syscape::detail::network_backend::collect_dns(
+            fake_adapter_api{}, fake_params_api{});
+    expect(!invalid_encoding &&
+               invalid_encoding.error() == syscape::errc::invalid_encoding,
+           "A non-UTF-8 domain name reports an encoding failure");
+
+    std::strcpy(fake_params_api::value.DomainName, "corp.example.com");
+    fake_params_api::fail_call = true;
+    fake_params_api::native_error = ERROR_ACCESS_DENIED;
+    const auto native_failure =
+        syscape::detail::network_backend::collect_dns(
+            fake_adapter_api{}, fake_params_api{});
+    expect(!native_failure &&
+               native_failure.error().value() == ERROR_ACCESS_DENIED &&
+               native_failure.error().category() ==
+                   std::system_category(),
+           "A failing global identity call preserves its native error");
+    fake_params_api::fail_call = false;
+}
+
 } // namespace
 
 int main() {
@@ -553,5 +748,7 @@ int main() {
     test_live_enumeration();
     test_route_table_conversion_and_release();
     test_windows_non_forwarding_routes_are_filtered();
+    test_windows_dns_collection_order_and_bindings();
+    test_windows_dns_edge_cases();
     return failures == 0 ? 0 : 1;
 }
