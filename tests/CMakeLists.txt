@@ -83,6 +83,7 @@ syscape_add_test(header_gpu 17 syscape::hosted header_gpu.cpp)
 syscape_add_test(header_display 17 syscape::hosted header_display.cpp)
 syscape_add_test(header_security 17 syscape::hosted header_security.cpp)
 syscape_add_test(header_sensor 17 syscape::hosted header_sensor.cpp)
+syscape_add_test(header_audio 17 syscape::hosted header_audio.cpp)
 syscape_add_test(foundation 17 syscape::hosted foundation.cpp)
 syscape_add_test(odr 17 syscape::hosted odr_main.cpp odr_other.cpp)
 
@@ -170,6 +171,11 @@ target_compile_definitions(
     sensor_force_generic
     PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
 
+syscape_add_test(audio_force_generic 17 syscape::hosted audio_force_generic.cpp)
+target_compile_definitions(
+    audio_force_generic
+    PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(os_linux 17 syscape::hosted os_linux.cpp)
     syscape_add_test(cpu_linux 17 syscape::hosted cpu_linux.cpp)
@@ -189,6 +195,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(display_linux 17 syscape::hosted display_linux.cpp)
     syscape_add_test(security_linux 17 syscape::hosted security_linux.cpp)
     syscape_add_test(sensor_linux 17 syscape::hosted sensor_linux.cpp)
+    syscape_add_test(audio_linux 17 syscape::hosted audio_linux.cpp)
 endif()
 
 if(WIN32)
@@ -214,6 +221,10 @@ if(WIN32)
     syscape_add_test(display_windows 17 syscape::hosted display_windows.cpp)
     syscape_add_test(security_windows 17 syscape::hosted security_windows.cpp)
     syscape_add_test(sensor_windows 17 syscape::hosted sensor_windows.cpp)
+    syscape_add_test(audio_windows 17 syscape::hosted audio_windows.cpp)
+    target_link_libraries(header_audio PRIVATE ole32 uuid)
+    target_link_libraries(audio_windows PRIVATE ole32 uuid)
+    target_link_libraries(odr PRIVATE ole32 uuid)
     # Targets that call GetPerformanceInfo follow its documented Windows
     # linkage contract (Kernel32.lib on Windows 7 or later SDKs, otherwise
     # Psapi.lib) without imposing it on unrelated Hosted Full consumers.
@@ -257,6 +268,7 @@ if(APPLE)
     syscape_add_test(display_macos 17 syscape::hosted display_macos.cpp)
     syscape_add_test(security_macos 17 syscape::hosted security_macos.cpp)
     syscape_add_test(sensor_macos 17 syscape::hosted sensor_macos.cpp)
+    syscape_add_test(audio_macos 17 syscape::hosted audio_macos.cpp)
     # Targets that call the IOKit power-sources API follow its documented
     # Apple linkage contract without imposing the frameworks on unrelated
     # Hosted Full consumers.
@@ -320,6 +332,14 @@ if(APPLE)
         display_macos PRIVATE "-framework CoreGraphics" "-framework CoreFoundation")
     target_link_libraries(
         odr PRIVATE "-framework CoreGraphics")
+    # Targets that call CoreAudio interfaces follow the documented Apple
+    # linkage contract without imposing the frameworks on unrelated Hosted Full consumers.
+    target_link_libraries(
+        header_audio PRIVATE "-framework CoreAudio" "-framework CoreFoundation")
+    target_link_libraries(
+        audio_macos PRIVATE "-framework CoreAudio" "-framework CoreFoundation")
+    target_link_libraries(
+        odr PRIVATE "-framework CoreAudio")
 endif()
 
 # These smoke tests verify the language requirements propagated by each public
@@ -426,3 +446,6 @@ syscape_expect_cpp11_rejection(
 syscape_expect_cpp11_rejection(
     "syscape/sensor.hpp"
     "syscape/sensor.hpp requires C++17 or later")
+syscape_expect_cpp11_rejection(
+    "syscape/audio.hpp"
+    "syscape/audio.hpp requires C++17 or later")

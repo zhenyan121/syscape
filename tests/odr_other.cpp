@@ -2,6 +2,7 @@
 #include <vector>
 
 #include <syscape/architecture.hpp>
+#include <syscape/audio.hpp>
 #include <syscape/cpu.hpp>
 #include <syscape/display.hpp>
 #include <syscape/environment.hpp>
@@ -305,4 +306,17 @@ bool other_sensor_backend_callable() {
     return temps.has_value() ||
            temps.error() == std::errc::operation_not_supported ||
            temps.error() == std::errc::permission_denied;
+}
+
+bool other_audio_backend_callable() {
+    const auto devs = syscape::audio::devices();
+    const auto playbacks = syscape::audio::playback_devices();
+    const auto captures = syscape::audio::capture_devices();
+    const auto count = syscape::audio::device_count();
+    static_cast<void>(playbacks);
+    static_cast<void>(captures);
+    static_cast<void>(count);
+    return devs.has_value() ||
+           devs.error() == std::errc::operation_not_supported ||
+           devs.error() == std::errc::permission_denied;
 }

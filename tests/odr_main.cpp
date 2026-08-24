@@ -1,6 +1,7 @@
 #include <system_error>
 
 #include <syscape/architecture.hpp>
+#include <syscape/audio.hpp>
 #include <syscape/cpu.hpp>
 #include <syscape/display.hpp>
 #include <syscape/error.hpp>
@@ -41,6 +42,7 @@ bool other_gpu_backend_callable();
 bool other_display_backend_callable();
 bool other_security_backend_callable();
 bool other_sensor_backend_callable();
+bool other_audio_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -108,6 +110,9 @@ int main() {
     }
     if (!other_sensor_backend_callable()) {
         return 21;
+    }
+    if (!other_audio_backend_callable()) {
+        return 22;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;
