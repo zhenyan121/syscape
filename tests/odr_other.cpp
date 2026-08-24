@@ -3,6 +3,7 @@
 
 #include <syscape/architecture.hpp>
 #include <syscape/cpu.hpp>
+#include <syscape/display.hpp>
 #include <syscape/environment.hpp>
 #include <syscape/error.hpp>
 #include <syscape/filesystem.hpp>
@@ -261,5 +262,18 @@ bool other_gpu_backend_callable() {
     static_cast<void>(primary);
     return devs.has_value() ||
            devs.error() == std::errc::operation_not_supported;
+}
+
+bool other_display_backend_callable() {
+    const syscape::result<std::vector<syscape::display::display_info>> disps =
+        syscape::display::displays();
+    const syscape::result<std::size_t> count =
+        syscape::display::display_count();
+    const syscape::result<syscape::display::display_info> primary =
+        syscape::display::primary_display();
+    static_cast<void>(count);
+    static_cast<void>(primary);
+    return disps.has_value() ||
+           disps.error() == std::errc::operation_not_supported;
 }
 

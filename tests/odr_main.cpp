@@ -2,6 +2,7 @@
 
 #include <syscape/architecture.hpp>
 #include <syscape/cpu.hpp>
+#include <syscape/display.hpp>
 #include <syscape/error.hpp>
 #include <syscape/filesystem.hpp>
 #include <syscape/gpu.hpp>
@@ -35,6 +36,7 @@ bool other_storage_backend_callable();
 bool other_hardware_backend_callable();
 bool other_virtualization_backend_callable();
 bool other_gpu_backend_callable();
+bool other_display_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -93,6 +95,9 @@ int main() {
     }
     if (!other_gpu_backend_callable()) {
         return 18;
+    }
+    if (!other_display_backend_callable()) {
+        return 19;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;
