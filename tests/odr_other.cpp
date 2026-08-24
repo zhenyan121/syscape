@@ -17,6 +17,7 @@
 #include <syscape/process.hpp>
 #include <syscape/resource.hpp>
 #include <syscape/result.hpp>
+#include <syscape/security.hpp>
 #include <syscape/storage.hpp>
 #include <syscape/user.hpp>
 #include <syscape/virtualization.hpp>
@@ -275,5 +276,22 @@ bool other_display_backend_callable() {
     static_cast<void>(primary);
     return disps.has_value() ||
            disps.error() == std::errc::operation_not_supported;
+}
+
+bool other_security_backend_callable() {
+    const auto sb = syscape::security::secure_boot();
+    const auto is_sb = syscape::security::is_secure_boot_enabled();
+    const auto tpm_res = syscape::security::tpm();
+    const auto lsm_res = syscape::security::security_modules();
+    const auto lock_res = syscape::security::lockdown();
+    const auto sip_res = syscape::security::is_sip_enabled();
+    static_cast<void>(is_sb);
+    static_cast<void>(tpm_res);
+    static_cast<void>(lsm_res);
+    static_cast<void>(lock_res);
+    static_cast<void>(sip_res);
+    return sb.has_value() ||
+           sb.error() == std::errc::operation_not_supported ||
+           sb.error() == std::errc::permission_denied;
 }
 

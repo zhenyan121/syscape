@@ -1,3 +1,4 @@
 # CMake out-of-source build trees
 /build/
+/build-*/
 build-review/
