@@ -15,6 +15,7 @@
 #include <syscape/result.hpp>
 #include <syscape/storage.hpp>
 #include <syscape/user.hpp>
+#include <syscape/virtualization.hpp>
 
 const std::error_category* other_error_category();
 syscape::architecture other_architecture();
@@ -31,6 +32,7 @@ bool other_resource_backend_callable();
 bool other_power_backend_callable();
 bool other_storage_backend_callable();
 bool other_hardware_backend_callable();
+bool other_virtualization_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -83,6 +85,9 @@ int main() {
     }
     if (!other_hardware_backend_callable()) {
         return 16;
+    }
+    if (!other_virtualization_backend_callable()) {
+        return 17;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;

@@ -17,6 +17,7 @@
 #include <syscape/result.hpp>
 #include <syscape/storage.hpp>
 #include <syscape/user.hpp>
+#include <syscape/virtualization.hpp>
 
 const std::error_category* other_error_category() {
     return &syscape::error_category();
@@ -229,3 +230,23 @@ bool other_hardware_backend_callable() {
     return manufacturer.has_value() ||
            manufacturer.error() == std::errc::operation_not_supported;
 }
+
+bool other_virtualization_backend_callable() {
+    const syscape::result<bool> hv =
+        syscape::virtualization::is_hypervisor_present();
+    const syscape::result<syscape::virtualization::hypervisor_vendor> vendor =
+        syscape::virtualization::hypervisor();
+    const syscape::result<bool> cont =
+        syscape::virtualization::is_container();
+    const syscape::result<bool> wsl =
+        syscape::virtualization::is_wsl();
+    const syscape::result<bool> sb =
+        syscape::virtualization::is_sandboxed();
+    static_cast<void>(vendor);
+    static_cast<void>(cont);
+    static_cast<void>(wsl);
+    static_cast<void>(sb);
+    return hv.has_value() ||
+           hv.error() == std::errc::operation_not_supported;
+}
+
