@@ -4,6 +4,7 @@
 #include <syscape/cpu.hpp>
 #include <syscape/error.hpp>
 #include <syscape/filesystem.hpp>
+#include <syscape/hardware.hpp>
 #include <syscape/locale.hpp>
 #include <syscape/memory.hpp>
 #include <syscape/network.hpp>
@@ -29,6 +30,7 @@ bool other_environment_backend_callable();
 bool other_resource_backend_callable();
 bool other_power_backend_callable();
 bool other_storage_backend_callable();
+bool other_hardware_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -78,6 +80,9 @@ int main() {
     }
     if (!other_storage_backend_callable()) {
         return 15;
+    }
+    if (!other_hardware_backend_callable()) {
+        return 16;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;

@@ -6,6 +6,7 @@
 #include <syscape/environment.hpp>
 #include <syscape/error.hpp>
 #include <syscape/filesystem.hpp>
+#include <syscape/hardware.hpp>
 #include <syscape/locale.hpp>
 #include <syscape/memory.hpp>
 #include <syscape/network.hpp>
@@ -214,4 +215,17 @@ bool other_storage_backend_callable() {
         listed = syscape::storage::drives();
     return listed.has_value() ||
            listed.error() == std::errc::operation_not_supported;
+}
+
+bool other_hardware_backend_callable() {
+    const syscape::result<std::string> manufacturer =
+        syscape::hardware::system_manufacturer();
+    const syscape::result<syscape::hardware::form_factor> chassis =
+        syscape::hardware::chassis_form_factor();
+    const syscape::result<std::string> uuid =
+        syscape::hardware::hardware_uuid();
+    static_cast<void>(chassis);
+    static_cast<void>(uuid);
+    return manufacturer.has_value() ||
+           manufacturer.error() == std::errc::operation_not_supported;
 }
