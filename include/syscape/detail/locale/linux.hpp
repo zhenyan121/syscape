@@ -2,5 +2,6 @@
 #define SYSCAPE_DETAIL_LOCALE_LINUX_HPP
 
 #include <syscape/detail/locale/posix.hpp>
+#include <syscape/detail/locale/preferences_linux.hpp>
 
 #endif

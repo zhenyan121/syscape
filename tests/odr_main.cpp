@@ -4,6 +4,7 @@
 #include <syscape/cpu.hpp>
 #include <syscape/error.hpp>
 #include <syscape/filesystem.hpp>
+#include <syscape/locale.hpp>
 #include <syscape/memory.hpp>
 #include <syscape/network.hpp>
 #include <syscape/os.hpp>
@@ -28,6 +29,12 @@ bool other_resource_backend_callable();
 bool other_power_backend_callable();
 
 int main() {
+    const auto languages = syscape::locale::preferred_languages();
+    const auto region = syscape::locale::country_region_code();
+    const auto zone = syscape::locale::time_zone_identifier();
+    static_cast<void>(languages);
+    static_cast<void>(region);
+    static_cast<void>(zone);
     if (other_error_category() != &syscape::error_category()) {
         return 1;
     }

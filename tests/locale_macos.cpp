@@ -5,10 +5,14 @@
 #include <string>
 #include <system_error>
 #include <time.h>
+#include <vector>
+
+#include <CoreFoundation/CoreFoundation.h>
 
 #include <syscape/detail/locale/common.hpp>
 #include <syscape/detail/locale/macos.hpp>
 #include <syscape/detail/locale/posix.hpp>
+#include <syscape/detail/locale/preferences_macos.hpp>
 #include <syscape/detail/utf8.hpp>
 #include <syscape/locale.hpp>
 
@@ -127,11 +131,189 @@ void test_runtime_queries() {
     }
 }
 
+/// Creates an owned CFString from a literal for synthetic records.
+///
+/// Ownership transfers to the caller, matching the injected API results
+/// that the collectors release exactly once.
+::CFStringRef make_cf_string(const char* text) {
+    return ::CFStringCreateWithCString(
+        nullptr, text, ::kCFStringEncodingUTF8);
+}
+
+/// Builds an owned one-element string array for synthetic records.
+::CFArrayRef make_single_string_array(::CFStringRef entry) {
+    ::CFArrayRef array = ::CFArrayCreate(
+        nullptr, reinterpret_cast<const void**>(&entry), 1,
+        &::kCFTypeArrayCallBacks);
+    ::CFRelease(entry);
+    return array;
+}
+
+void test_language_collection() {
+    namespace backend = syscape::detail::locale_backend;
+
+    struct ordered_api {
+        static syscape::result<::CFArrayRef> preferred_languages() {
+            ::CFStringRef entries[2] = {make_cf_string("zh-Hans-CN"),
+                                        make_cf_string("en-US")};
+            ::CFArrayRef array = ::CFArrayCreate(
+                nullptr, reinterpret_cast<const void**>(entries), 2,
+                &::kCFTypeArrayCallBacks);
+            ::CFRelease(entries[0]);
+            ::CFRelease(entries[1]);
+            if (array == nullptr) { return syscape::fail(syscape::errc::io_error); }
+            return array;
+        }
+    };
+    const auto collected =
+        backend::collect_preferred_languages<ordered_api>();
+    expect(collected && collected->size() == 2U &&
+               (*collected)[0] == "zh-Hans-CN" && (*collected)[1] == "en-US",
+           "Language entries are preserved verbatim in recorded order");
+
+    struct typed_wrong_api {
+        static syscape::result<::CFArrayRef> preferred_languages() {
+            const int value = 42;
+            ::CFNumberRef number =
+                ::CFNumberCreate(nullptr, ::kCFNumberIntType, &value);
+            ::CFArrayRef array = ::CFArrayCreate(
+                nullptr, reinterpret_cast<const void**>(&number), 1,
+                &::kCFTypeArrayCallBacks);
+            ::CFRelease(number);
+            if (array == nullptr) { return syscape::fail(syscape::errc::io_error); }
+            return array;
+        }
+    };
+    const auto wrong_type =
+        backend::collect_preferred_languages<typed_wrong_api>();
+    expect(!wrong_type &&
+               wrong_type.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "A non-string language entry is malformed platform data");
+
+    struct empty_api {
+        static syscape::result<::CFArrayRef> preferred_languages() {
+            ::CFArrayRef array = ::CFArrayCreate(
+                nullptr, nullptr, 0, &::kCFTypeArrayCallBacks);
+            if (array == nullptr) { return syscape::fail(syscape::errc::io_error); }
+            return array;
+        }
+    };
+    const auto empty = backend::collect_preferred_languages<empty_api>();
+    expect(empty && empty->empty(),
+           "The backend copies an empty recording verbatim");
+    const auto boundary =
+        syscape::detail::locale_common::validate_language_list(empty);
+    expect(!boundary &&
+               boundary.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "An empty recorded list is rejected at the public boundary");
+}
+
+void test_single_string_fact_collection() {
+    namespace backend = syscape::detail::locale_backend;
+
+    struct string_values_api {
+        static syscape::result<::CFTypeRef> region_value() {
+            ::CFStringRef value = make_cf_string("CN");
+            if (value == nullptr) { return syscape::fail(syscape::errc::io_error); }
+            return value;
+        }
+        static syscape::result<::CFTypeRef> time_zone_name() {
+            ::CFStringRef value = make_cf_string("Asia/Shanghai");
+            if (value == nullptr) { return syscape::fail(syscape::errc::io_error); }
+            return value;
+        }
+    };
+
+    const auto region =
+        backend::collect_country_region_code<string_values_api>();
+    expect(region && *region == "CN",
+           "A recorded region code is copied verbatim");
+
+    const auto zone =
+        backend::collect_time_zone_identifier<string_values_api>();
+    expect(zone && *zone == "Asia/Shanghai",
+           "A recorded time-zone identifier is copied verbatim");
+
+    struct absent_region_api {
+        static syscape::result<::CFTypeRef> region_value() {
+            return syscape::fail(syscape::errc::not_found);
+        }
+        static syscape::result<::CFTypeRef> time_zone_name() {
+            return syscape::fail(syscape::errc::not_found);
+        }
+    };
+    const auto absent =
+        backend::collect_country_region_code<absent_region_api>();
+    expect(!absent &&
+               absent.error() ==
+                   syscape::make_error_code(syscape::errc::not_found),
+           "An absent region record reports not_found");
+
+    struct wrong_typed_api {
+        static syscape::result<::CFTypeRef> region_value() {
+            const int value = 156;
+            ::CFNumberRef number =
+                ::CFNumberCreate(nullptr, ::kCFNumberIntType, &value);
+            if (number == nullptr) { return syscape::fail(syscape::errc::io_error); }
+            return number;
+        }
+        static syscape::result<::CFTypeRef> time_zone_name() {
+            const int value = 42;
+            ::CFNumberRef number =
+                ::CFNumberCreate(nullptr, ::kCFNumberIntType, &value);
+            if (number == nullptr) { return syscape::fail(syscape::errc::io_error); }
+            return number;
+        }
+    };
+    const auto wrong_region =
+        backend::collect_country_region_code<wrong_typed_api>();
+    expect(!wrong_region &&
+               wrong_region.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "A non-string region record is malformed platform data");
+    const auto wrong_zone =
+        backend::collect_time_zone_identifier<wrong_typed_api>();
+    expect(!wrong_zone &&
+               wrong_zone.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "A non-string zone name is malformed platform data");
+}
+
+void test_runtime_preference_queries() {
+    const auto languages = syscape::locale::preferred_languages();
+    expect(languages && !languages->empty(),
+           "macOS must report the user's language preference list");
+    if (languages) {
+        for (const std::string& language : *languages) {
+            expect(!language.empty() &&
+                       syscape::detail::is_valid_utf8(language),
+                   "Every reported language entry is non-empty UTF-8");
+        }
+    }
+
+    const auto region = syscape::locale::country_region_code();
+    expect(region && !region->empty() &&
+               syscape::detail::is_valid_utf8(*region),
+           "macOS must report a region code from the current locale");
+
+    const auto zone = syscape::locale::time_zone_identifier();
+    expect(!zone &&
+               zone.error() ==
+                   syscape::make_error_code(syscape::errc::not_supported),
+           "An ambiguous CoreFoundation GMT fallback is not fabricated as "
+           "a configured identifier");
+}
+
 } // namespace
 
 int main() {
     test_offset_parsing();
     test_text_boundaries();
     test_runtime_queries();
+    test_language_collection();
+    test_single_string_fact_collection();
+    test_runtime_preference_queries();
     return failures == 0 ? 0 : 1;
 }

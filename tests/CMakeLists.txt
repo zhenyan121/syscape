@@ -143,6 +143,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 if(WIN32)
+    syscape_add_test(
+        windows_header_order
+        17
+        syscape::hosted
+        windows_header_order.cpp)
     syscape_add_test(cpu_windows 17 syscape::hosted cpu_windows.cpp)
     syscape_add_test(memory_windows 17 syscape::hosted memory_windows.cpp)
     syscape_add_test(process_windows 17 syscape::hosted process_windows.cpp)
@@ -206,6 +211,13 @@ if(APPLE)
     target_link_libraries(
         odr PRIVATE "-framework CoreFoundation"
         "-framework SystemConfiguration")
+    # Targets that call the CoreFoundation locale-preference and time-zone
+    # interfaces follow their documented Apple linkage contract without
+    # imposing the framework on unrelated Hosted Full consumers.
+    target_link_libraries(
+        header_locale PRIVATE "-framework CoreFoundation")
+    target_link_libraries(
+        locale_macos PRIVATE "-framework CoreFoundation")
 endif()
 
 # These smoke tests verify the language requirements propagated by each public

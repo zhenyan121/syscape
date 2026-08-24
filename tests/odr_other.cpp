@@ -135,8 +135,17 @@ bool other_locale_backend_callable() {
         syscape::locale::text_encoding();
     const syscape::result<std::int32_t> offset =
         syscape::locale::utc_offset_seconds();
+    const syscape::result<std::vector<std::string>> languages =
+        syscape::locale::preferred_languages();
+    const syscape::result<std::string> region =
+        syscape::locale::country_region_code();
+    const syscape::result<std::string> zone =
+        syscape::locale::time_zone_identifier();
     static_cast<void>(encoding);
     static_cast<void>(offset);
+    static_cast<void>(languages);
+    static_cast<void>(region);
+    static_cast<void>(zone);
     return locale.has_value() ||
            locale.error() == std::errc::operation_not_supported;
 }

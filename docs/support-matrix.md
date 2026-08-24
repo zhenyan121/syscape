@@ -1,6 +1,6 @@
 # Syscape Support Matrix and Information Catalog
 
-Last reviewed: 2026-08-23
+Last reviewed: 2026-08-24
 
 ## Purpose
 
@@ -160,7 +160,7 @@ will be no all-modules umbrella header.
 | 1 | `user.hpp` | Current user identity, numeric or textual IDs, groups, home directory, shell, elevation, and login session | Implemented; Linux verified, Windows and macOS unverified. Login-session metadata beyond the recorded session name, and fine-grained capability or per-privilege grants beyond the privilege classification, remain not started |
 | 1 | `filesystem.hpp` | Mounts, volumes, filesystem type, capacity, free space, block size, read-only state, and path limits | Implemented; Linux verified, Windows and macOS unverified |
 | 1 | `network.hpp` | Network interfaces, addresses, prefix lengths, MAC addresses, MTU, state, routes, default gateways, DNS configuration, and host/domain names | Implemented; Linux verified, Windows and macOS unverified. Interface enumeration with names, indices, operational state, loopback classification, link-layer addresses, MTU in bytes, unicast IPv4/IPv6 addresses with prefix lengths and numeric IPv6 scope identifiers, forwarding unicast routes, explicit default gateways, and the system DNS resolver configuration with resolver addresses, ordered search domains where exposed, and the separately recorded local domain name are complete. Host-name queries are provided by `os.hpp` rather than duplicated here |
-| 1 | `locale.hpp` | Locale, preferred languages, country or region, text encoding, time zone, and UTC offset | In progress; the current locale identifier, the non-Unicode text-encoding label, and the current UTC offset implemented where documented platform sources exist. Preferred languages, country or region, and time-zone identifiers or display names remain not started |
+| 1 | `locale.hpp` | Locale, preferred languages, country or region, text encoding, time zone, and UTC offset | Implemented; Linux verified, Windows and macOS unverified. The current locale identifier, non-Unicode text-encoding label, and current UTC offset form the first slice; preferred languages, country or region, and time-zone identifiers form the second. Localized time-zone display names remain not started |
 | 2 | `storage.hpp` | Physical drives, partitions, bus and media type, model, firmware, capacity, logical and physical sector sizes, rotational state, removable state, and health data exposed by the OS | Not started |
 | 2 | `power.hpp` | Batteries, charge, health, charging state, power source, estimated remaining time, and system power capabilities | In progress; battery enumeration with verbatim labels, presence, operating condition, whole-percentage charge estimates, and completed-cycle counts, external-power-source detection, and the operating system's runtime-to-empty estimate implemented where documented platform sources exist. Linux verified; Windows and macOS unverified. Battery health relative to design capacity, instantaneous electrical measurements, and system power capabilities remain not started |
 | 2 | `hardware.hpp` | System manufacturer and model, chassis, motherboard, firmware or BIOS, hardware UUID, and documented device inventory | Not started |
@@ -624,11 +624,11 @@ UTC. Locale identifiers and encoding labels are reported verbatim and are not
 normalized across platforms: POSIX systems report the C runtime's locale
 string and LC_CTYPE codeset name, while Windows reports the Microsoft C
 runtime's locale string and decimal current multibyte code-page identifier.
-Preferred languages, country or region, and time-zone identifiers or display
-names remain not started. These queries observe C-runtime locale and time-zone
-state, so concurrent changes to that state are a documented unavoidable
-platform race. The Microsoft C runtime may additionally configure locale state
-per thread.
+Preferred languages, country or region, and time-zone identifiers are covered
+by the second locale slice below. These queries observe C-runtime locale and
+time-zone state, so concurrent changes to that state are a documented
+unavoidable platform race. The Microsoft C runtime may additionally configure
+locale state per thread.
 
 | Backend | Data sources and limitations | Evidence | State |
 | --- | --- | --- | --- |
@@ -647,6 +647,37 @@ documentation for
 [runtime locale and code-page selection](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setlocale-wsetlocale)
 and
 [time-zone information](https://learn.microsoft.com/en-us/windows/win32/api/timezoneapi/ns-timezoneapi-time_zone_information).
+Windows and macOS statuses must not advance until their headers compile with
+the official SDK and the tests execute on the real operating systems.
+
+### Locale preference and time-zone identity evidence
+
+This second locale slice completes the module's planned coverage: the ordered
+list of language identifiers the user prefers, the country or region code
+recorded by the platform's user configuration, and the identifier of the local
+time zone. Every identifier is reported verbatim in its platform's own
+vocabulary and is deliberately not normalized across platforms. The language
+list preserves the platform's recorded preference order; entry order carries
+no meaning beyond ranking within one platform, so entries are not comparable
+across operating systems. The region code describes the configured locale's
+region rather than a separately administered geographic setting on every
+implemented platform. Time-zone identifiers name each platform's own zone
+database entry: Linux extracts the identifier recorded by the documented
+localtime configuration link, and Windows reports the dynamic time-zone
+registry-key name, which is not an IANA identifier. macOS reports
+`not_supported` because CoreFoundation substitutes GMT when the system zone
+cannot be determined and exposes no way to distinguish that fallback from a
+genuinely configured GMT zone. Localized display names remain outside this
+slice. The queries observe user preference and time-zone configuration state,
+so concurrent reconfiguration is a documented race.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every new query; shared boundary validation rejects empty or non-UTF-8 entries and an empty language list | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | The documented [localtime(5)](https://www.man7.org/linux/man-pages/man5/localtime.5.html) configuration link supplies the time-zone identifier when `TZ` is absent: the `/etc/localtime` symlink target is read with growth-bounded retries and resolved lexically against its containing directory, and only targets below `/usr/share/zoneinfo` yield an identifier, because inventing one from a basename would fabricate structure the platform does not record; a missing link records the documented `UTC` default, while a non-link configuration exposes no extractable identifier and reports `not_found`. The documented [tzset(3)](https://www.man7.org/linux/man-pages/man3/tzset.3.html) environment contract supplies process overrides: an empty `TZ` selects `UTC`, while a geographical file specification with or without its optional leading colon names a TZif file below the default database or `TZDIR`; roots and file paths are normalized lexically, targets must remain below the root, and a target must be a regular file carrying the TZif signature. A missing file or POSIX rule string records no extractable identifier and reports `not_found`; unusable file data reports `malformed_data`. Preferred languages return `not_supported` because message-translation environment overrides describe process state rather than platform configuration, and country or region returns `not_supported` because decomposing locale strings would normalize data the platform does not expose separately | Arch Linux, Linux 7.1.8, x86-64, glibc 2.44 (link target under `/usr/share/zoneinfo/Asia`). Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; synthetic lexical-resolution tests (relative and absolute targets, dot segments, root-only targets, foreign roots, root-prefix traps, configured roots with trailing separators, and relative-base rejection) and language-boundary tests (ordering, empty list, empty and non-UTF-8 entries, failure propagation); live queries cross-checked against an independent `readlink` of `/etc/localtime`, empty-`TZ` UTC selection, geographical file forms with and without a colon, a trailing-separator `TZDIR`, non-file rejection, POSIX-rule rejection, and unsupported-source assertions; forced-fallback, C++11-rejection, repeated-inclusion, two-translation-unit ODR, AddressSanitizer, and UndefinedBehaviorSanitizer tests passed | Verified for this slice on the listed host |
+| Windows | [`GetUserPreferredUILanguages`](https://learn.microsoft.com/en-us/windows/win32/api/winnls/nf-winnls-getuserpreferreduilanguages) with `MUI_LANGUAGE_NAME` supplies the ordered null-delimited display-language list through two-stage sizing, with buffer padding after the terminator ignored and unconvertible UTF-16 failing the query; [`GetLocaleInfoEx`](https://learn.microsoft.com/en-us/windows/win32/api/winnls/nf-winnls-getlocaleinfoexw) `LOCALE_SISO3166CTRYNAME` reports the user locale's ISO 3166 region, with native second-call failures preserved and a successful size mismatch rejected as a torn snapshot; [`GetDynamicTimeZoneInformation`](https://learn.microsoft.com/en-us/windows/win32/api/timezoneapi/nf-timezoneapi-getdynamictimezoneinformation) `TimeZoneKeyName` names the zone verbatim, where an unterminated or empty fixed-size field is malformed data; the APIs require `_WIN32_WINNT` and `WINVER` declarations of at least 0x0600, while absent macros are temporarily raised to the repository's current 0x0601 declaration floor so including `locale.hpp` first cannot hide Windows 7 declarations needed by another Syscape header | Backend written from public Microsoft APIs with synthetic list-splitting, padding, lone-surrogate conversion, key-name termination, empty-field, and unconvertible-field tests; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | [`CFLocaleCopyPreferredLanguages`](https://developer.apple.com/documentation/corefoundation/1542440-cflocalecopypreferredlanguages) copies the recorded language array verbatim in preference order with non-string elements rejected as malformed data and an empty recording rejected at the public boundary; `kCFLocaleCountryCode` from [`CFLocaleCopyCurrent`](https://developer.apple.com/documentation/corefoundation/1542013-cflocalecopycurrent) reports the locale's region, where an absent record reports `not_found`; references are owned by internal guards and string conversion failures preserve `invalid_encoding`. [`CFTimeZoneCopySystem`](https://developer.apple.com/documentation/corefoundation/cftimezonecopysystem%28%29) returns GMT when it cannot determine the system zone, so no observable result distinguishes failure from a genuinely configured GMT zone and the identifier query reports `not_supported` instead of fabricating success; requires linking the CoreFoundation framework, which the public header documents | Backend written from public Apple interfaces with synthetic language ordering, wrong-type, absent-region, string-boundary, ownership, and explicit unsupported-zone tests; no Apple runtime available in the current environment | In progress; uncompiled and unverified |
+
 Windows and macOS statuses must not advance until their headers compile with
 the official SDK and the tests execute on the real operating systems.
 

@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
@@ -34,6 +35,23 @@ inline result<std::int32_t> validate_utc_offset_seconds(
     constexpr std::int32_t seconds_per_day = 24 * 60 * 60;
     if (*value <= -seconds_per_day || *value >= seconds_per_day) {
         return fail(errc::malformed_data);
+    }
+    return value;
+}
+
+/// Validates a preferred-language list reported by a platform backend.
+///
+/// Every recorded language entry must be a non-empty valid UTF-8 string, and
+/// the platform itself always records at least one entry, so an empty list
+/// carries no usable information and is malformed platform data rather than
+/// valid data. Entry order is preserved verbatim.
+inline result<std::vector<std::string>> validate_language_list(
+    result<std::vector<std::string>> value) {
+    if (!value) { return fail(value.error()); }
+    if (value->empty()) { return fail(errc::malformed_data); }
+    for (const std::string& entry : *value) {
+        if (entry.empty()) { return fail(errc::malformed_data); }
+        if (!is_valid_utf8(entry)) { return fail(errc::invalid_encoding); }
     }
     return value;
 }

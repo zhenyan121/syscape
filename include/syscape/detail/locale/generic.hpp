@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include <syscape/result.hpp>
 
@@ -19,6 +20,18 @@ inline result<std::string> text_encoding() {
 }
 
 inline result<std::int32_t> utc_offset_seconds() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<std::string>> preferred_languages() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::string> country_region_code() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::string> time_zone_identifier() {
     return fail(errc::not_supported);
 }
 
