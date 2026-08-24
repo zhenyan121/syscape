@@ -10,6 +10,7 @@
 #include <syscape/filesystem.hpp>
 #include <syscape/gpu.hpp>
 #include <syscape/hardware.hpp>
+#include <syscape/input.hpp>
 #include <syscape/locale.hpp>
 #include <syscape/memory.hpp>
 #include <syscape/network.hpp>
@@ -315,6 +316,23 @@ bool other_audio_backend_callable() {
     const auto count = syscape::audio::device_count();
     static_cast<void>(playbacks);
     static_cast<void>(captures);
+    static_cast<void>(count);
+    return devs.has_value() ||
+           devs.error() == std::errc::operation_not_supported ||
+           devs.error() == std::errc::permission_denied;
+}
+
+bool other_input_backend_callable() {
+    const auto devs = syscape::input::devices();
+    const auto kbds = syscape::input::keyboards();
+    const auto mice = syscape::input::mice();
+    const auto touches = syscape::input::touch_devices();
+    const auto pads = syscape::input::gamepads();
+    const auto count = syscape::input::device_count();
+    static_cast<void>(kbds);
+    static_cast<void>(mice);
+    static_cast<void>(touches);
+    static_cast<void>(pads);
     static_cast<void>(count);
     return devs.has_value() ||
            devs.error() == std::errc::operation_not_supported ||
