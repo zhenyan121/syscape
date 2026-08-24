@@ -76,6 +76,7 @@ syscape_add_test(header_locale 17 syscape::hosted header_locale.cpp)
 syscape_add_test(header_environment 17 syscape::hosted header_environment.cpp)
 syscape_add_test(header_resource 17 syscape::hosted header_resource.cpp)
 syscape_add_test(header_power 17 syscape::hosted header_power.cpp)
+syscape_add_test(header_storage 17 syscape::hosted header_storage.cpp)
 syscape_add_test(foundation 17 syscape::hosted foundation.cpp)
 syscape_add_test(odr 17 syscape::hosted odr_main.cpp odr_other.cpp)
 
@@ -128,6 +129,11 @@ target_compile_definitions(
     power_force_generic
     PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
 
+syscape_add_test(storage_force_generic 17 syscape::hosted storage_force_generic.cpp)
+target_compile_definitions(
+    storage_force_generic
+    PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(os_linux 17 syscape::hosted os_linux.cpp)
     syscape_add_test(cpu_linux 17 syscape::hosted cpu_linux.cpp)
@@ -140,6 +146,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(environment_linux 17 syscape::hosted environment_linux.cpp)
     syscape_add_test(resource_linux 17 syscape::hosted resource_linux.cpp)
     syscape_add_test(power_linux 17 syscape::hosted power_linux.cpp)
+    syscape_add_test(storage_linux 17 syscape::hosted storage_linux.cpp)
 endif()
 
 if(WIN32)
@@ -158,6 +165,7 @@ if(WIN32)
     syscape_add_test(environment_windows 17 syscape::hosted environment_windows.cpp)
     syscape_add_test(resource_windows 17 syscape::hosted resource_windows.cpp)
     syscape_add_test(power_windows 17 syscape::hosted power_windows.cpp)
+    syscape_add_test(storage_windows 17 syscape::hosted storage_windows.cpp)
     # Targets that call GetPerformanceInfo follow its documented Windows
     # linkage contract (Kernel32.lib on Windows 7 or later SDKs, otherwise
     # Psapi.lib) without imposing it on unrelated Hosted Full consumers.
@@ -177,6 +185,10 @@ if(WIN32)
     target_link_libraries(header_user PRIVATE advapi32)
     target_link_libraries(user_windows PRIVATE advapi32)
     target_link_libraries(odr PRIVATE advapi32)
+    # Storage enumeration uses the documented disk device-interface set.
+    target_link_libraries(header_storage PRIVATE setupapi)
+    target_link_libraries(storage_windows PRIVATE setupapi)
+    target_link_libraries(odr PRIVATE setupapi)
 endif()
 
 if(APPLE)
@@ -190,6 +202,7 @@ if(APPLE)
     syscape_add_test(environment_macos 17 syscape::hosted environment_macos.cpp)
     syscape_add_test(resource_macos 17 syscape::hosted resource_macos.cpp)
     syscape_add_test(power_macos 17 syscape::hosted power_macos.cpp)
+    syscape_add_test(storage_macos 17 syscape::hosted storage_macos.cpp)
     # Targets that call the IOKit power-sources API follow its documented
     # Apple linkage contract without imposing the frameworks on unrelated
     # Hosted Full consumers.
@@ -199,6 +212,18 @@ if(APPLE)
         power_macos PRIVATE "-framework IOKit" "-framework CoreFoundation")
     target_link_libraries(
         odr PRIVATE "-framework IOKit" "-framework CoreFoundation")
+    # Targets that call the DiskArbitration storage interfaces follow the
+    # documented Apple linkage contract without imposing the frameworks on
+    # unrelated Hosted Full consumers.
+    target_link_libraries(
+        header_storage PRIVATE "-framework IOKit" "-framework CoreFoundation"
+        "-framework DiskArbitration")
+    target_link_libraries(
+        storage_macos PRIVATE "-framework IOKit" "-framework CoreFoundation"
+        "-framework DiskArbitration")
+    target_link_libraries(
+        odr PRIVATE "-framework IOKit" "-framework CoreFoundation"
+        "-framework DiskArbitration")
     # Targets that call the SystemConfiguration DNS interface follow its
     # documented Apple linkage contract without imposing the frameworks on
     # unrelated Hosted Full consumers.
@@ -303,3 +328,6 @@ syscape_expect_cpp11_rejection(
 syscape_expect_cpp11_rejection(
     "syscape/power.hpp"
     "syscape/power.hpp requires C++17 or later")
+syscape_expect_cpp11_rejection(
+    "syscape/storage.hpp"
+    "syscape/storage.hpp requires C++17 or later")

@@ -14,6 +14,7 @@
 #include <syscape/process.hpp>
 #include <syscape/resource.hpp>
 #include <syscape/result.hpp>
+#include <syscape/storage.hpp>
 #include <syscape/user.hpp>
 
 const std::error_category* other_error_category() {
@@ -206,4 +207,11 @@ bool other_environment_backend_callable() {
     static_cast<void>(is_err);
     return path.has_value() ||
            path.error() == std::errc::operation_not_supported;
+}
+
+bool other_storage_backend_callable() {
+    const syscape::result<std::vector<syscape::storage::drive_entry>>
+        listed = syscape::storage::drives();
+    return listed.has_value() ||
+           listed.error() == std::errc::operation_not_supported;
 }

@@ -12,6 +12,7 @@
 #include <syscape/process.hpp>
 #include <syscape/resource.hpp>
 #include <syscape/result.hpp>
+#include <syscape/storage.hpp>
 #include <syscape/user.hpp>
 
 const std::error_category* other_error_category();
@@ -27,6 +28,7 @@ bool other_locale_backend_callable();
 bool other_environment_backend_callable();
 bool other_resource_backend_callable();
 bool other_power_backend_callable();
+bool other_storage_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -73,6 +75,9 @@ int main() {
     }
     if (!other_power_backend_callable()) {
         return 14;
+    }
+    if (!other_storage_backend_callable()) {
+        return 15;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;
