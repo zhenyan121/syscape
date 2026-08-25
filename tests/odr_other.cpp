@@ -20,6 +20,7 @@
 #include <syscape/power.hpp>
 #include <syscape/printer.hpp>
 #include <syscape/process.hpp>
+#include <syscape/process_list.hpp>
 #include <syscape/resource.hpp>
 #include <syscape/result.hpp>
 #include <syscape/security.hpp>
@@ -388,4 +389,15 @@ bool other_printer_backend_callable() {
     static_cast<void>(def);
     static_cast<void>(find);
     return printers.has_value() || static_cast<bool>(printers.error());
+}
+
+bool other_process_list_backend_callable() {
+    const auto procs = syscape::process_list::processes();
+    const auto count = syscape::process_list::process_count();
+    const auto find = syscape::process_list::find_process(1);
+    const auto by_name = syscape::process_list::find_processes_by_name("init");
+    static_cast<void>(count);
+    static_cast<void>(find);
+    static_cast<void>(by_name);
+    return procs.has_value() || static_cast<bool>(procs.error());
 }

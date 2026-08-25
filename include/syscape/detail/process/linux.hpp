@@ -17,6 +17,7 @@
 #include <sched.h>
 
 #include <syscape/detail/linux/file.hpp>
+#include <syscape/detail/linux/process_metrics.hpp>
 #include <syscape/detail/os/linux.hpp>
 #include <syscape/detail/process/common.hpp>
 #include <syscape/detail/process/posix.hpp>
@@ -25,6 +26,10 @@
 namespace syscape {
 namespace detail {
 namespace process_backend {
+
+using linux_process_metrics::compose_start_time;
+using linux_process_metrics::scale_resident_bytes;
+using linux_process_metrics::ticks_to_nanoseconds;
 
 inline result<std::uint32_t> process_id_value(
     pid_t value, bool zero_is_valid) {
@@ -168,63 +173,6 @@ inline result<std::uint64_t> parse_stat_field(std::string_view token) {
         return fail(errc::malformed_data);
     }
     return value;
-}
-
-/// Converts clock ticks to nanoseconds using a positive ticks-per-second
-/// rate.
-///
-/// The rate is validated so the remainder multiplication cannot overflow.
-/// A rate too large for exact integer arithmetic, or any nonpositive rate,
-/// reports that the platform granularity is unusable rather than guessing.
-inline result<std::chrono::nanoseconds> ticks_to_nanoseconds(
-    std::uint64_t ticks, long ticks_per_second) {
-    if (ticks_per_second <= 0 ||
-        static_cast<std::uint64_t>(ticks_per_second) >
-            (std::numeric_limits<std::uint64_t>::max)() / 1000000000ULL) {
-        return fail(errc::not_supported);
-    }
-    const std::uint64_t rate = static_cast<std::uint64_t>(ticks_per_second);
-    const std::uint64_t whole_seconds = ticks / rate;
-    constexpr std::uint64_t maximum_whole_seconds = static_cast<std::uint64_t>(
-        (std::chrono::nanoseconds::max)().count() / 1000000000);
-    if (whole_seconds > maximum_whole_seconds) {
-        return fail(errc::value_too_large);
-    }
-    const std::uint64_t remainder_ticks = ticks % rate;
-    const std::uint64_t remainder_nanoseconds =
-        remainder_ticks * 1000000000ULL / rate;
-    const std::uint64_t whole_nanoseconds = whole_seconds * 1000000000ULL;
-    constexpr std::uint64_t maximum_nanoseconds = static_cast<std::uint64_t>(
-        (std::chrono::nanoseconds::max)().count());
-    if (whole_nanoseconds > maximum_nanoseconds - remainder_nanoseconds) {
-        return fail(errc::value_too_large);
-    }
-    return std::chrono::nanoseconds(whole_nanoseconds + remainder_nanoseconds);
-}
-
-/// Converts a resident page count to bytes using the running page size.
-inline result<std::uint64_t> scale_resident_bytes(
-    std::uint64_t pages, std::uint64_t page_size) {
-    if (page_size == 0U) { return fail(errc::malformed_data); }
-    if (pages > (std::numeric_limits<std::uint64_t>::max)() / page_size) {
-        return fail(errc::value_too_large);
-    }
-    return pages * page_size;
-}
-
-/// Adds a process age to the system boot time.
-inline result<std::chrono::system_clock::time_point> compose_start_time(
-    std::chrono::system_clock::time_point boot_time_value,
-    std::chrono::nanoseconds age) {
-    using clock = std::chrono::system_clock;
-    const std::chrono::nanoseconds boot_nanoseconds =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(
-            boot_time_value.time_since_epoch());
-    if (age > (std::chrono::nanoseconds::max)() - boot_nanoseconds) {
-        return fail(errc::value_too_large);
-    }
-    return boot_time_value +
-           std::chrono::duration_cast<clock::duration>(age);
 }
 
 /// Parses the documented fields of one /proc/self/stat snapshot.
