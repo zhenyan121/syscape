@@ -90,6 +90,7 @@ syscape_add_test(header_bluetooth 17 syscape::hosted header_bluetooth.cpp)
 syscape_add_test(header_wifi 17 syscape::hosted header_wifi.cpp)
 syscape_add_test(header_printer 17 syscape::hosted header_printer.cpp)
 syscape_add_test(header_process_list 17 syscape::hosted header_process_list.cpp)
+syscape_add_test(header_connection 17 syscape::hosted header_connection.cpp)
 syscape_add_test(foundation 17 syscape::hosted foundation.cpp)
 syscape_add_test(odr 17 syscape::hosted odr_main.cpp odr_other.cpp)
 
@@ -212,6 +213,11 @@ target_compile_definitions(
     process_list_force_generic
     PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
 
+syscape_add_test(connection_force_generic 17 syscape::hosted connection_force_generic.cpp)
+target_compile_definitions(
+    connection_force_generic
+    PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(os_linux 17 syscape::hosted os_linux.cpp)
     syscape_add_test(cpu_linux 17 syscape::hosted cpu_linux.cpp)
@@ -238,6 +244,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(wifi_linux 17 syscape::hosted wifi_linux.cpp)
     syscape_add_test(printer_linux 17 syscape::hosted printer_linux.cpp)
     syscape_add_test(process_list_linux 17 syscape::hosted process_list_linux.cpp)
+    syscape_add_test(connection_linux 17 syscape::hosted connection_linux.cpp)
 endif()
 
 if(WIN32)
@@ -270,6 +277,9 @@ if(WIN32)
     syscape_add_test(wifi_windows 17 syscape::hosted wifi_windows.cpp)
     syscape_add_test(printer_windows 17 syscape::hosted printer_windows.cpp)
     syscape_add_test(process_list_windows 17 syscape::hosted process_list_windows.cpp)
+    syscape_add_test(connection_windows 17 syscape::hosted connection_windows.cpp)
+    target_link_libraries(header_connection PRIVATE iphlpapi)
+    target_link_libraries(connection_windows PRIVATE iphlpapi)
     target_link_libraries(header_bluetooth PRIVATE bthprops)
     target_link_libraries(bluetooth_windows PRIVATE bthprops)
     target_link_libraries(odr PRIVATE bthprops)
@@ -334,6 +344,7 @@ if(APPLE)
     syscape_add_test(wifi_macos 17 syscape::hosted wifi_macos.cpp)
     syscape_add_test(printer_macos 17 syscape::hosted printer_macos.cpp)
     syscape_add_test(process_list_macos 17 syscape::hosted process_list_macos.cpp)
+    syscape_add_test(connection_macos 17 syscape::hosted connection_macos.cpp)
     target_link_libraries(
         header_bluetooth PRIVATE "-framework IOKit" "-framework CoreFoundation")
     target_link_libraries(
@@ -548,3 +559,6 @@ syscape_expect_cpp11_rejection(
 syscape_expect_cpp11_rejection(
     "syscape/process_list.hpp"
     "syscape/process_list.hpp requires C++17 or later")
+syscape_expect_cpp11_rejection(
+    "syscape/connection.hpp"
+    "syscape/connection.hpp requires C++17 or later")

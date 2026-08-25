@@ -4,6 +4,7 @@
 #include <syscape/audio.hpp>
 #include <syscape/bluetooth.hpp>
 #include <syscape/camera.hpp>
+#include <syscape/connection.hpp>
 #include <syscape/cpu.hpp>
 #include <syscape/display.hpp>
 #include <syscape/error.hpp>
@@ -55,6 +56,7 @@ bool other_bluetooth_backend_callable();
 bool other_wifi_backend_callable();
 bool other_printer_backend_callable();
 bool other_process_list_backend_callable();
+bool other_connection_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -143,6 +145,9 @@ int main() {
     }
     if (!other_process_list_backend_callable()) {
         return 28;
+    }
+    if (!other_connection_backend_callable()) {
+        return 29;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;

@@ -5,6 +5,7 @@
 #include <syscape/audio.hpp>
 #include <syscape/bluetooth.hpp>
 #include <syscape/camera.hpp>
+#include <syscape/connection.hpp>
 #include <syscape/cpu.hpp>
 #include <syscape/display.hpp>
 #include <syscape/environment.hpp>
@@ -400,4 +401,17 @@ bool other_process_list_backend_callable() {
     static_cast<void>(find);
     static_cast<void>(by_name);
     return procs.has_value() || static_cast<bool>(procs.error());
+}
+
+bool other_connection_backend_callable() {
+    const auto conns = syscape::connection::connections();
+    const auto tcps = syscape::connection::tcp_connections();
+    const auto udps = syscape::connection::udp_endpoints();
+    const auto listen = syscape::connection::listening_endpoints();
+    const auto find = syscape::connection::find_connections_by_process(1);
+    static_cast<void>(tcps);
+    static_cast<void>(udps);
+    static_cast<void>(listen);
+    static_cast<void>(find);
+    return conns.has_value() || static_cast<bool>(conns.error());
 }
