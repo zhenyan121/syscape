@@ -174,7 +174,7 @@ will be no all-modules umbrella header.
 | 3 | `audio.hpp` | Audio input and output devices, default devices, capabilities, and connection state | Implemented; Linux verified, Windows and macOS unverified |
 | 3 | `input.hpp` | Keyboards, pointing devices, touch, game controllers, and other input devices exposed by the OS | Implemented; Linux verified, Windows and macOS unverified |
 | 3 | `camera.hpp` | Camera devices and non-invasive capabilities exposed without activating capture | Implemented; Linux verified, Windows 10 version 1803-or-later and macOS backends unverified. Default-camera selection is currently unsupported because the implemented backends do not expose an authoritative platform default |
-| 3 | `printer.hpp` | Installed or discoverable printers, default printer, connection state, and basic capabilities | Not started |
+| 3 | `printer.hpp` | Installed or discoverable printers, default printer, connection state, and basic capabilities | Implemented; Linux verified, Windows and macOS unverified |
 | 3 | `bluetooth.hpp` | Local adapters, radio state, capabilities, and paired devices when permission permits | Implemented; Linux verified, Windows and macOS unverified |
 | 3 | `wifi.hpp` | Wi-Fi adapters, radio state, current connection, signal information, and configured networks when permission permits | Implemented; Linux verified, Windows unverified, macOS unsupported |
 | 3 | `software.hpp` | OS-managed services, drivers, updates, installed applications or packages, and runtime components where a stable system source exists | Not started |
@@ -1000,6 +1000,23 @@ and configured network profiles: `adapters()`, `adapter_count()`,
 
 Windows status must not advance until its header compiles with the official SDK
 and the tests execute on a real Windows system.
+
+### Printer, default printer, queue status, and capability query evidence
+
+This module exposes installed and discoverable printers, queue operational states,
+connection type classification (local, network, virtual), job queue metrics, and basic
+capabilities (color, duplex, paper sizes, resolutions, copy limits): `printers()`,
+`printer_count()`, `default_printer()`, and `find_printer()`.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every printer query | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | Native zero-dependency RFC 8010/8011 IPP queries over local CUPS Unix domain sockets (`/var/run/cups/cups.sock`, `/run/cups/cups.sock`, or `/var/run/cups.sock`) combined with `/etc/cups/printers.conf` configuration parsing and direct sysfs USB printer discovery (`/sys/class/usbmisc/lp[0-9]*`). Requests explicitly name every consumed IPP attribute. HTTP status, content length, chunked transfer framing, IPP framing, value bounds, and UTF-8 are validated; native access and I/O failures are preserved. CUPS queues and otherwise-unrepresented USB devices are merged using normalized queue, display-name, and percent-decoded USB URI identities without assigning unobserved queue state to raw devices. `default_printer()` honors nonempty `LPDEST`, then `PRINTER`, then the authoritative CUPS default, and never infers a default from queue count. Failure of the adjacent default query leaves a successful list available with unknown default flags, while `default_printer()` reports that failure. Entries sort in natural alphanumeric order | Strict C++17 GCC and Clang with `-pedantic-errors`, high-signal warnings, and `-Werror`; live queries tolerant of unavailable host facilities; synthetic content-length, chunked, HTTP error, IPP busy/service-unavailable, explicit requested-attribute, truncated IPP, invalid UTF-8, 1setOf, delimiter, configuration truncation, default-selection, realistic USB identity merge and unknown-state tests; forced generic fallback, repeated inclusion, two-translation-unit ODR, C++11 rejection, AddressSanitizer, and UndefinedBehaviorSanitizer | Verified for this module on the listed host |
+| Windows | Official Win32 Spooler APIs in `winspool.h` (`EnumPrintersW` with `PRINTER_INFO_2W`, `GetDefaultPrinterW`, and `DeviceCapabilitiesW`). The enumeration sizing call is distinguished from a successful empty enumeration, buffer races are reported, and UTF-16 conversion failures fail the snapshot. Capability data calls allocate the documented library maximum rather than the potentially stale sizing count, then validate the returned count. Capabilities query paper names, color, duplex, collation, resolutions, and copy limits. The default comes only from `GetDefaultPrinterW`; the backend does not infer acceptance state because `PRINTER_INFO_2W` has no authoritative accepting-jobs field | Backend written from public Microsoft Win32 APIs; no Windows SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+| macOS | Native zero-dependency IPP queries over the macOS CUPS Unix domain socket (`/private/var/run/cupsd`) with compatibility paths and `/etc/cups/printers.conf` fallback. Requests explicitly name every consumed IPP attribute. Socket writes suppress SIGPIPE, descriptors are close-on-exec, HTTP/IPP framing and UTF-8 are validated, and errors are preserved. Failure of the adjacent default query leaves a successful list available with unknown default flags, while `default_printer()` reports that failure | Backend written from standard Unix domain socket and RFC IPP specification; no macOS SDK or runtime available in the current environment | In progress; uncompiled and unverified |
+
+Windows and macOS statuses must not advance until their headers compile with
+the official SDK and the tests execute on the real operating systems.
 
 ### Sensitive and identifying information
 

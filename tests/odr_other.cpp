@@ -18,6 +18,7 @@
 #include <syscape/network.hpp>
 #include <syscape/os.hpp>
 #include <syscape/power.hpp>
+#include <syscape/printer.hpp>
 #include <syscape/process.hpp>
 #include <syscape/resource.hpp>
 #include <syscape/result.hpp>
@@ -376,4 +377,15 @@ bool other_wifi_backend_callable() {
     static_cast<void>(conn);
     static_cast<void>(configured);
     return adapters.has_value() || static_cast<bool>(adapters.error());
+}
+
+bool other_printer_backend_callable() {
+    const auto printers = syscape::printer::printers();
+    const auto count = syscape::printer::printer_count();
+    const auto def = syscape::printer::default_printer();
+    const auto find = syscape::printer::find_printer("test");
+    static_cast<void>(count);
+    static_cast<void>(def);
+    static_cast<void>(find);
+    return printers.has_value() || static_cast<bool>(printers.error());
 }

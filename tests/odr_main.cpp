@@ -16,6 +16,7 @@
 #include <syscape/network.hpp>
 #include <syscape/os.hpp>
 #include <syscape/power.hpp>
+#include <syscape/printer.hpp>
 #include <syscape/process.hpp>
 #include <syscape/resource.hpp>
 #include <syscape/result.hpp>
@@ -51,6 +52,7 @@ bool other_input_backend_callable();
 bool other_camera_backend_callable();
 bool other_bluetooth_backend_callable();
 bool other_wifi_backend_callable();
+bool other_printer_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -133,6 +135,9 @@ int main() {
     }
     if (!other_wifi_backend_callable()) {
         return 26;
+    }
+    if (!other_printer_backend_callable()) {
+        return 27;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;
