@@ -3,6 +3,7 @@
 
 #include <syscape/architecture.hpp>
 #include <syscape/audio.hpp>
+#include <syscape/bluetooth.hpp>
 #include <syscape/camera.hpp>
 #include <syscape/cpu.hpp>
 #include <syscape/display.hpp>
@@ -349,4 +350,17 @@ bool other_camera_backend_callable() {
     static_cast<void>(count);
     static_cast<void>(def);
     return devs.has_value() || static_cast<bool>(devs.error());
+}
+
+bool other_bluetooth_backend_callable() {
+    const auto adapters = syscape::bluetooth::adapters();
+    const auto count = syscape::bluetooth::adapter_count();
+    const auto def = syscape::bluetooth::default_adapter();
+    const auto paired = syscape::bluetooth::paired_devices();
+    const auto connected = syscape::bluetooth::connected_devices();
+    static_cast<void>(count);
+    static_cast<void>(def);
+    static_cast<void>(paired);
+    static_cast<void>(connected);
+    return adapters.has_value() || static_cast<bool>(adapters.error());
 }
