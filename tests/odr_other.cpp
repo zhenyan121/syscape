@@ -26,6 +26,7 @@
 #include <syscape/storage.hpp>
 #include <syscape/user.hpp>
 #include <syscape/virtualization.hpp>
+#include <syscape/wifi.hpp>
 
 const std::error_category* other_error_category() {
     return &syscape::error_category();
@@ -33,7 +34,6 @@ const std::error_category* other_error_category() {
 syscape::architecture other_architecture() {
     return syscape::target_architecture();
 }
-
 bool other_os_backend_callable() {
     const syscape::result<std::string> value = syscape::os::kernel_name();
     return value || value.error() == std::errc::operation_not_supported;
@@ -362,5 +362,18 @@ bool other_bluetooth_backend_callable() {
     static_cast<void>(def);
     static_cast<void>(paired);
     static_cast<void>(connected);
+    return adapters.has_value() || static_cast<bool>(adapters.error());
+}
+
+bool other_wifi_backend_callable() {
+    const auto adapters = syscape::wifi::adapters();
+    const auto count = syscape::wifi::adapter_count();
+    const auto def = syscape::wifi::default_adapter();
+    const auto conn = syscape::wifi::current_connection();
+    const auto configured = syscape::wifi::configured_networks();
+    static_cast<void>(count);
+    static_cast<void>(def);
+    static_cast<void>(conn);
+    static_cast<void>(configured);
     return adapters.has_value() || static_cast<bool>(adapters.error());
 }

@@ -24,6 +24,7 @@
 #include <syscape/storage.hpp>
 #include <syscape/user.hpp>
 #include <syscape/virtualization.hpp>
+#include <syscape/wifi.hpp>
 
 const std::error_category* other_error_category();
 syscape::architecture other_architecture();
@@ -49,6 +50,7 @@ bool other_audio_backend_callable();
 bool other_input_backend_callable();
 bool other_camera_backend_callable();
 bool other_bluetooth_backend_callable();
+bool other_wifi_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -128,6 +130,9 @@ int main() {
     }
     if (!other_bluetooth_backend_callable()) {
         return 25;
+    }
+    if (!other_wifi_backend_callable()) {
+        return 26;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;

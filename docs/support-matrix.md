@@ -176,7 +176,7 @@ will be no all-modules umbrella header.
 | 3 | `camera.hpp` | Camera devices and non-invasive capabilities exposed without activating capture | Implemented; Linux verified, Windows 10 version 1803-or-later and macOS backends unverified. Default-camera selection is currently unsupported because the implemented backends do not expose an authoritative platform default |
 | 3 | `printer.hpp` | Installed or discoverable printers, default printer, connection state, and basic capabilities | Not started |
 | 3 | `bluetooth.hpp` | Local adapters, radio state, capabilities, and paired devices when permission permits | Implemented; Linux verified, Windows and macOS unverified |
-| 3 | `wifi.hpp` | Wi-Fi adapters, radio state, current connection, signal information, and configured networks when permission permits | Not started |
+| 3 | `wifi.hpp` | Wi-Fi adapters, radio state, current connection, signal information, and configured networks when permission permits | Implemented; Linux verified, Windows unverified, macOS unsupported |
 | 3 | `software.hpp` | OS-managed services, drivers, updates, installed applications or packages, and runtime components where a stable system source exists | Not started |
 | 3 | `process_list.hpp` | Other processes and their observable metadata, subject to permissions and platform privacy policy | Not started |
 | 3 | `connection.hpp` | Local listening endpoints and network connections visible to the current process or user | Not started |
@@ -982,6 +982,24 @@ version identifiers, and paired or connected remote devices: `adapters()`,
 
 Windows and macOS statuses must not advance until their headers compile with
 the official SDK and the tests execute on the real operating systems.
+
+### Wi-Fi adapter, radio state, and network query evidence
+
+This module exposes local Wi-Fi host adapters, radio power and rfkill block
+states, operational modes, active wireless connection details (SSID, BSSID, RSSI,
+frequency, channel, Wi-Fi standard/generation, security protocol, link rates),
+and configured network profiles: `adapters()`, `adapter_count()`,
+`default_adapter()`, `current_connection()`, and `configured_networks()`.
+
+| Backend | Data sources and limitations | Evidence | State |
+| --- | --- | --- | --- |
+| Generic Hosted Full fallback | Portable `not_supported` results for every Wi-Fi query | Forced-backend standalone and runtime tests under GCC 16.2.1 and Clang 22.1.8 | Verified |
+| Linux | Kernel sysfs `/sys/class/net/` and adapter-correlated `/sys/class/net/[ifname]/phy80211/rfkill*` entries combined with `/proc/net/wireless` parsing and standard Wireless Extensions (WEXT) ioctls (`SIOCGIWNAME`, `SIOCGIWESSID`, `SIOCGIWAP`, `SIOCGIWFREQ`, `SIOCGIWMODE`, `SIOCGIWRATE`) over UDP sockets. Wireless interfaces are identified by the presence of `wireless` or `phy80211` directories under `/sys/class/net/[ifname]`. A nonzero, non-broadcast `SIOCGIWAP` BSSID establishes association; a retained configured ESSID alone never creates an active connection. WEXT `e == 0` channel-number results populate only the channel rather than being mislabeled as MHz, and other frequencies are accepted only inside a known Wi-Fi band. Configured profiles are parsed non-invasively from NetworkManager and the documented iwd `.open`, `.psk`, and `.8021x` stores when permission allows. An iwd `.psk` filename cannot distinguish WPA2-PSK from WPA3-SAE, so its security remains `unknown`; `.8021x` likewise identifies an enterprise profile without proving its WPA generation. Unexposed supported standards and bands remain empty. `default_adapter()` returns the sole adapter or sole connected adapter; ambiguous multi-adapter selection returns `not_supported` | Arch Linux, Linux 7.1.9, x86-64, glibc 2.44. Strict C++17 GCC 16.2.1 and Clang 22.1.8 with `-pedantic-errors`, high-signal warnings, and `-Werror`; live queries, adapter-correlated rfkill states, association-BSSID validation, WEXT channel-number and frequency conventions, natural identifier ordering, MAC normalization, frequency-to-channel and frequency-to-band conversion, RSSI to quality percentage estimation, synthetic `/proc/net/wireless` table parsing, NetworkManager and iwd profile parsing, forced generic fallback, repeated inclusion, two-translation-unit ODR, and C++11 rejection tests passed | Verified for this module on the listed host |
+| Windows | Native Wifi API in `wlanapi.h` (`WlanOpenHandle`, `WlanEnumInterfaces`, `WlanQueryInterface`, `WlanGetNetworkBssList`, `WlanGetProfileList`, and `WlanGetProfile`). `WLAN_CONNECTION_ATTRIBUTES` exposes the active SSID, BSSID, signal quality, DOT11 PHY type, and auth algorithm. The channel-number opcode supplies a fallback channel, while the matching `WLAN_BSS_ENTRY` center frequency in kHz supplies an unambiguous frequency and 2.4/5/6 GHz band for Wi-Fi 6 versus 6E classification. BSS and radio-detail failures leave only those optional facts unknown; an interface disconnect race downgrades that adapter instead of failing the complete enumeration. TX/RX link rates remain absent because current Microsoft documentation does not define the units of `ulTxRate` and `ulRxRate`; real-hardware validation is required before mapping them to Mbps. XML profiles from `WlanGetProfile` are parsed for the nested or hexadecimal SSID, security type, auto-connect, and hidden SSID settings. Interface GUIDs and descriptions are decoded from UTF-16 to UTF-8. The call surface is available in Windows Vista-era `wlanapi.h`; documented numeric values are used for HE, EHT, and WPA3 algorithms so newer Windows 10 SDK enumerator spellings are not a compile-time dependency | Platform-independent XML entity, hexadecimal SSID, default-value, malformed-input, and WPA2/WPA3 classification paths compile and execute under the Linux GCC and Clang test configurations. The Native Wifi call layer is implemented from public Microsoft Win32 APIs; no Windows SDK or runtime is available in the current environment | In progress; Native Wifi layer uncompiled and unverified |
+| macOS | Portable fallback. No CoreWLAN implementation satisfying the header-only strict C++17 contract has been implemented and verified, so unavailable data is not inferred from unverified IORegistry properties | Forced generic behavior is covered by the portable fallback tests; no Apple SDK or runtime available in the current environment | Unsupported until a documented system interface can be implemented and verified |
+
+Windows status must not advance until its header compiles with the official SDK
+and the tests execute on a real Windows system.
 
 ### Sensitive and identifying information
 

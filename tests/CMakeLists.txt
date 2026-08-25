@@ -87,6 +87,7 @@ syscape_add_test(header_audio 17 syscape::hosted header_audio.cpp)
 syscape_add_test(header_input 17 syscape::hosted header_input.cpp)
 syscape_add_test(header_camera 17 syscape::hosted header_camera.cpp)
 syscape_add_test(header_bluetooth 17 syscape::hosted header_bluetooth.cpp)
+syscape_add_test(header_wifi 17 syscape::hosted header_wifi.cpp)
 syscape_add_test(foundation 17 syscape::hosted foundation.cpp)
 syscape_add_test(odr 17 syscape::hosted odr_main.cpp odr_other.cpp)
 
@@ -194,6 +195,11 @@ target_compile_definitions(
     bluetooth_force_generic
     PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
 
+syscape_add_test(wifi_force_generic 17 syscape::hosted wifi_force_generic.cpp)
+target_compile_definitions(
+    wifi_force_generic
+    PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(os_linux 17 syscape::hosted os_linux.cpp)
     syscape_add_test(cpu_linux 17 syscape::hosted cpu_linux.cpp)
@@ -217,6 +223,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(input_linux 17 syscape::hosted input_linux.cpp)
     syscape_add_test(camera_linux 17 syscape::hosted camera_linux.cpp)
     syscape_add_test(bluetooth_linux 17 syscape::hosted bluetooth_linux.cpp)
+    syscape_add_test(wifi_linux 17 syscape::hosted wifi_linux.cpp)
 endif()
 
 if(WIN32)
@@ -246,9 +253,13 @@ if(WIN32)
     syscape_add_test(input_windows 17 syscape::hosted input_windows.cpp)
     syscape_add_test(camera_windows 17 syscape::hosted camera_windows.cpp)
     syscape_add_test(bluetooth_windows 17 syscape::hosted bluetooth_windows.cpp)
+    syscape_add_test(wifi_windows 17 syscape::hosted wifi_windows.cpp)
     target_link_libraries(header_bluetooth PRIVATE bthprops)
     target_link_libraries(bluetooth_windows PRIVATE bthprops)
     target_link_libraries(odr PRIVATE bthprops)
+    target_link_libraries(header_wifi PRIVATE wlanapi)
+    target_link_libraries(wifi_windows PRIVATE wlanapi)
+    target_link_libraries(odr PRIVATE wlanapi)
     target_link_libraries(header_audio PRIVATE ole32 uuid)
     target_link_libraries(audio_windows PRIVATE ole32 uuid)
     target_link_libraries(odr PRIVATE ole32 uuid)
@@ -301,6 +312,7 @@ if(APPLE)
     syscape_add_test(input_macos 17 syscape::hosted input_macos.cpp)
     syscape_add_test(camera_macos 17 syscape::hosted camera_macos.cpp)
     syscape_add_test(bluetooth_macos 17 syscape::hosted bluetooth_macos.cpp)
+    syscape_add_test(wifi_macos 17 syscape::hosted wifi_macos.cpp)
     target_link_libraries(
         header_bluetooth PRIVATE "-framework IOKit" "-framework CoreFoundation")
     target_link_libraries(
@@ -506,3 +518,6 @@ syscape_expect_cpp11_rejection(
 syscape_expect_cpp11_rejection(
     "syscape/bluetooth.hpp"
     "syscape/bluetooth.hpp requires C++17 or later")
+syscape_expect_cpp11_rejection(
+    "syscape/wifi.hpp"
+    "syscape/wifi.hpp requires C++17 or later")
