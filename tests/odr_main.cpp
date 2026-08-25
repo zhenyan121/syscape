@@ -2,6 +2,7 @@
 
 #include <syscape/architecture.hpp>
 #include <syscape/audio.hpp>
+#include <syscape/camera.hpp>
 #include <syscape/cpu.hpp>
 #include <syscape/display.hpp>
 #include <syscape/error.hpp>
@@ -45,6 +46,7 @@ bool other_security_backend_callable();
 bool other_sensor_backend_callable();
 bool other_audio_backend_callable();
 bool other_input_backend_callable();
+bool other_camera_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -118,6 +120,9 @@ int main() {
     }
     if (!other_input_backend_callable()) {
         return 23;
+    }
+    if (!other_camera_backend_callable()) {
+        return 24;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;

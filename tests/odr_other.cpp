@@ -3,6 +3,7 @@
 
 #include <syscape/architecture.hpp>
 #include <syscape/audio.hpp>
+#include <syscape/camera.hpp>
 #include <syscape/cpu.hpp>
 #include <syscape/display.hpp>
 #include <syscape/environment.hpp>
@@ -337,4 +338,15 @@ bool other_input_backend_callable() {
     return devs.has_value() ||
            devs.error() == std::errc::operation_not_supported ||
            devs.error() == std::errc::permission_denied;
+}
+
+bool other_camera_backend_callable() {
+    const auto devs = syscape::camera::devices();
+    const auto captures = syscape::camera::capture_devices();
+    const auto count = syscape::camera::device_count();
+    const auto def = syscape::camera::default_device();
+    static_cast<void>(captures);
+    static_cast<void>(count);
+    static_cast<void>(def);
+    return devs.has_value() || static_cast<bool>(devs.error());
 }

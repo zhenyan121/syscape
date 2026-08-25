@@ -85,6 +85,7 @@ syscape_add_test(header_security 17 syscape::hosted header_security.cpp)
 syscape_add_test(header_sensor 17 syscape::hosted header_sensor.cpp)
 syscape_add_test(header_audio 17 syscape::hosted header_audio.cpp)
 syscape_add_test(header_input 17 syscape::hosted header_input.cpp)
+syscape_add_test(header_camera 17 syscape::hosted header_camera.cpp)
 syscape_add_test(foundation 17 syscape::hosted foundation.cpp)
 syscape_add_test(odr 17 syscape::hosted odr_main.cpp odr_other.cpp)
 
@@ -182,6 +183,11 @@ target_compile_definitions(
     input_force_generic
     PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
 
+syscape_add_test(camera_force_generic 17 syscape::hosted camera_force_generic.cpp)
+target_compile_definitions(
+    camera_force_generic
+    PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(os_linux 17 syscape::hosted os_linux.cpp)
     syscape_add_test(cpu_linux 17 syscape::hosted cpu_linux.cpp)
@@ -203,6 +209,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(sensor_linux 17 syscape::hosted sensor_linux.cpp)
     syscape_add_test(audio_linux 17 syscape::hosted audio_linux.cpp)
     syscape_add_test(input_linux 17 syscape::hosted input_linux.cpp)
+    syscape_add_test(camera_linux 17 syscape::hosted camera_linux.cpp)
 endif()
 
 if(WIN32)
@@ -230,9 +237,12 @@ if(WIN32)
     syscape_add_test(sensor_windows 17 syscape::hosted sensor_windows.cpp)
     syscape_add_test(audio_windows 17 syscape::hosted audio_windows.cpp)
     syscape_add_test(input_windows 17 syscape::hosted input_windows.cpp)
+    syscape_add_test(camera_windows 17 syscape::hosted camera_windows.cpp)
     target_link_libraries(header_audio PRIVATE ole32 uuid)
     target_link_libraries(audio_windows PRIVATE ole32 uuid)
     target_link_libraries(odr PRIVATE ole32 uuid)
+    target_link_libraries(header_camera PRIVATE setupapi)
+    target_link_libraries(camera_windows PRIVATE setupapi)
     # Targets that call GetPerformanceInfo follow its documented Windows
     # linkage contract (Kernel32.lib on Windows 7 or later SDKs, otherwise
     # Psapi.lib) without imposing it on unrelated Hosted Full consumers.
@@ -252,7 +262,7 @@ if(WIN32)
     target_link_libraries(header_user PRIVATE advapi32)
     target_link_libraries(user_windows PRIVATE advapi32)
     target_link_libraries(odr PRIVATE advapi32)
-    # Storage enumeration uses the documented disk device-interface set.
+    # Storage and camera enumeration use documented SetupAPI device interfaces.
     target_link_libraries(header_storage PRIVATE setupapi)
     target_link_libraries(storage_windows PRIVATE setupapi)
     target_link_libraries(odr PRIVATE setupapi)
@@ -278,6 +288,7 @@ if(APPLE)
     syscape_add_test(sensor_macos 17 syscape::hosted sensor_macos.cpp)
     syscape_add_test(audio_macos 17 syscape::hosted audio_macos.cpp)
     syscape_add_test(input_macos 17 syscape::hosted input_macos.cpp)
+    syscape_add_test(camera_macos 17 syscape::hosted camera_macos.cpp)
     # Targets that call the IOKit power-sources API follow its documented
     # Apple linkage contract without imposing the frameworks on unrelated
     # Hosted Full consumers.
@@ -353,8 +364,14 @@ if(APPLE)
         header_input PRIVATE "-framework IOKit" "-framework CoreFoundation")
     target_link_libraries(
         input_macos PRIVATE "-framework IOKit" "-framework CoreFoundation")
+    # Targets that call CoreMediaIO camera interfaces follow the documented Apple
+    # linkage contract without imposing the frameworks on unrelated Hosted Full consumers.
     target_link_libraries(
-        odr PRIVATE "-framework CoreAudio" "-framework IOKit")
+        header_camera PRIVATE "-framework CoreMediaIO" "-framework CoreFoundation")
+    target_link_libraries(
+        camera_macos PRIVATE "-framework CoreMediaIO" "-framework CoreFoundation")
+    target_link_libraries(
+        odr PRIVATE "-framework CoreAudio" "-framework IOKit" "-framework CoreMediaIO")
 endif()
 
 # These smoke tests verify the language requirements propagated by each public
@@ -467,3 +484,6 @@ syscape_expect_cpp11_rejection(
 syscape_expect_cpp11_rejection(
     "syscape/input.hpp"
     "syscape/input.hpp requires C++17 or later")
+syscape_expect_cpp11_rejection(
+    "syscape/camera.hpp"
+    "syscape/camera.hpp requires C++17 or later")
