@@ -26,6 +26,7 @@
 #include <syscape/result.hpp>
 #include <syscape/security.hpp>
 #include <syscape/sensor.hpp>
+#include <syscape/software.hpp>
 #include <syscape/storage.hpp>
 #include <syscape/user.hpp>
 #include <syscape/virtualization.hpp>
@@ -414,4 +415,19 @@ bool other_connection_backend_callable() {
     static_cast<void>(listen);
     static_cast<void>(find);
     return conns.has_value() || static_cast<bool>(conns.error());
+}
+
+bool other_software_backend_callable() {
+    const auto svcs = syscape::software::services();
+    const auto drvs = syscape::software::loaded_drivers();
+    const auto pkgs = syscape::software::installed_packages();
+    const auto svc = syscape::software::find_service("test");
+    const auto drv = syscape::software::find_driver("test");
+    const auto pkg = syscape::software::find_package("test");
+    static_cast<void>(drvs);
+    static_cast<void>(pkgs);
+    static_cast<void>(svc);
+    static_cast<void>(drv);
+    static_cast<void>(pkg);
+    return svcs.has_value() || static_cast<bool>(svcs.error());
 }

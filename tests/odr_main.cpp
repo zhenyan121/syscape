@@ -24,6 +24,7 @@
 #include <syscape/result.hpp>
 #include <syscape/security.hpp>
 #include <syscape/sensor.hpp>
+#include <syscape/software.hpp>
 #include <syscape/storage.hpp>
 #include <syscape/user.hpp>
 #include <syscape/virtualization.hpp>
@@ -57,6 +58,7 @@ bool other_wifi_backend_callable();
 bool other_printer_backend_callable();
 bool other_process_list_backend_callable();
 bool other_connection_backend_callable();
+bool other_software_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -148,6 +150,9 @@ int main() {
     }
     if (!other_connection_backend_callable()) {
         return 29;
+    }
+    if (!other_software_backend_callable()) {
+        return 30;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;
