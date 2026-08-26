@@ -140,6 +140,96 @@ inline result<bool> copy_optional_boolean(::CFDictionaryRef facts,
     return true;
 }
 
+/// Copies one recorded UUID field out of a media-facts dictionary, handling
+/// both CFUUID and CFString values.
+inline result<bool> copy_optional_uuid(::CFDictionaryRef facts,
+                                       ::CFStringRef key, bool& present,
+                                       std::string& destination) {
+    const void* raw = ::CFDictionaryGetValue(facts, key);
+    if (raw == nullptr) {
+        present = false;
+        destination.clear();
+        return false;
+    }
+    const ::CFTypeID type_id = ::CFGetTypeID(raw);
+    if (type_id == ::CFUUIDGetTypeID()) {
+        const ::CFStringRef uuid_str = ::CFUUIDCreateString(
+            ::kCFAllocatorDefault, static_cast<::CFUUIDRef>(raw));
+        if (uuid_str == nullptr) { return fail(errc::resource_exhausted); }
+        const cf_object owned(uuid_str);
+        result<std::string> text = copy_utf8_string(uuid_str);
+        if (!text) { return fail(text.error()); }
+        if (text->empty()) {
+            present = false;
+            destination.clear();
+            return false;
+        }
+        present = true;
+        destination = std::move(*text);
+        return true;
+    }
+    if (type_id == ::CFStringGetTypeID()) {
+        result<std::string> text =
+            copy_utf8_string(static_cast<::CFStringRef>(raw));
+        if (!text) { return fail(text.error()); }
+        if (text->empty()) {
+            present = false;
+            destination.clear();
+            return false;
+        }
+        present = true;
+        destination = std::move(*text);
+        return true;
+    }
+    return fail(errc::malformed_data);
+}
+
+/// Copies one recorded filesystem mount URL or path field out of a
+/// media-facts dictionary, handling both CFURL and CFString values.
+inline result<bool> copy_optional_url_path(::CFDictionaryRef facts,
+                                           ::CFStringRef key, bool& present,
+                                           std::string& destination) {
+    const void* raw = ::CFDictionaryGetValue(facts, key);
+    if (raw == nullptr) {
+        present = false;
+        destination.clear();
+        return false;
+    }
+    const ::CFTypeID type_id = ::CFGetTypeID(raw);
+    if (type_id == ::CFURLGetTypeID()) {
+        const ::CFStringRef path_str = ::CFURLCopyFileSystemPath(
+            static_cast<::CFURLRef>(raw), ::kCFURLPOSIXPathStyle);
+        if (path_str == nullptr) {
+            return fail(errc::malformed_data);
+        }
+        const cf_object owned(path_str);
+        result<std::string> text = copy_utf8_string(path_str);
+        if (!text) { return fail(text.error()); }
+        if (text->empty()) {
+            present = false;
+            destination.clear();
+            return false;
+        }
+        present = true;
+        destination = std::move(*text);
+        return true;
+    }
+    if (type_id == ::CFStringGetTypeID()) {
+        result<std::string> text =
+            copy_utf8_string(static_cast<::CFStringRef>(raw));
+        if (!text) { return fail(text.error()); }
+        if (text->empty()) {
+            present = false;
+            destination.clear();
+            return false;
+        }
+        present = true;
+        destination = std::move(*text);
+        return true;
+    }
+    return fail(errc::malformed_data);
+}
+
 /// Maps the platform's recorded device-protocol renderings onto the
 /// portable transport vocabulary.
 ///
@@ -277,6 +367,9 @@ struct native_drive_api {
     /// protocol the platform records as virtual are excluded during
     /// assembly because they describe files rather than drives.
     static result<::CFArrayRef> whole_media_facts();
+
+    /// Returns an owned array of partition-media fact dictionaries.
+    static result<::CFArrayRef> partition_media_facts();
 };
 
 /// Collects drive records from media-fact dictionaries through the given
@@ -532,10 +625,299 @@ inline ::CFMutableDictionaryRef build_media_dictionary(
     return entry;
 }
 
-/// Returns an owned array of whole-media fact dictionaries built from the
-/// IOKit registry and the documented DiskArbitration description
-/// interface.
-result<::CFArrayRef> native_drive_api::whole_media_facts() {
+/// Collects partition records from partition media dictionaries.
+template <typename DriveApi>
+inline result<std::vector<storage_common::partition_record>>
+collect_partitions() {
+    const result<::CFArrayRef> collected = DriveApi::partition_media_facts();
+    if (!collected) { return fail(collected.error()); }
+    const cf_object owned(*collected);
+    const ::CFArrayRef facts_array =
+        static_cast<::CFArrayRef>(owned.get());
+
+    std::vector<storage_common::partition_record> records;
+    const ::CFIndex count = ::CFArrayGetCount(facts_array);
+    for (::CFIndex index = 0; index < count; ++index) {
+        const void* raw_dict = ::CFArrayGetValueAtIndex(facts_array, index);
+        if (raw_dict == nullptr ||
+            ::CFGetTypeID(raw_dict) != ::CFDictionaryGetTypeID()) {
+            return fail(errc::malformed_data);
+        }
+        const ::CFDictionaryRef dictionary =
+            static_cast<::CFDictionaryRef>(raw_dict);
+
+        bool has_bsd_name = false;
+        std::string bsd_name;
+        const result<bool> copied_name = copy_optional_string(
+            dictionary, ::kDADiskDescriptionMediaBSDNameKey, has_bsd_name,
+            bsd_name);
+        if (!copied_name) { return fail(copied_name.error()); }
+        if (!has_bsd_name || bsd_name.empty()) {
+            return fail(errc::malformed_data);
+        }
+
+        storage_common::partition_record record;
+        record.identifier = bsd_name;
+
+        bool has_parent_name = false;
+        std::string parent_name;
+        const result<bool> copied_parent = copy_optional_string(
+            dictionary, CFSTR("SyscapeParentBSDName"), has_parent_name,
+            parent_name);
+        if (!copied_parent) { return fail(copied_parent.error()); }
+        if (!has_parent_name || parent_name.empty()) {
+            return fail(errc::malformed_data);
+        }
+        record.disk_identifier = parent_name;
+
+        const std::string prefix = parent_name + "s";
+        if (bsd_name.size() <= prefix.size() ||
+            bsd_name.compare(0U, prefix.size(), prefix) != 0) {
+            return fail(errc::malformed_data);
+        }
+        std::uint32_t number = 0U;
+        for (std::size_t c = prefix.size(); c < bsd_name.size(); ++c) {
+            if (bsd_name[c] < '0' || bsd_name[c] > '9') {
+                return fail(errc::malformed_data);
+            }
+            const std::uint32_t digit =
+                static_cast<std::uint32_t>(bsd_name[c] - '0');
+            if (number >
+                (std::numeric_limits<std::uint32_t>::max() - digit) / 10U) {
+                return fail(errc::value_too_large);
+            }
+            number = number * 10U + digit;
+        }
+        if (number == 0U) { return fail(errc::malformed_data); }
+        record.partition_number = number;
+
+        std::uint64_t size_bytes = 0U;
+        const result<bool> copied_size = copy_optional_number(
+            dictionary, ::kDADiskDescriptionMediaSizeKey, size_bytes);
+        if (!copied_size) { return fail(copied_size.error()); }
+        if (*copied_size) {
+            record.has_size_bytes = true;
+            record.size_bytes = size_bytes;
+        }
+
+        std::uint64_t base_bytes = 0U;
+        const result<bool> copied_base = copy_optional_number(
+            dictionary, CFSTR(kIOMediaBaseKey), base_bytes);
+        if (!copied_base) { return fail(copied_base.error()); }
+        if (*copied_base) {
+            record.has_start_offset_bytes = true;
+            record.start_offset_bytes = base_bytes;
+        }
+
+        bool writable = true;
+        const result<bool> copied_writable = copy_optional_boolean(
+            dictionary, ::kDADiskDescriptionMediaWritableKey, writable);
+        if (!copied_writable) { return fail(copied_writable.error()); }
+        if (*copied_writable) {
+            record.is_read_only = !writable;
+        }
+
+        bool has_content = false;
+        std::string content;
+        const result<bool> copied_content = copy_optional_string(
+            dictionary, ::kDADiskDescriptionMediaContentKey, has_content,
+            content);
+        if (!copied_content) { return fail(copied_content.error()); }
+        if (has_content) {
+            record.has_type_identifier = true;
+            record.type_identifier = content;
+            // IOMedia content describes the slice contents, not the parent
+            // disk's partition-table scheme. Preserve it as the platform's
+            // type rendering without guessing GPT, MBR, or APM.
+        }
+
+        bool has_vol_name = false;
+        std::string vol_name;
+        const result<bool> copied_vol_name = copy_optional_string(
+            dictionary, ::kDADiskDescriptionVolumeNameKey, has_vol_name,
+            vol_name);
+        if (!copied_vol_name) { return fail(copied_vol_name.error()); }
+        if (has_vol_name) {
+            record.has_name = true;
+            record.name = std::move(vol_name);
+        }
+
+        bool has_vol_uuid = false;
+        std::string vol_uuid;
+        const result<bool> copied_vol_uuid = copy_optional_uuid(
+            dictionary, ::kDADiskDescriptionVolumeUUIDKey, has_vol_uuid,
+            vol_uuid);
+        if (!copied_vol_uuid) { return fail(copied_vol_uuid.error()); }
+        if (has_vol_uuid) {
+            record.has_uuid = true;
+            record.uuid = std::move(vol_uuid);
+        }
+
+        bool has_vol_path = false;
+        std::string vol_path;
+        const result<bool> copied_vol_path = copy_optional_url_path(
+            dictionary, ::kDADiskDescriptionVolumePathKey, has_vol_path,
+            vol_path);
+        if (!copied_vol_path) { return fail(copied_vol_path.error()); }
+        if (has_vol_path && !vol_path.empty()) {
+            record.is_mounted = true;
+            record.mount_point = std::move(vol_path);
+        }
+
+        records.push_back(std::move(record));
+    }
+
+    std::sort(records.begin(), records.end(),
+              [](const storage_common::partition_record& left,
+                 const storage_common::partition_record& right) {
+                  return left.identifier < right.identifier;
+              });
+    return records;
+}
+
+/// Builds one partition-media fact dictionary from IOKit and DiskArbitration.
+inline ::CFMutableDictionaryRef build_partition_dictionary(
+    ::io_service_t media, ::DASessionRef session) {
+    ::CFBooleanRef whole = static_cast<::CFBooleanRef>(
+        ::IORegistryEntryCreateCFProperty(media, CFSTR(kIOMediaWholeKey),
+                                          ::kCFAllocatorDefault, 0));
+    if (whole == nullptr) { return nullptr; }
+    const bool has_boolean_whole =
+        ::CFGetTypeID(whole) == ::CFBooleanGetTypeID();
+    const bool is_whole = has_boolean_whole && whole == ::kCFBooleanTrue;
+    ::CFRelease(whole);
+    if (!has_boolean_whole || is_whole) { return nullptr; }
+
+    ::CFStringRef bsd_name = static_cast<::CFStringRef>(
+        ::IORegistryEntryCreateCFProperty(media, CFSTR(kIOBSDNameKey),
+                                          ::kCFAllocatorDefault, 0));
+    if (bsd_name == nullptr ||
+        ::CFGetTypeID(bsd_name) != ::CFStringGetTypeID() ||
+        ::CFStringGetLength(bsd_name) == 0) {
+        if (bsd_name != nullptr) { ::CFRelease(bsd_name); }
+        return nullptr;
+    }
+
+    ::CFNumberRef size = static_cast<::CFNumberRef>(
+        ::IORegistryEntryCreateCFProperty(media, CFSTR(kIOMediaSizeKey),
+                                          ::kCFAllocatorDefault, 0));
+    ::CFNumberRef base = static_cast<::CFNumberRef>(
+        ::IORegistryEntryCreateCFProperty(media, CFSTR(kIOMediaBaseKey),
+                                          ::kCFAllocatorDefault, 0));
+    ::CFStringRef content = static_cast<::CFStringRef>(
+        ::IORegistryEntryCreateCFProperty(media, CFSTR(kIOMediaContentKey),
+                                          ::kCFAllocatorDefault, 0));
+
+    ::CFMutableDictionaryRef entry = ::CFDictionaryCreateMutable(
+        ::kCFAllocatorDefault, 0, &::kCFTypeDictionaryKeyCallBacks,
+        &::kCFTypeDictionaryValueCallBacks);
+    if (entry == nullptr) {
+        if (content != nullptr) { ::CFRelease(content); }
+        if (base != nullptr) { ::CFRelease(base); }
+        if (size != nullptr) { ::CFRelease(size); }
+        ::CFRelease(bsd_name);
+        return nullptr;
+    }
+
+    ::CFDictionarySetValue(entry, kDADiskDescriptionMediaBSDNameKey, bsd_name);
+    if (size != nullptr) {
+        ::CFDictionarySetValue(entry, kDADiskDescriptionMediaSizeKey, size);
+        ::CFRelease(size);
+    }
+    if (base != nullptr) {
+        ::CFDictionarySetValue(entry, CFSTR(kIOMediaBaseKey), base);
+        ::CFRelease(base);
+    }
+    if (content != nullptr) {
+        ::CFDictionarySetValue(entry, kDADiskDescriptionMediaContentKey,
+                               content);
+        ::CFRelease(content);
+    }
+    ::CFRelease(bsd_name);
+
+    const ::DADiskRef disk =
+        ::DADiskCreateFromIOMedia(::kCFAllocatorDefault, session, media);
+    if (disk == nullptr) {
+        ::CFRelease(entry);
+        return nullptr;
+    }
+    const cf_object owned_disk(disk);
+
+    // Resolve the actual whole disk and require the same non-virtual,
+    // recorded protocol that qualifies an entry for drives(). This excludes
+    // image-backed media and synthesized APFS volume trees from the physical
+    // partition contract.
+    const ::DADiskRef whole_disk = ::DADiskCopyWholeDisk(disk);
+    if (whole_disk == nullptr) {
+        ::CFRelease(entry);
+        return nullptr;
+    }
+    const cf_object owned_whole_disk(whole_disk);
+    const char* parent_bsd_name = ::DADiskGetBSDName(whole_disk);
+    const ::CFDictionaryRef whole_description =
+        ::DADiskCopyDescription(whole_disk);
+    if (parent_bsd_name == nullptr || whole_description == nullptr) {
+        if (whole_description != nullptr) { ::CFRelease(whole_description); }
+        ::CFRelease(entry);
+        return nullptr;
+    }
+    const cf_object owned_whole_description(whole_description);
+    const void* protocol = ::CFDictionaryGetValue(
+        whole_description, kDADiskDescriptionDeviceProtocolKey);
+    if (protocol == nullptr ||
+        ::CFGetTypeID(protocol) != ::CFStringGetTypeID() ||
+        ::CFStringGetLength(static_cast<::CFStringRef>(protocol)) == 0 ||
+        ::CFStringCompare(static_cast<::CFStringRef>(protocol),
+                          CFSTR("Virtual"), 0) == ::kCFCompareEqualTo) {
+        ::CFRelease(entry);
+        return nullptr;
+    }
+    const ::CFStringRef parent_name = ::CFStringCreateWithCString(
+        ::kCFAllocatorDefault, parent_bsd_name, ::kCFStringEncodingUTF8);
+    if (parent_name == nullptr) {
+        ::CFRelease(entry);
+        return nullptr;
+    }
+    ::CFDictionarySetValue(entry, CFSTR("SyscapeParentBSDName"), parent_name);
+    ::CFRelease(parent_name);
+
+    const ::CFDictionaryRef description = ::DADiskCopyDescription(disk);
+    if (description != nullptr) {
+        const void* vol_name = ::CFDictionaryGetValue(
+            description, kDADiskDescriptionVolumeNameKey);
+        if (vol_name != nullptr) {
+            ::CFDictionarySetValue(entry,
+                                   kDADiskDescriptionVolumeNameKey,
+                                   vol_name);
+        }
+        const void* vol_uuid = ::CFDictionaryGetValue(
+            description, kDADiskDescriptionVolumeUUIDKey);
+        if (vol_uuid != nullptr) {
+            ::CFDictionarySetValue(entry,
+                                   kDADiskDescriptionVolumeUUIDKey,
+                                   vol_uuid);
+        }
+        const void* vol_path = ::CFDictionaryGetValue(
+            description, kDADiskDescriptionVolumePathKey);
+        if (vol_path != nullptr) {
+            ::CFDictionarySetValue(entry,
+                                   kDADiskDescriptionVolumePathKey,
+                                   vol_path);
+        }
+        const void* writable = ::CFDictionaryGetValue(
+            description, kDADiskDescriptionMediaWritableKey);
+        if (writable != nullptr) {
+            ::CFDictionarySetValue(entry,
+                                   kDADiskDescriptionMediaWritableKey,
+                                   writable);
+        }
+        ::CFRelease(description);
+    }
+
+    return entry;
+}
+
+result<::CFArrayRef> native_drive_api::partition_media_facts() {
     ::io_iterator_t raw_iterator = 0;
     const ::kern_return_t matched = ::IOServiceGetMatchingServices(
         ::kIOMasterPortDefault, ::IOServiceMatching("IOMedia"),
@@ -554,7 +936,7 @@ result<::CFArrayRef> native_drive_api::whole_media_facts() {
         const ::io_object_t media = ::IOIteratorNext(iterator.get());
         if (media == 0) { break; }
         const io_object owned_media(media);
-        ::CFMutableDictionaryRef entry = build_media_dictionary(
+        ::CFMutableDictionaryRef entry = build_partition_dictionary(
             static_cast<::io_service_t>(media),
             static_cast<::DASessionRef>(session.get()));
         if (entry == nullptr) { continue; }
@@ -568,6 +950,11 @@ result<::CFArrayRef> native_drive_api::whole_media_facts() {
 /// the platform.
 inline result<std::vector<storage_common::drive_record>> drives() {
     return collect_drives<native_drive_api>();
+}
+
+/// Returns one record per partition recorded by the platform.
+inline result<std::vector<storage_common::partition_record>> partitions() {
+    return collect_partitions<native_drive_api>();
 }
 
 } // namespace storage_backend

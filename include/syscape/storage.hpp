@@ -2,35 +2,23 @@
 #define SYSCAPE_STORAGE_HPP
 
 /// @file
-/// @brief Hosted physical-drive enumeration queries.
+/// @brief Hosted physical-drive and partition enumeration queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note This first storage slice enumerates whole-disk block devices with
+/// @note This storage module enumerates whole-disk block devices with
 /// their identity strings, transport classification, capacity, block sizes,
-/// rotation, and removability. Partition tables and operating-system health
-/// reporting remain outside this slice.
-/// @note Linux implements the query through the kernel's documented sysfs
-/// block interface under /sys/block. The kernel assigns disks to transport
-/// subsystems rather than to controller protocols, so a SATA or USB disk
-/// behind the SCSI layer records its subsystem classification; constructs
-/// without a backing device node such as loop, device-mapper, and zram
-/// devices are excluded because they are software constructs rather than
-/// recorded drives. Windows implements the query through the documented
-/// storage stack: \\.\PhysicalDriveN device names,
-/// SetupAPI disk-device-interface enumeration,
-/// IOCTL_STORAGE_GET_DEVICE_NUMBER identity records,
-/// IOCTL_STORAGE_QUERY_PROPERTY descriptor records, and
-/// IOCTL_DISK_GET_DRIVE_GEOMETRY_EX. The platform exposes no recorded
-/// rotation fact through those interfaces, so rotation stays unreported
-/// instead of being inferred from performance properties, and virtual-bus
-/// disks that the platform itself records as physical drives are enumerated.
-/// macOS implements the query through the documented DiskArbitration
-/// description interface (declared in <DiskArbitration/DiskArbitration.h>)
-/// together with IOKit media registry entries, excluding image-backed media
-/// whose protocol the platform records as virtual. The platform exposes no
-/// physical-block-size or rotation record through these interfaces, so
-/// those fields stay unreported there. Other targets use the not-supported
-/// fallback.
-/// @note Windows callers that use drives() must link Setupapi.lib.
+/// rotation, and removability, as well as partition tables and partition
+/// layout information.
+/// @note Linux implements drive and partition queries through the kernel's
+/// documented sysfs block interface under /sys/block and /proc/mounts.
+/// Windows implements queries through the storage stack: \\.\PhysicalDriveN
+/// device names, SetupAPI disk-device-interface enumeration,
+/// IOCTL_STORAGE_GET_DEVICE_NUMBER, IOCTL_STORAGE_QUERY_PROPERTY,
+/// IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, IOCTL_DISK_GET_DRIVE_LAYOUT_EX,
+/// volume enumeration, and volume disk extents.
+/// macOS implements queries through the DiskArbitration framework and
+/// IOKit media registry entries, resolving partition media to qualifying
+/// non-virtual whole disks. Other targets use the not-supported fallback.
+/// @note Windows callers that use drives() or partitions() must link Setupapi.lib.
 
 #include <syscape/detail/config.hpp>
 
@@ -40,6 +28,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -92,6 +81,20 @@ enum class bus_type : std::uint8_t {
     /// The platform classifies the drive as file-backed or otherwise
     /// virtual media that it nevertheless records as a drive.
     virtual_media
+};
+
+/// Partition table / partitioning scheme classification.
+enum class partition_scheme : std::uint8_t {
+    /// The platform exposes no usable partition scheme or the scheme is unrecognized.
+    unknown,
+    /// Master Boot Record (MBR / DOS) partitioning scheme.
+    mbr,
+    /// GUID Partition Table (GPT) partitioning scheme.
+    gpt,
+    /// Apple Partition Map (APM) scheme.
+    apple,
+    /// Unpartitioned raw whole-disk format.
+    raw
 };
 
 } // namespace storage
@@ -175,18 +178,60 @@ struct drive_entry {
     bool removable;
 };
 
+/// One storage partition snapshot reported by the platform.
+struct partition_entry {
+    /// Verbatim platform partition device identifier rendered as UTF-8
+    /// (e.g. "nvme0n1p1", "sda1", "PhysicalDrive0Partition1", "disk0s1").
+    std::string identifier;
+    /// Identifier of the parent physical drive (e.g. "nvme0n1", "sda", "PhysicalDrive0", "disk0").
+    std::string disk_identifier;
+    /// 1-based partition index on the disk as recorded by the platform (or 0 if unnumbered).
+    std::uint32_t partition_number = 0U;
+    /// Whether the platform exposed a start offset for this partition.
+    bool has_start_offset_bytes = false;
+    /// Byte offset of the partition from the start of the parent drive.
+    std::uint64_t start_offset_bytes = 0U;
+    /// Whether the platform exposed a total size for this partition.
+    bool has_size_bytes = false;
+    /// Total partition capacity in bytes.
+    std::uint64_t size_bytes = 0U;
+    /// Partitioning scheme of the partition table.
+    partition_scheme scheme = partition_scheme::unknown;
+    /// Whether the platform exposed a partition type identifier (e.g. GPT type GUID or MBR type hex).
+    bool has_type_identifier = false;
+    /// Partition type identifier string rendered verbatim (e.g. GPT type GUID or MBR type hex like "0x83").
+    std::string type_identifier;
+    /// Whether the platform exposed a partition name / label (e.g. GPT partition label).
+    bool has_name = false;
+    /// Partition name / label rendered by the platform.
+    std::string name;
+    /// Whether the platform exposed a partition unique identifier / UUID (e.g. GPT PartitionId GUID or PARTUUID).
+    bool has_uuid = false;
+    /// Partition UUID string rendered by the platform.
+    std::string uuid;
+    /// Whether the platform exposed a filesystem type.
+    bool has_filesystem_type = false;
+    /// Filesystem type name (e.g. "ext4", "btrfs", "ntfs", "apfs", "vfat").
+    std::string filesystem_type;
+    /// Whether the platform records the partition as read-only.
+    bool is_read_only = false;
+    /// Whether the platform records the partition as active / bootable.
+    bool is_bootable = false;
+    /// Whether the partition is currently mounted.
+    bool is_mounted = false;
+    /// Mount point path if currently mounted, meaningful only when is_mounted is true.
+    std::string mount_point;
+};
+
 /// Returns one entry per whole-disk drive recorded by the platform.
 ///
 /// Entries are ordered by ascending identifier so an unchanged population
-/// always enumerates identically. Only whole-disk devices satisfy this
-/// contract; partitions of those disks belong to a later slice. Software
-/// constructs that no backing hardware device node supports, such as loop,
-/// device-mapper, memory-backed, and compressed-RAM devices, are excluded
-/// on Linux, while file-backed disks that the platform itself records in
-/// its physical-drive namespace are enumerated on Windows. An empty vector
-/// is valid data that means the platform records no qualifying drive.
-/// Every field can change between calls as drives are connected, removed,
-/// powered down, or loaded with different media.
+/// always enumerates identically. Software constructs that no backing hardware
+/// device node supports, such as loop, device-mapper, memory-backed, and
+/// compressed-RAM devices, are excluded on Linux, while file-backed disks
+/// that the platform itself records in its physical-drive namespace are
+/// enumerated on Windows. An empty vector is valid data that means the
+/// platform records no qualifying drive.
 /// @return Zero or more entries, malformed_data for contradictory platform
 /// data, invalid_encoding for unconvertible labels, or a native platform
 /// error.
@@ -221,6 +266,68 @@ inline result<std::vector<drive_entry>> drives() {
         output.push_back(std::move(entry));
     }
     return output;
+}
+
+/// Returns one entry per storage partition recorded by the platform across all drives.
+///
+/// Entries are sorted by ascending identifier.
+/// @return Zero or more partition entries, malformed_data for contradictory platform data,
+/// invalid_encoding for unconvertible text, or a native platform error.
+inline result<std::vector<partition_entry>> partitions() {
+    const result<std::vector<detail::storage_common::partition_record>> records =
+        detail::storage_common::validate_partition_records(
+            detail::storage_backend::partitions());
+    if (!records) { return fail(records.error()); }
+    std::vector<partition_entry> output;
+    output.reserve(records->size());
+    for (const detail::storage_common::partition_record& record : *records) {
+        partition_entry entry;
+        entry.identifier = record.identifier;
+        entry.disk_identifier = record.disk_identifier;
+        entry.partition_number = record.partition_number;
+        entry.has_start_offset_bytes = record.has_start_offset_bytes;
+        entry.start_offset_bytes = record.start_offset_bytes;
+        entry.has_size_bytes = record.has_size_bytes;
+        entry.size_bytes = record.size_bytes;
+        entry.scheme = record.scheme;
+        entry.has_type_identifier = record.has_type_identifier;
+        entry.type_identifier = record.type_identifier;
+        entry.has_name = record.has_name;
+        entry.name = record.name;
+        entry.has_uuid = record.has_uuid;
+        entry.uuid = record.uuid;
+        entry.has_filesystem_type = record.has_filesystem_type;
+        entry.filesystem_type = record.filesystem_type;
+        entry.is_read_only = record.is_read_only;
+        entry.is_bootable = record.is_bootable;
+        entry.is_mounted = record.is_mounted;
+        entry.mount_point = record.mount_point;
+        output.push_back(std::move(entry));
+    }
+    return output;
+}
+
+/// Returns partition entries belonging to the specified physical drive identifier.
+///
+/// \param disk_identifier Identifier of the parent drive (e.g. "nvme0n1", "sda", "PhysicalDrive0", "disk0").
+/// \return Zero or more partition entries belonging to that drive, or an error.
+inline result<std::vector<partition_entry>> disk_partitions(
+    std::string_view disk_identifier) {
+    if (disk_identifier.empty()) {
+        return fail(errc::invalid_argument);
+    }
+    if (!detail::is_valid_utf8(disk_identifier)) {
+        return fail(errc::invalid_encoding);
+    }
+    const result<std::vector<partition_entry>> all = partitions();
+    if (!all) { return fail(all.error()); }
+    std::vector<partition_entry> matching;
+    for (const partition_entry& entry : *all) {
+        if (entry.disk_identifier == disk_identifier) {
+            matching.push_back(entry);
+        }
+    }
+    return matching;
 }
 
 } // namespace storage

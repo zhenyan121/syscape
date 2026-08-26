@@ -13,6 +13,7 @@ namespace detail {
 namespace storage_common {
 
 using bus_classification = ::syscape::storage::bus_type;
+using partition_scheme_classification = ::syscape::storage::partition_scheme;
 
 /// One recorded whole-disk snapshot shared by the Hosted backends awaiting
 /// boundary conversion.
@@ -62,6 +63,52 @@ struct drive_record {
     bool removable = false;
 };
 
+/// One recorded partition snapshot shared by the Hosted backends awaiting
+/// boundary conversion.
+struct partition_record {
+    /// Verbatim platform partition device identifier.
+    std::string identifier;
+    /// Parent drive identifier.
+    std::string disk_identifier;
+    /// 1-based partition index on the disk.
+    std::uint32_t partition_number = 0U;
+    /// Whether start offset is recorded.
+    bool has_start_offset_bytes = false;
+    /// Starting byte offset on the parent disk.
+    std::uint64_t start_offset_bytes = 0U;
+    /// Whether size is recorded.
+    bool has_size_bytes = false;
+    /// Partition capacity in bytes.
+    std::uint64_t size_bytes = 0U;
+    /// Partition table scheme.
+    partition_scheme_classification scheme =
+        partition_scheme_classification::unknown;
+    /// Whether a partition type identifier is recorded.
+    bool has_type_identifier = false;
+    /// Partition type identifier string.
+    std::string type_identifier;
+    /// Whether a partition name is recorded.
+    bool has_name = false;
+    /// Partition name or label.
+    std::string name;
+    /// Whether a partition UUID is recorded.
+    bool has_uuid = false;
+    /// Partition unique identifier or UUID.
+    std::string uuid;
+    /// Whether a filesystem type is recorded.
+    bool has_filesystem_type = false;
+    /// Filesystem type name.
+    std::string filesystem_type;
+    /// Whether the partition is read-only.
+    bool is_read_only = false;
+    /// Whether the partition is active/bootable.
+    bool is_bootable = false;
+    /// Whether the partition is mounted.
+    bool is_mounted = false;
+    /// Mount path if mounted.
+    std::string mount_point;
+};
+
 /// Validates converted drive entries at the public boundary.
 ///
 /// Identifiers and every present text field must be well-formed UTF-8,
@@ -87,6 +134,39 @@ inline result<std::vector<drive_record>> validate_drive_records(
             (record.has_physical_sector_size_bytes &&
              record.physical_sector_size_bytes == 0U)) {
             return fail(errc::malformed_data);
+        }
+    }
+    return records;
+}
+
+/// Validates converted partition entries at the public boundary.
+inline result<std::vector<partition_record>> validate_partition_records(
+    result<std::vector<partition_record>> records) {
+    if (!records) { return fail(records.error()); }
+    for (const partition_record& record : *records) {
+        if (record.identifier.empty() || !is_valid_utf8(record.identifier)) {
+            return fail(errc::invalid_encoding);
+        }
+        if (record.disk_identifier.empty() ||
+            !is_valid_utf8(record.disk_identifier)) {
+            return fail(errc::invalid_encoding);
+        }
+        if ((record.has_type_identifier && record.type_identifier.empty()) ||
+            (record.has_name && record.name.empty()) ||
+            (record.has_uuid && record.uuid.empty()) ||
+            (record.has_filesystem_type && record.filesystem_type.empty()) ||
+            (record.is_mounted && record.mount_point.empty()) ||
+            (!record.is_mounted && !record.mount_point.empty())) {
+            return fail(errc::malformed_data);
+        }
+        if ((record.has_type_identifier &&
+             !is_valid_utf8(record.type_identifier)) ||
+            (record.has_name && !is_valid_utf8(record.name)) ||
+            (record.has_uuid && !is_valid_utf8(record.uuid)) ||
+            (record.has_filesystem_type &&
+             !is_valid_utf8(record.filesystem_type)) ||
+            (record.is_mounted && !is_valid_utf8(record.mount_point))) {
+            return fail(errc::invalid_encoding);
         }
     }
     return records;

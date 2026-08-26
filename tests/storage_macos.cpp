@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -318,11 +319,143 @@ void test_collection() {
     ::CFRelease(image);
 }
 
+::CFDictionaryRef make_partition_dictionary(const char* bsd_name,
+                                            const long long* size,
+                                            const long long* base,
+                                            const char* content,
+                                            bool writable,
+                                            const char* vol_name,
+                                            const char* vol_uuid,
+                                            const char* vol_path) {
+    ::CFMutableDictionaryRef dictionary = ::CFDictionaryCreateMutable(
+        ::kCFAllocatorDefault, 0, &::kCFTypeDictionaryKeyCallBacks,
+        &::kCFTypeDictionaryValueCallBacks);
+
+    const auto set_string = [dictionary](const void* key, const char* text) {
+        if (text == nullptr) { return; }
+        const ::CFStringRef value = make_string(text);
+        ::CFDictionarySetValue(dictionary, key, value);
+        ::CFRelease(value);
+    };
+    const auto set_number = [dictionary](const void* key,
+                                         const long long* value) {
+        if (value == nullptr) { return; }
+        const ::CFNumberRef number = make_number(*value);
+        ::CFDictionarySetValue(dictionary, key, number);
+        ::CFRelease(number);
+    };
+
+    set_string(::kDADiskDescriptionMediaBSDNameKey, bsd_name);
+    if (bsd_name != nullptr) {
+        const char* separator = std::strrchr(bsd_name, 's');
+        if (separator != nullptr && separator != bsd_name) {
+            const std::string parent(
+                bsd_name, static_cast<std::size_t>(separator - bsd_name));
+            set_string(CFSTR("SyscapeParentBSDName"), parent.c_str());
+        }
+    }
+    set_number(::kDADiskDescriptionMediaSizeKey, size);
+    set_number(CFSTR(kIOMediaBaseKey), base);
+    set_string(::kDADiskDescriptionMediaContentKey, content);
+    ::CFDictionarySetValue(
+        dictionary, ::kDADiskDescriptionMediaWritableKey,
+        writable ? ::kCFBooleanTrue : ::kCFBooleanFalse);
+    set_string(::kDADiskDescriptionVolumeNameKey, vol_name);
+
+    if (vol_uuid != nullptr) {
+        const ::CFStringRef uuid_str = make_string(vol_uuid);
+        const ::CFUUIDRef uuid_ref = ::CFUUIDCreateFromString(
+            ::kCFAllocatorDefault, uuid_str);
+        ::CFRelease(uuid_str);
+        if (uuid_ref != nullptr) {
+            ::CFDictionarySetValue(dictionary,
+                                   ::kDADiskDescriptionVolumeUUIDKey,
+                                   uuid_ref);
+            ::CFRelease(uuid_ref);
+        }
+    }
+
+    if (vol_path != nullptr) {
+        const ::CFURLRef url_ref = ::CFURLCreateFromFileSystemRepresentation(
+            ::kCFAllocatorDefault,
+            reinterpret_cast<const UInt8*>(vol_path),
+            static_cast<CFIndex>(std::strlen(vol_path)), true);
+        if (url_ref != nullptr) {
+            ::CFDictionarySetValue(dictionary,
+                                   ::kDADiskDescriptionVolumePathKey,
+                                   url_ref);
+            ::CFRelease(url_ref);
+        }
+    }
+
+    return dictionary;
+}
+
+struct synthetic_partition_api {
+    static syscape::result<::CFArrayRef> partition_media_facts() {
+        static std::vector<::CFDictionaryRef> entries;
+        if (entries.empty()) {
+            long long p1_size = 536870912LL;
+            long long p1_base = 2097152LL;
+            long long p2_size = 1000000000000LL;
+            long long p2_base = 538968064LL;
+
+            entries.push_back(make_partition_dictionary(
+                "disk0s2", &p2_size, &p2_base, "Apple_APFS", true,
+                "Macintosh HD", "E61B23F3-E716-41B0-9A1D-3C9A57FA28C1",
+                "/System/Volumes/Data"));
+            entries.push_back(make_partition_dictionary(
+                "disk0s1", &p1_size, &p1_base, "EFI", true, "EFI",
+                "01234567-89AB-CDEF-0123-456789ABCDEF", nullptr));
+        }
+        return retain_all(entries);
+    }
+};
+
+void test_partition_collection() {
+    namespace backend = syscape::detail::storage_backend;
+
+    const auto partitions_res =
+        backend::collect_partitions<synthetic_partition_api>();
+    expect(partitions_res.has_value(),
+           "Synthetic partition collection must succeed");
+    if (!partitions_res) { return; }
+
+    expect(partitions_res->size() == 2U,
+           "Both synthetic partitions must be returned");
+    if (partitions_res->size() == 2U) {
+        const auto& p0 = (*partitions_res)[0];
+        expect(p0.identifier == "disk0s1",
+               "Partitions must be sorted by identifier: disk0s1 first");
+        expect(p0.disk_identifier == "disk0",
+               "disk0s1 must have parent disk0");
+        expect(p0.partition_number == 1U,
+               "disk0s1 must have partition number 1");
+        expect(p0.scheme == syscape::storage::partition_scheme::unknown,
+               "Partition contents alone must not guess a table scheme");
+        expect(p0.has_start_offset_bytes &&
+                   p0.start_offset_bytes == 2097152ULL,
+               "disk0s1 start offset must match");
+
+        const auto& p1 = (*partitions_res)[1];
+        expect(p1.identifier == "disk0s2",
+               "disk0s2 must be second in order");
+        expect(p1.partition_number == 2U,
+               "disk0s2 must have partition number 2");
+        expect(p1.is_mounted, "disk0s2 must report mounted");
+        expect(p1.mount_point == "/System/Volumes/Data",
+               "disk0s2 mount point must match");
+        expect(p1.has_name && p1.name == "Macintosh HD",
+               "disk0s2 volume name must match");
+    }
+}
+
 } // namespace
 
 int main() {
     test_protocol_classification();
     test_media_conversion();
     test_collection();
+    test_partition_collection();
     return failures == 0 ? 0 : 1;
 }

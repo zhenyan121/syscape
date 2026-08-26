@@ -86,6 +86,10 @@ struct synthetic_drive {
         std::error_code(ERROR_NOT_SUPPORTED, std::system_category());
     std::vector<char> alignment_descriptor;
     long long disk_size_bytes = 0;
+    bool has_layout = true;
+    std::error_code layout_error =
+        std::error_code(ERROR_NOT_SUPPORTED, std::system_category());
+    std::vector<char> layout_descriptor;
 };
 
 /// Replays fabricated drives instead of calling the storage stack.
@@ -143,7 +147,225 @@ struct synthetic_api {
                 reinterpret_cast<std::intptr_t>(handle)) - 1U;
         return make_geometry(drives.at(index).disk_size_bytes);
     }
+
+    syscape::result<std::vector<char>> query_layout(
+        ::HANDLE handle) const {
+        const unsigned int index =
+            static_cast<unsigned int>(
+                reinterpret_cast<std::intptr_t>(handle)) - 1U;
+        const synthetic_drive& drive = drives.at(index);
+        if (!drive.has_layout) {
+            return syscape::fail(drive.layout_error);
+        }
+        return drive.layout_descriptor;
+    }
+
+    std::vector<syscape::detail::storage_backend::volume_extent_record> extents;
+
+    syscape::result<std::vector<syscape::detail::storage_backend::volume_extent_record>>
+    volume_extents() const {
+        return extents;
+    }
 };
+
+/// Builds one synthetic MBR layout buffer with one partition.
+std::vector<char> make_mbr_layout(long long offset, long long length,
+                                  unsigned long part_num,
+                                  unsigned char part_type, bool bootable) {
+    const std::size_t size = sizeof(::DRIVE_LAYOUT_INFORMATION_EX) +
+                             sizeof(::PARTITION_INFORMATION_EX);
+    std::vector<char> buffer(size, 0);
+    auto* layout =
+        reinterpret_cast<::DRIVE_LAYOUT_INFORMATION_EX*>(buffer.data());
+    layout->PartitionStyle = PARTITION_STYLE_MBR;
+    layout->PartitionCount = 1U;
+    layout->Mbr.Signature = 0x12345678U;
+
+    auto* part = reinterpret_cast<::PARTITION_INFORMATION_EX*>(
+        buffer.data() + offsetof(::DRIVE_LAYOUT_INFORMATION_EX,
+                                 PartitionEntry));
+    part->PartitionStyle = PARTITION_STYLE_MBR;
+    part->StartingOffset.QuadPart = offset;
+    part->PartitionLength.QuadPart = length;
+    part->PartitionNumber = part_num;
+    part->RewritePartition = FALSE;
+    part->Mbr.PartitionType = part_type;
+    part->Mbr.BootIndicator = bootable ? TRUE : FALSE;
+    part->Mbr.RecognizedPartition = TRUE;
+    part->Mbr.HiddenSectors = 0U;
+    return buffer;
+}
+
+/// Builds one synthetic GPT layout buffer with one partition.
+std::vector<char> make_gpt_layout(long long offset, long long length,
+                                  unsigned long part_num,
+                                  const ::GUID& type_guid,
+                                  const ::GUID& id_guid,
+                                  const wchar_t* name) {
+    const std::size_t size = sizeof(::DRIVE_LAYOUT_INFORMATION_EX) +
+                             sizeof(::PARTITION_INFORMATION_EX);
+    std::vector<char> buffer(size, 0);
+    auto* layout =
+        reinterpret_cast<::DRIVE_LAYOUT_INFORMATION_EX*>(buffer.data());
+    layout->PartitionStyle = PARTITION_STYLE_GPT;
+    layout->PartitionCount = 1U;
+    layout->Gpt.DiskId = id_guid;
+
+    auto* part = reinterpret_cast<::PARTITION_INFORMATION_EX*>(
+        buffer.data() + offsetof(::DRIVE_LAYOUT_INFORMATION_EX,
+                                 PartitionEntry));
+    part->PartitionStyle = PARTITION_STYLE_GPT;
+    part->StartingOffset.QuadPart = offset;
+    part->PartitionLength.QuadPart = length;
+    part->PartitionNumber = part_num;
+    part->Gpt.PartitionType = type_guid;
+    part->Gpt.PartitionId = id_guid;
+    part->Gpt.Attributes = 0U;
+    if (name != nullptr) {
+        for (std::size_t i = 0; i < 36 && name[i] != L'\0'; ++i) {
+            part->Gpt.Name[i] = name[i];
+        }
+    }
+    return buffer;
+}
+
+void test_guid_formatting() {
+    namespace backend = syscape::detail::storage_backend;
+    const ::GUID test_guid = {
+        0x6dc136bcL, 0x42c9, 0x40ab,
+        {0xb8U, 0x50U, 0x6eU, 0x74U, 0xedU, 0xa9U, 0x7dU, 0xd6U}};
+    const std::string formatted = backend::format_guid(test_guid);
+    expect(formatted == "6dc136bc-42c9-40ab-b850-6e74eda97dd6",
+           "GUID formatting must produce standard 36-char lowercase string");
+}
+
+void test_volume_extent_conversion() {
+    namespace backend = syscape::detail::storage_backend;
+    const std::size_t offset = offsetof(::VOLUME_DISK_EXTENTS, Extents);
+    std::vector<char> buffer(offset + sizeof(::DISK_EXTENT), 0);
+    const ::DWORD count = 1U;
+    std::memcpy(buffer.data() +
+                    offsetof(::VOLUME_DISK_EXTENTS, NumberOfDiskExtents),
+                &count, sizeof(count));
+    ::DISK_EXTENT extent{};
+    extent.DiskNumber = 3U;
+    extent.StartingOffset.QuadPart = 4096LL;
+    extent.ExtentLength.QuadPart = 8192LL;
+    std::memcpy(buffer.data() + offset, &extent, sizeof(extent));
+
+    const auto converted =
+        backend::convert_volume_extents(buffer, "C:\\", "NTFS");
+    expect(converted && converted->size() == 1U &&
+               (*converted)[0].disk_number == 3U &&
+               (*converted)[0].start_offset_bytes == 4096ULL,
+           "A complete extent buffer must convert exactly");
+
+    std::vector<char> truncated(buffer.begin(), buffer.end() - 1);
+    const auto short_result =
+        backend::convert_volume_extents(truncated, "C:\\", "NTFS");
+    expect(!short_result &&
+               short_result.error() == syscape::errc::malformed_data,
+           "A truncated extent array must report malformed_data");
+
+    extent.StartingOffset.QuadPart = -1LL;
+    std::memcpy(buffer.data() + offset, &extent, sizeof(extent));
+    const auto negative =
+        backend::convert_volume_extents(buffer, "C:\\", "NTFS");
+    expect(!negative && negative.error() == syscape::errc::malformed_data,
+           "A negative volume extent offset must report malformed_data");
+}
+
+void test_partition_enumeration() {
+    namespace backend = syscape::detail::storage_backend;
+
+    synthetic_api api;
+    const ::GUID type_guid = {
+        0xc12a7328L, 0xf81f, 0x11d2,
+        {0xbaU, 0x4bU, 0x00U, 0xa0U, 0xc9U, 0x3eU, 0xc9U, 0x3bU}};
+    const ::GUID id_guid = {
+        0x6dc136bcL, 0x42c9, 0x40ab,
+        {0xb8U, 0x50U, 0x6eU, 0x74U, 0xedU, 0xa9U, 0x7dU, 0xd6U}};
+
+    // GPT with Chinese characters in partition name
+    api.drives[0].layout_descriptor =
+        make_gpt_layout(1048576LL, 536870912LL, 1U, type_guid, id_guid,
+                        L"系统保留 (System Reserved)");
+    api.drives[1].layout_descriptor =
+        make_mbr_layout(2097152LL, 1073741824LL, 1U, 0x07U, true);
+
+    // Mock volume extents: PhysicalDrive0 Partition1 -> C:\ (NTFS)
+    backend::volume_extent_record ext0;
+    ext0.disk_number = 0U;
+    ext0.start_offset_bytes = 1048576ULL;
+    ext0.mount_point = "C:\\";
+    ext0.filesystem_type = "NTFS";
+    api.extents.push_back(ext0);
+
+    const auto partitions_result = backend::enumerate_partitions(api);
+    expect(partitions_result.has_value(),
+           "Synthetic partition enumeration must succeed");
+    if (!partitions_result) { return; }
+
+    expect(partitions_result->size() == 2U,
+           "Both partitions must be enumerated across the two drives");
+    if (partitions_result->size() == 2U) {
+        const auto& p0 = (*partitions_result)[0];
+        expect(p0.identifier == "PhysicalDrive0Partition1",
+               "Partition 0 identifier must match");
+        expect(p0.disk_identifier == "PhysicalDrive0",
+               "Partition 0 parent disk must match");
+        expect(p0.scheme == syscape::storage::partition_scheme::gpt,
+               "Partition 0 scheme must be GPT");
+        expect(p0.has_name && p0.name == "系统保留 (System Reserved)",
+               "Partition 0 non-ASCII UTF-16 name must convert accurately to UTF-8");
+        expect(p0.has_uuid &&
+                   p0.uuid == "6dc136bc-42c9-40ab-b850-6e74eda97dd6",
+               "Partition 0 UUID must match");
+        expect(p0.has_size_bytes && p0.size_bytes == 536870912ULL,
+               "Partition 0 size must match");
+        expect(p0.is_mounted,
+               "Partition 0 must report mounted");
+        expect(p0.mount_point == "C:\\",
+               "Partition 0 mount point must match");
+        expect(p0.has_filesystem_type && p0.filesystem_type == "NTFS",
+               "Partition 0 filesystem type must match NTFS");
+
+        const auto& p1 = (*partitions_result)[1];
+        expect(p1.identifier == "PhysicalDrive1Partition1",
+               "Partition 1 identifier must match");
+        expect(p1.scheme == syscape::storage::partition_scheme::mbr,
+               "Partition 1 scheme must be MBR");
+        expect(p1.is_bootable,
+               "Partition 1 must be bootable");
+        expect(p1.has_type_identifier && p1.type_identifier == "0x07",
+               "Partition 1 type identifier must match MBR type 0x07");
+        expect(!p1.is_mounted,
+               "Partition 1 with no extents must report unmounted");
+    }
+
+    // Boundary error tests for convert_drive_layout
+    const auto short_layout = backend::convert_drive_layout(
+        std::vector<char>(sizeof(::DRIVE_LAYOUT_INFORMATION_EX) - 1U, 0), 0U);
+    expect(!short_layout && short_layout.error() == syscape::errc::malformed_data,
+           "A layout buffer shorter than DRIVE_LAYOUT_INFORMATION_EX must fail");
+
+    std::vector<char> gpt_buf =
+        make_gpt_layout(1048576LL, 536870912LL, 1U, type_guid, id_guid, L"Test");
+    auto* layout =
+        reinterpret_cast<::DRIVE_LAYOUT_INFORMATION_EX*>(gpt_buf.data());
+
+    layout->PartitionCount = 5U;
+    const auto truncated_parts = backend::convert_drive_layout(gpt_buf, 0U);
+    expect(!truncated_parts &&
+               truncated_parts.error() == syscape::errc::malformed_data,
+           "A buffer with fewer partition entries than PartitionCount must fail");
+
+    layout->PartitionCount = 0xFFFFFFFFU;
+    const auto overflow_parts = backend::convert_drive_layout(gpt_buf, 0U);
+    expect(!overflow_parts &&
+               overflow_parts.error() == syscape::errc::malformed_data,
+           "A layout with an overflowing PartitionCount must fail");
+}
 
 void test_device_descriptor_conversion() {
     namespace backend = syscape::detail::storage_backend;
@@ -430,5 +652,8 @@ int main() {
     test_geometry_conversion();
     test_property_query_initialization();
     test_enumeration();
+    test_guid_formatting();
+    test_volume_extent_conversion();
+    test_partition_enumeration();
     return failures == 0 ? 0 : 1;
 }

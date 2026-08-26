@@ -25,6 +25,7 @@
 #include <cstring>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -34,6 +35,7 @@
 #include <winioctl.h>
 
 #include <syscape/detail/storage/common.hpp>
+#include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
 
 #if defined(SYSCAPE_DETAIL_STORAGE_DEFINED_WINVER)
@@ -295,6 +297,14 @@ inline ::STORAGE_PROPERTY_QUERY make_property_query(
     return query;
 }
 
+/// One volume-to-disk correlation entry awaiting partition matching.
+struct volume_extent_record {
+    unsigned int disk_number = 0U;
+    std::uint64_t start_offset_bytes = 0U;
+    std::string mount_point;
+    std::string filesystem_type;
+};
+
 /// Platform calls used to enumerate physical drives.
 ///
 /// The indirection exists so tests can drive enumeration with synthetic
@@ -470,7 +480,444 @@ struct native_drive_api {
         buffer.resize(returned);
         return buffer;
     }
+
+    /// Queries the drive partition layout.
+    static result<std::vector<char>> query_layout(::HANDLE handle) {
+        std::vector<char> buffer(sizeof(::DRIVE_LAYOUT_INFORMATION_EX) +
+                                 16U * sizeof(::PARTITION_INFORMATION_EX));
+        for (;;) {
+            ::DWORD returned = 0U;
+            if (::DeviceIoControl(handle, IOCTL_DISK_GET_DRIVE_LAYOUT_EX,
+                                  nullptr, 0U, buffer.data(),
+                                  static_cast<::DWORD>(buffer.size()),
+                                  &returned, nullptr) != FALSE) {
+                buffer.resize(returned);
+                return buffer;
+            }
+            const std::error_code error = last_error();
+            if (error != std::error_code(ERROR_INSUFFICIENT_BUFFER,
+                                         std::system_category()) &&
+                error != std::error_code(ERROR_MORE_DATA,
+                                         std::system_category())) {
+                return fail(error);
+            }
+            if (buffer.size() >= 4U * 1024U * 1024U) {
+                return fail(errc::value_too_large);
+            }
+            buffer.resize(buffer.size() * 2U);
+        }
+    }
+
+    /// Queries logical volume extents, mount points, and filesystem types.
+    static result<std::vector<volume_extent_record>> volume_extents();
 };
+
+/// Converts a 16-bit wchar_t string view to UTF-8 using strict encoding rules.
+inline result<std::string> wide_to_utf8(std::wstring_view value) {
+    static_assert(sizeof(wchar_t) == sizeof(char16_t),
+                  "The Windows backend requires 16-bit wchar_t");
+    std::u16string converted;
+    converted.reserve(value.size());
+    for (wchar_t unit : value) {
+        converted.push_back(static_cast<char16_t>(unit));
+    }
+    return utf16_to_utf8(converted);
+}
+
+/// Converts one validated VOLUME_DISK_EXTENTS buffer into portable records.
+inline result<std::vector<volume_extent_record>> convert_volume_extents(
+    const std::vector<char>& buffer, const std::string& mount_point,
+    const std::string& filesystem_type) {
+    constexpr std::size_t extent_offset =
+        offsetof(::VOLUME_DISK_EXTENTS, Extents);
+    if (buffer.size() < extent_offset) {
+        return fail(errc::malformed_data);
+    }
+    ::DWORD count = 0U;
+    std::memcpy(&count,
+                buffer.data() + offsetof(::VOLUME_DISK_EXTENTS,
+                                         NumberOfDiskExtents),
+                sizeof(count));
+    if (static_cast<std::size_t>(count) >
+        (std::numeric_limits<std::size_t>::max() - extent_offset) /
+            sizeof(::DISK_EXTENT)) {
+        return fail(errc::value_too_large);
+    }
+    const std::size_t required =
+        extent_offset +
+        static_cast<std::size_t>(count) * sizeof(::DISK_EXTENT);
+    if (buffer.size() < required) { return fail(errc::malformed_data); }
+
+    std::vector<volume_extent_record> records;
+    records.reserve(count);
+    for (::DWORD i = 0U; i < count; ++i) {
+        ::DISK_EXTENT extent;
+        std::memcpy(&extent,
+                    buffer.data() + extent_offset +
+                        static_cast<std::size_t>(i) * sizeof(extent),
+                    sizeof(extent));
+        if (extent.StartingOffset.QuadPart < 0 ||
+            extent.ExtentLength.QuadPart <= 0) {
+            return fail(errc::malformed_data);
+        }
+        volume_extent_record record;
+        record.disk_number = extent.DiskNumber;
+        record.start_offset_bytes =
+            static_cast<std::uint64_t>(extent.StartingOffset.QuadPart);
+        record.mount_point = mount_point;
+        record.filesystem_type = filesystem_type;
+        records.push_back(std::move(record));
+    }
+    return records;
+}
+
+inline result<std::vector<volume_extent_record>>
+native_drive_api::volume_extents() {
+    class find_volume_handle {
+    public:
+        explicit find_volume_handle(::HANDLE value) noexcept : value_(value) {}
+        find_volume_handle(const find_volume_handle&) = delete;
+        find_volume_handle& operator=(const find_volume_handle&) = delete;
+        ~find_volume_handle() {
+            if (value_ != INVALID_HANDLE_VALUE) {
+                static_cast<void>(::FindVolumeClose(value_));
+            }
+        }
+
+    private:
+        ::HANDLE value_;
+    };
+
+    const auto query_paths = [](const std::wstring& volume)
+        -> result<std::vector<std::wstring>> {
+        ::DWORD capacity = 256U;
+        constexpr ::DWORD maximum_characters = 32768U;
+        for (;;) {
+            std::vector<wchar_t> buffer(capacity, L'\0');
+            ::DWORD required = 0U;
+            if (::GetVolumePathNamesForVolumeNameW(
+                    volume.c_str(), buffer.data(), capacity, &required) !=
+                FALSE) {
+                std::vector<std::wstring> paths;
+                std::size_t offset = 0U;
+                while (offset < buffer.size() && buffer[offset] != L'\0') {
+                    std::size_t end = offset;
+                    while (end < buffer.size() && buffer[end] != L'\0') {
+                        ++end;
+                    }
+                    if (end == buffer.size()) {
+                        return fail(errc::malformed_data);
+                    }
+                    paths.emplace_back(buffer.data() + offset, end - offset);
+                    offset = end + 1U;
+                }
+                std::sort(paths.begin(), paths.end());
+                return paths;
+            }
+            const std::error_code error = last_error();
+            if (error != std::error_code(ERROR_MORE_DATA,
+                                         std::system_category())) {
+                return fail(error);
+            }
+            if (required <= capacity || required > maximum_characters) {
+                if (required > maximum_characters) {
+                    return fail(errc::value_too_large);
+                }
+                return fail(errc::malformed_data);
+            }
+            capacity = required;
+        }
+    };
+
+    const auto query_extent_buffer = [](::HANDLE handle)
+        -> result<std::vector<char>> {
+        std::vector<char> buffer(sizeof(::VOLUME_DISK_EXTENTS) +
+                                 8U * sizeof(::DISK_EXTENT));
+        for (;;) {
+            ::DWORD returned = 0U;
+            if (::DeviceIoControl(
+                    handle, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, nullptr, 0U,
+                    buffer.data(), static_cast<::DWORD>(buffer.size()),
+                    &returned, nullptr) != FALSE) {
+                if (static_cast<std::size_t>(returned) > buffer.size()) {
+                    return fail(errc::malformed_data);
+                }
+                buffer.resize(returned);
+                return buffer;
+            }
+            const std::error_code error = last_error();
+            if (error != std::error_code(ERROR_INSUFFICIENT_BUFFER,
+                                         std::system_category()) &&
+                error != std::error_code(ERROR_MORE_DATA,
+                                         std::system_category())) {
+                return fail(error);
+            }
+            if (buffer.size() >= 1024U * 1024U) {
+                return fail(errc::value_too_large);
+            }
+            buffer.resize(buffer.size() * 2U);
+        }
+    };
+
+    std::vector<volume_extent_record> extents_list;
+    std::vector<wchar_t> volume_buffer(1024U, L'\0');
+    const ::HANDLE raw_find = ::FindFirstVolumeW(
+        volume_buffer.data(), static_cast<::DWORD>(volume_buffer.size()));
+    if (raw_find == INVALID_HANDLE_VALUE) {
+        const std::error_code error = last_error();
+        if (error == std::error_code(ERROR_NO_MORE_FILES,
+                                     std::system_category())) {
+            return extents_list;
+        }
+        return fail(error);
+    }
+    const find_volume_handle owned_find(raw_find);
+
+    for (;;) {
+        std::size_t volume_length = 0U;
+        while (volume_length < volume_buffer.size() &&
+               volume_buffer[volume_length] != L'\0') {
+            ++volume_length;
+        }
+        if (volume_length == 0U || volume_length == volume_buffer.size() ||
+            volume_buffer[volume_length - 1U] != L'\\') {
+            return fail(errc::malformed_data);
+        }
+        const std::wstring volume(volume_buffer.data(), volume_length);
+        std::wstring open_name(volume, 0U, volume.size() - 1U);
+        const ::HANDLE raw_volume = ::CreateFileW(
+            open_name.c_str(), 0U, FILE_SHARE_READ | FILE_SHARE_WRITE |
+                                    FILE_SHARE_DELETE,
+            nullptr, OPEN_EXISTING, 0U, nullptr);
+        if (raw_volume == INVALID_HANDLE_VALUE) {
+            const std::error_code error = last_error();
+            if (!is_drive_population_race(error)) { return fail(error); }
+        } else {
+            const device_handle owned_volume(raw_volume);
+            const result<std::vector<char>> extent_buffer =
+                query_extent_buffer(raw_volume);
+            if (!extent_buffer) {
+                if (extent_buffer.error() !=
+                        std::error_code(ERROR_INVALID_FUNCTION,
+                                        std::system_category()) &&
+                    extent_buffer.error() !=
+                        std::error_code(ERROR_NOT_SUPPORTED,
+                                        std::system_category())) {
+                    return fail(extent_buffer.error());
+                }
+            } else {
+                const result<std::vector<std::wstring>> paths =
+                    query_paths(volume);
+                if (!paths) { return fail(paths.error()); }
+                std::string mount_point;
+                if (!paths->empty()) {
+                    const result<std::string> converted_path =
+                        wide_to_utf8(paths->front());
+                    if (!converted_path) {
+                        return fail(converted_path.error());
+                    }
+                    mount_point = *converted_path;
+                }
+
+                std::string filesystem_type;
+                wchar_t fs_name[256] = {};
+                if (::GetVolumeInformationW(
+                        volume.c_str(), nullptr, 0U, nullptr, nullptr, nullptr,
+                        fs_name, static_cast<::DWORD>(
+                                     sizeof(fs_name) / sizeof(fs_name[0]))) !=
+                    FALSE) {
+                    const result<std::string> converted_type =
+                        wide_to_utf8(fs_name);
+                    if (!converted_type) {
+                        return fail(converted_type.error());
+                    }
+                    filesystem_type = *converted_type;
+                } else {
+                    const std::error_code error = last_error();
+                    if (error != std::error_code(ERROR_UNRECOGNIZED_VOLUME,
+                                                 std::system_category()) &&
+                        error != std::error_code(ERROR_NOT_READY,
+                                                 std::system_category())) {
+                        return fail(error);
+                    }
+                }
+
+                result<std::vector<volume_extent_record>> converted_extents =
+                    convert_volume_extents(*extent_buffer, mount_point,
+                                           filesystem_type);
+                if (!converted_extents) {
+                    return fail(converted_extents.error());
+                }
+                for (volume_extent_record& extent : *converted_extents) {
+                    extents_list.push_back(std::move(extent));
+                }
+            }
+        }
+
+        std::fill(volume_buffer.begin(), volume_buffer.end(), L'\0');
+        if (::FindNextVolumeW(
+                raw_find, volume_buffer.data(),
+                static_cast<::DWORD>(volume_buffer.size())) == FALSE) {
+            const std::error_code error = last_error();
+            if (error == std::error_code(ERROR_NO_MORE_FILES,
+                                         std::system_category())) {
+                break;
+            }
+            return fail(error);
+        }
+    }
+    return extents_list;
+}
+
+/// Formats a GUID as a standard lowercase hyphenated 36-character string.
+inline std::string format_guid(const ::GUID& guid) {
+    char buffer[37];
+    static const char hex_digits[] = "0123456789abcdef";
+    const auto write_hex2 = [&hex_digits](char* dest, unsigned char val) {
+        dest[0] = hex_digits[(val >> 4) & 0x0F];
+        dest[1] = hex_digits[val & 0x0F];
+    };
+    const auto write_hex4 = [&write_hex2](char* dest, unsigned short val) {
+        write_hex2(dest, static_cast<unsigned char>((val >> 8) & 0xFF));
+        write_hex2(dest + 2, static_cast<unsigned char>(val & 0xFF));
+    };
+    const auto write_hex8 = [&write_hex4](char* dest, unsigned long val) {
+        write_hex4(dest, static_cast<unsigned short>((val >> 16) & 0xFFFF));
+        write_hex4(dest + 4, static_cast<unsigned short>(val & 0xFFFF));
+    };
+
+    write_hex8(buffer, guid.Data1);
+    buffer[8] = '-';
+    write_hex4(buffer + 9, guid.Data2);
+    buffer[13] = '-';
+    write_hex4(buffer + 14, guid.Data3);
+    buffer[18] = '-';
+    write_hex2(buffer + 19, guid.Data4[0]);
+    write_hex2(buffer + 21, guid.Data4[1]);
+    buffer[23] = '-';
+    for (int i = 2; i < 8; ++i) {
+        write_hex2(buffer + 24 + (i - 2) * 2, guid.Data4[i]);
+    }
+    buffer[36] = '\0';
+    return std::string(buffer, 36U);
+}
+
+/// Formats an MBR partition type byte as a lowercase hex string (e.g. "0x07").
+inline std::string format_mbr_type(std::uint8_t type) {
+    static const char hex_digits[] = "0123456789abcdef";
+    char buffer[5];
+    buffer[0] = '0';
+    buffer[1] = 'x';
+    buffer[2] = hex_digits[(type >> 4) & 0x0F];
+    buffer[3] = hex_digits[type & 0x0F];
+    buffer[4] = '\0';
+    return std::string(buffer, 4U);
+}
+
+/// Converts a DRIVE_LAYOUT_INFORMATION_EX buffer into partition records.
+inline result<std::vector<storage_common::partition_record>>
+convert_drive_layout(const std::vector<char>& buffer,
+                     unsigned int drive_index) {
+    if (buffer.size() < sizeof(::DRIVE_LAYOUT_INFORMATION_EX)) {
+        return fail(errc::malformed_data);
+    }
+    ::DRIVE_LAYOUT_INFORMATION_EX layout;
+    std::memcpy(&layout, buffer.data(), sizeof(layout));
+
+    using storage_common::partition_scheme_classification;
+    partition_scheme_classification default_scheme =
+        partition_scheme_classification::unknown;
+    if (layout.PartitionStyle == PARTITION_STYLE_MBR) {
+        default_scheme = partition_scheme_classification::mbr;
+    } else if (layout.PartitionStyle == PARTITION_STYLE_GPT) {
+        default_scheme = partition_scheme_classification::gpt;
+    } else if (layout.PartitionStyle == PARTITION_STYLE_RAW) {
+        default_scheme = partition_scheme_classification::raw;
+    }
+
+    if (layout.PartitionCount > 0U) {
+        const std::size_t available_extra =
+            (buffer.size() - sizeof(::DRIVE_LAYOUT_INFORMATION_EX)) /
+            sizeof(::PARTITION_INFORMATION_EX);
+        if (static_cast<std::size_t>(layout.PartitionCount - 1U) >
+            available_extra) {
+            return fail(errc::malformed_data);
+        }
+    }
+
+    const std::size_t base_offset =
+        offsetof(::DRIVE_LAYOUT_INFORMATION_EX, PartitionEntry);
+
+    std::vector<storage_common::partition_record> records;
+    for (::DWORD i = 0U; i < layout.PartitionCount; ++i) {
+        ::PARTITION_INFORMATION_EX entry;
+        const std::size_t entry_offset =
+            base_offset +
+            static_cast<std::size_t>(i) * sizeof(::PARTITION_INFORMATION_EX);
+        std::memcpy(&entry, buffer.data() + entry_offset, sizeof(entry));
+
+        if (entry.PartitionLength.QuadPart <= 0 ||
+            entry.PartitionNumber == 0U) {
+            continue;
+        }
+
+        storage_common::partition_record record;
+        record.identifier = "PhysicalDrive" + std::to_string(drive_index) +
+                            "Partition" + std::to_string(entry.PartitionNumber);
+        record.disk_identifier =
+            "PhysicalDrive" + std::to_string(drive_index);
+        record.partition_number = static_cast<std::uint32_t>(entry.PartitionNumber);
+        if (entry.StartingOffset.QuadPart >= 0) {
+            record.has_start_offset_bytes = true;
+            record.start_offset_bytes =
+                static_cast<std::uint64_t>(entry.StartingOffset.QuadPart);
+        }
+        record.has_size_bytes = true;
+        record.size_bytes =
+            static_cast<std::uint64_t>(entry.PartitionLength.QuadPart);
+        record.scheme = default_scheme;
+
+        if (entry.PartitionStyle == PARTITION_STYLE_MBR) {
+            record.scheme = partition_scheme_classification::mbr;
+            record.is_bootable = (entry.Mbr.BootIndicator != FALSE);
+            record.has_type_identifier = true;
+            record.type_identifier =
+                format_mbr_type(entry.Mbr.PartitionType);
+        } else if (entry.PartitionStyle == PARTITION_STYLE_GPT) {
+            record.scheme = partition_scheme_classification::gpt;
+            record.has_type_identifier = true;
+            record.type_identifier = format_guid(entry.Gpt.PartitionType);
+            record.has_uuid = true;
+            record.uuid = format_guid(entry.Gpt.PartitionId);
+            // Check GPT read-only attribute bit
+            if ((entry.Gpt.Attributes & 0x1000000000000000ULL) != 0U) {
+                record.is_read_only = true;
+            }
+            if (entry.Gpt.Name[0] != L'\0') {
+                std::size_t name_len = 0U;
+                while (name_len < 36U && entry.Gpt.Name[name_len] != L'\0') {
+                    ++name_len;
+                }
+                if (name_len > 0U) {
+                    const result<std::string> name_utf8 =
+                        wide_to_utf8(std::wstring_view(entry.Gpt.Name, name_len));
+                    if (!name_utf8) { return fail(name_utf8.error()); }
+                    std::string trimmed = *name_utf8;
+                    while (!trimmed.empty() && trimmed.back() == ' ') {
+                        trimmed.pop_back();
+                    }
+                    if (!trimmed.empty()) {
+                        record.has_name = true;
+                        record.name = std::move(trimmed);
+                    }
+                }
+            }
+        }
+
+        records.push_back(std::move(record));
+    }
+    return records;
+}
 
 /// Owns a handle through the API that produced it. Synthetic tests can use a
 /// no-op closer while the native API closes real kernel handles.
@@ -566,8 +1013,77 @@ result<std::vector<storage_common::drive_record>> enumerate_drives(
     return records;
 }
 
+/// Enumerates partitions across all physical drives using the given API.
+template <typename Api>
+result<std::vector<storage_common::partition_record>> enumerate_partitions(
+    const Api& api) {
+    std::vector<storage_common::partition_record> records;
+    const result<std::vector<unsigned int>> indices = api.drive_indices();
+    if (!indices) { return fail(indices.error()); }
+
+    const result<std::vector<volume_extent_record>> extents =
+        api.volume_extents();
+    if (!extents) { return fail(extents.error()); }
+
+    for (const unsigned int index : *indices) {
+        const result<::HANDLE> opened = api.open_drive(index);
+        if (!opened) {
+            if (is_drive_population_race(opened.error())) { continue; }
+            return fail(opened.error());
+        }
+        const api_device_handle<Api> owned(api, *opened);
+
+        const result<std::vector<char>> layout_buffer =
+            api.query_layout(*opened);
+        if (!layout_buffer) {
+            if (layout_buffer.error() ==
+                    std::error_code(ERROR_NOT_SUPPORTED,
+                                    std::system_category()) ||
+                layout_buffer.error() ==
+                    std::error_code(ERROR_INVALID_FUNCTION,
+                                    std::system_category())) {
+                continue;
+            }
+            return fail(layout_buffer.error());
+        }
+
+        const result<std::vector<storage_common::partition_record>>
+            drive_parts = convert_drive_layout(*layout_buffer, index);
+        if (!drive_parts) { return fail(drive_parts.error()); }
+
+        for (auto part : *drive_parts) {
+            for (const auto& ext : *extents) {
+                if (ext.disk_number == index &&
+                    part.has_start_offset_bytes &&
+                    ext.start_offset_bytes == part.start_offset_bytes) {
+                    if (!ext.mount_point.empty()) {
+                        part.is_mounted = true;
+                        part.mount_point = ext.mount_point;
+                    }
+                    if (!ext.filesystem_type.empty()) {
+                        part.has_filesystem_type = true;
+                        part.filesystem_type = ext.filesystem_type;
+                    }
+                    break;
+                }
+            }
+            records.push_back(std::move(part));
+        }
+    }
+    std::sort(records.begin(), records.end(),
+              [](const storage_common::partition_record& left,
+                 const storage_common::partition_record& right) {
+                  return left.identifier < right.identifier;
+              });
+    return records;
+}
+
 inline result<std::vector<storage_common::drive_record>> drives() {
     return enumerate_drives(native_drive_api{});
+}
+
+inline result<std::vector<storage_common::partition_record>> partitions() {
+    return enumerate_partitions(native_drive_api{});
 }
 
 } // namespace storage_backend

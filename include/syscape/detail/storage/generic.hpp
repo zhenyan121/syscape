@@ -14,6 +14,10 @@ inline result<std::vector<storage_common::drive_record>> drives() {
     return fail(errc::not_supported);
 }
 
+inline result<std::vector<storage_common::partition_record>> partitions() {
+    return fail(errc::not_supported);
+}
+
 } // namespace storage_backend
 } // namespace detail
 } // namespace syscape

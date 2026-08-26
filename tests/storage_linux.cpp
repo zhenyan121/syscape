@@ -378,6 +378,180 @@ void test_live_queries() {
     }
 }
 
+void test_partition_scheme_classifier() {
+    namespace backend = syscape::detail::storage_backend;
+    using scheme = syscape::storage::partition_scheme;
+
+    expect(backend::classify_partition_scheme(
+               "6dc136bc-42c9-40ab-b850-6e74eda97dd6") == scheme::gpt,
+           "A 36-character standard UUID format must classify as GPT");
+
+    expect(backend::classify_partition_scheme(
+               "12345678-01") == scheme::mbr,
+           "An 8-hex-digit with partition number suffix must classify as MBR");
+
+    expect(backend::classify_partition_scheme(
+               "") == scheme::unknown,
+           "An absent UUID must classify as unknown");
+
+    expect(backend::classify_partition_scheme(
+               "custom-id-1234") == scheme::unknown,
+           "An unrecognized UUID format must classify as unknown");
+}
+
+void test_mount_field_decoder() {
+    namespace backend = syscape::detail::storage_backend;
+
+    const auto regular = backend::decode_mount_field("/home/user");
+    expect(regular && *regular == "/home/user",
+           "Plain mount fields without escapes must decode unchanged");
+
+    const auto spaced = backend::decode_mount_field("/mnt/my\\040disk");
+    expect(spaced && *spaced == "/mnt/my disk",
+           "Documented octal space escape \\040 must decode to space");
+
+    const auto tabbed = backend::decode_mount_field("/mnt/my\\011disk");
+    expect(tabbed && *tabbed == "/mnt/my\tdisk",
+           "Documented octal tab escape \\011 must decode to tab");
+
+    const auto newlined = backend::decode_mount_field("/mnt/my\\012disk");
+    expect(newlined && *newlined == "/mnt/my\ndisk",
+           "Documented octal newline escape \\012 must decode to newline");
+
+    const auto backslash = backend::decode_mount_field("/mnt/my\\134disk");
+    expect(backslash && *backslash == "/mnt/my\\disk",
+           "Documented octal backslash escape \\134 must decode to backslash");
+
+    const auto invalid = backend::decode_mount_field("/mnt/my\\000disk");
+    expect(!invalid && invalid.error() == syscape::errc::malformed_data,
+           "Undocumented escape sequences must report malformed_data");
+
+    const auto truncated = backend::decode_mount_field("/mnt/my\\04");
+    expect(!truncated && truncated.error() == syscape::errc::malformed_data,
+           "Truncated escape sequences must report malformed_data");
+
+    const auto parsed = backend::parse_mount_table(
+        "/dev/sda1 /mnt/my\\040disk ext4 rw 0 0\n"
+        "tmpfs /run tmpfs rw 0 0\n");
+    expect(parsed && parsed->size() == 1U,
+           "Only block-device mount records must be collected");
+    if (parsed && parsed->size() == 1U) {
+        expect((*parsed)[0].device_name == "sda1" &&
+                   (*parsed)[0].mount_point == "/mnt/my disk" &&
+                   (*parsed)[0].fstype == "ext4",
+               "Mount-table fields must be decoded and preserved");
+    }
+
+    const auto short_record =
+        backend::parse_mount_table("/dev/sda1 /mnt ext4\n");
+    expect(!short_record &&
+               short_record.error() == syscape::errc::malformed_data,
+           "Mount records with fewer than six fields must be malformed");
+}
+
+void test_partition_boundary_validation() {
+    namespace common = syscape::detail::storage_common;
+    using records = std::vector<common::partition_record>;
+
+    const syscape::result<records> accepted =
+        common::validate_partition_records(records{});
+    expect(accepted.has_value(),
+           "An empty partition list must be accepted as valid data");
+
+    records bad_id;
+    bad_id.push_back(common::partition_record{});
+    bad_id.back().identifier = "\xff\xfe";
+    bad_id.back().disk_identifier = "sda";
+    const auto bad_id_res =
+        common::validate_partition_records(bad_id);
+    expect(!bad_id_res &&
+               bad_id_res.error() == syscape::errc::invalid_encoding,
+           "Non-UTF-8 partition identifier must fail validation");
+
+    records empty_disk_id;
+    empty_disk_id.push_back(common::partition_record{});
+    empty_disk_id.back().identifier = "sda1";
+    empty_disk_id.back().disk_identifier = "";
+    const auto empty_disk_res =
+        common::validate_partition_records(empty_disk_id);
+    expect(!empty_disk_res &&
+               empty_disk_res.error() == syscape::errc::invalid_encoding,
+           "Empty parent disk identifier must fail validation");
+
+    records contradictory_mount;
+    contradictory_mount.push_back(common::partition_record{});
+    contradictory_mount.back().identifier = "sda1";
+    contradictory_mount.back().disk_identifier = "sda";
+    contradictory_mount.back().is_mounted = true;
+    const auto contradictory_mount_res =
+        common::validate_partition_records(contradictory_mount);
+    expect(!contradictory_mount_res &&
+               contradictory_mount_res.error() ==
+                   syscape::errc::malformed_data,
+           "A mounted record without a mount path must be malformed");
+
+    records valid_entry;
+    valid_entry.push_back(common::partition_record{});
+    valid_entry.back().identifier = "nvme0n1p1";
+    valid_entry.back().disk_identifier = "nvme0n1";
+    valid_entry.back().partition_number = 1U;
+    valid_entry.back().has_name = true;
+    valid_entry.back().name = "EFI";
+    const auto valid_res =
+        common::validate_partition_records(valid_entry);
+    expect(valid_res.has_value(),
+           "Well-formed partition record must be accepted");
+}
+
+void test_live_partitions() {
+    const syscape::result<std::vector<syscape::storage::partition_entry>>
+        parts = syscape::storage::partitions();
+    expect(parts || parts.error() == syscape::errc::not_supported,
+           "Partition enumeration must succeed or honestly report not_supported");
+    if (!parts) { return; }
+
+    std::string prev_id;
+    for (const auto& part : *parts) {
+        expect(!part.identifier.empty(),
+               "Partition identifier must not be empty");
+        expect(!part.disk_identifier.empty(),
+               "Partition parent disk identifier must not be empty");
+        expect(part.partition_number > 0U,
+               "Partition number must be positive");
+        expect(prev_id <= part.identifier,
+               "Partition list must be sorted by identifier");
+        prev_id = part.identifier;
+
+        // Test disk_partitions filter for this drive
+        const auto disk_parts =
+            syscape::storage::disk_partitions(part.disk_identifier);
+        expect(disk_parts.has_value(),
+               "disk_partitions must succeed for an existing parent drive");
+        if (disk_parts) {
+            bool found = false;
+            for (const auto& dp : *disk_parts) {
+                if (dp.identifier == part.identifier) {
+                    found = true;
+                    break;
+                }
+            }
+            expect(found,
+                   "disk_partitions must contain every partition belonging to that drive");
+        }
+    }
+
+    const auto invalid_empty = syscape::storage::disk_partitions("");
+    expect(!invalid_empty &&
+               invalid_empty.error() == syscape::errc::invalid_argument,
+           "disk_partitions with empty disk identifier must report invalid_argument");
+
+    const auto invalid_utf8 =
+        syscape::storage::disk_partitions("\xff\xfe");
+    expect(!invalid_utf8 &&
+               invalid_utf8.error() == syscape::errc::invalid_encoding,
+           "disk_partitions with invalid UTF-8 must report invalid_encoding");
+}
+
 } // namespace
 
 int main() {
@@ -388,5 +562,9 @@ int main() {
     test_text_application();
     test_boundary_validation();
     test_live_queries();
+    test_partition_scheme_classifier();
+    test_mount_field_decoder();
+    test_partition_boundary_validation();
+    test_live_partitions();
     return failures == 0 ? 0 : 1;
 }

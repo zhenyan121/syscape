@@ -402,6 +402,351 @@ inline result<std::vector<storage_common::drive_record>> drives() {
     return records;
 }
 
+/// Classifies the partition scheme from the partition's UUID format.
+inline storage_common::partition_scheme_classification
+classify_partition_scheme(std::string_view uuid) noexcept {
+    using storage_common::partition_scheme_classification;
+    const auto is_hex_char = [](char c) noexcept {
+        return (c >= '0' && c <= '9') ||
+               (c >= 'a' && c <= 'f') ||
+               (c >= 'A' && c <= 'F');
+    };
+    if (uuid.size() == 36U &&
+        uuid[8U] == '-' && uuid[13U] == '-' &&
+        uuid[18U] == '-' && uuid[23U] == '-') {
+        bool valid = true;
+        for (std::size_t i = 0U; i < 36U; ++i) {
+            if (i == 8U || i == 13U || i == 18U || i == 23U) { continue; }
+            if (!is_hex_char(uuid[i])) { valid = false; break; }
+        }
+        if (valid) {
+            return partition_scheme_classification::gpt;
+        }
+    }
+    const std::size_t hyphen = uuid.find('-');
+    if (hyphen == 8U && uuid.size() >= 10U && uuid.size() <= 12U) {
+        bool valid = true;
+        for (std::size_t i = 0U; i < 8U; ++i) {
+            if (!is_hex_char(uuid[i])) { valid = false; break; }
+        }
+        for (std::size_t i = 9U; i < uuid.size(); ++i) {
+            if (uuid[i] < '0' || uuid[i] > '9') { valid = false; break; }
+        }
+        if (valid) {
+            return partition_scheme_classification::mbr;
+        }
+    }
+    return partition_scheme_classification::unknown;
+}
+
+/// Returns the octal digit value of a character, or -1 for non-octal text.
+inline int octal_digit_value(char value) noexcept {
+    return value >= '0' && value <= '7' ? value - '0' : -1;
+}
+
+/// Decodes one octal escape sequence of the documented /proc/mounts form.
+inline result<char> decode_mount_escape(std::string_view field,
+                                        std::size_t backslash) {
+    if (field.size() - backslash < 4U) {
+        return fail(errc::malformed_data);
+    }
+    const int hundreds = octal_digit_value(field[backslash + 1U]);
+    const int tens = octal_digit_value(field[backslash + 2U]);
+    const int ones = octal_digit_value(field[backslash + 3U]);
+    if (hundreds < 0 || tens < 0 || ones < 0) {
+        return fail(errc::malformed_data);
+    }
+
+    switch (hundreds * 64 + tens * 8 + ones) {
+    case 040: return ' ';
+    case 011: return '\t';
+    case 012: return '\n';
+    case 0134: return '\\';
+    default: return fail(errc::malformed_data);
+    }
+}
+
+/// Decodes a device, mount-point, or type field reported by the kernel.
+inline result<std::string> decode_mount_field(std::string_view field) {
+    std::string output;
+    output.reserve(field.size());
+    std::size_t offset = 0U;
+    while (offset < field.size()) {
+        if (field[offset] != '\\') {
+            output.push_back(field[offset]);
+            ++offset;
+            continue;
+        }
+        const result<char> decoded = decode_mount_escape(field, offset);
+        if (!decoded) { return fail(decoded.error()); }
+        output.push_back(*decoded);
+        offset += 4U;
+    }
+    return output;
+}
+
+/// Structure representing an entry in the system mount table.
+struct mount_entry {
+    std::string device_name;
+    std::string mount_point;
+    std::string fstype;
+};
+
+/// Parses a /proc/self/mounts snapshot into mounted block-device mappings.
+inline result<std::vector<mount_entry>> parse_mount_table(
+    std::string_view text) {
+    std::vector<mount_entry> entries;
+    std::size_t offset = 0U;
+    while (offset < text.size()) {
+        const std::size_t end = text.find('\n', offset);
+        const std::size_t limit =
+            (end == std::string_view::npos) ? text.size() : end;
+        const std::string_view line = text.substr(offset, limit - offset);
+        offset = (end == std::string_view::npos) ? text.size() : end + 1U;
+        if (line.empty()) { continue; }
+        std::size_t p = 0U;
+        while (p < line.size() && (line[p] == ' ' || line[p] == '\t')) { ++p; }
+        const std::size_t s1 = p;
+        while (p < line.size() && line[p] != ' ' && line[p] != '\t') { ++p; }
+        const std::string_view raw_source = line.substr(s1, p - s1);
+        while (p < line.size() && (line[p] == ' ' || line[p] == '\t')) { ++p; }
+        const std::size_t s2 = p;
+        while (p < line.size() && line[p] != ' ' && line[p] != '\t') { ++p; }
+        const std::string_view raw_target = line.substr(s2, p - s2);
+        while (p < line.size() && (line[p] == ' ' || line[p] == '\t')) { ++p; }
+        const std::size_t s3 = p;
+        while (p < line.size() && line[p] != ' ' && line[p] != '\t') { ++p; }
+        const std::string_view raw_fstype = line.substr(s3, p - s3);
+
+        if (raw_source.empty() || raw_target.empty() || raw_fstype.empty()) {
+            return fail(errc::malformed_data);
+        }
+        std::size_t field_count = 3U;
+        while (p < line.size()) {
+            while (p < line.size() &&
+                   (line[p] == ' ' || line[p] == '\t')) {
+                ++p;
+            }
+            if (p == line.size()) { break; }
+            ++field_count;
+            while (p < line.size() && line[p] != ' ' && line[p] != '\t') {
+                ++p;
+            }
+        }
+        if (field_count < 6U) { return fail(errc::malformed_data); }
+
+        if (raw_source.rfind("/dev/", 0U) == 0U && raw_source.size() > 5U &&
+            !raw_target.empty()) {
+            const result<std::string> decoded_source =
+                decode_mount_field(raw_source.substr(5U));
+            if (!decoded_source) { return fail(decoded_source.error()); }
+            const result<std::string> decoded_target =
+                decode_mount_field(raw_target);
+            if (!decoded_target) { return fail(decoded_target.error()); }
+            const result<std::string> decoded_fstype =
+                decode_mount_field(raw_fstype);
+            if (!decoded_fstype) { return fail(decoded_fstype.error()); }
+
+            mount_entry entry;
+            entry.device_name = std::move(*decoded_source);
+            entry.mount_point = std::move(*decoded_target);
+            entry.fstype = std::move(*decoded_fstype);
+            entries.push_back(std::move(entry));
+        }
+    }
+    return entries;
+}
+
+/// Reads /proc/self/mounts and collects mounted block device mappings.
+inline result<std::vector<mount_entry>> collect_mount_table() {
+    const result<std::string> content =
+        linux_platform::read_text_file("/proc/self/mounts");
+    if (!content) { return fail(content.error()); }
+    return parse_mount_table(*content);
+}
+
+/// One assembled partition snapshot together with its presence.
+struct partition_snapshot {
+    bool recorded = false;
+    storage_common::partition_record record;
+};
+
+/// Collects attributes of one partition directory entry under a disk.
+inline result<partition_snapshot> collect_partition(
+    const std::string& disk_entry, const std::string& part_entry,
+    const std::vector<mount_entry>& mounts) {
+    const std::string part_path =
+        std::string(block_root) + disk_entry + "/" + part_entry;
+
+    const std::string partition_file = part_path + "/partition";
+    const result<std::string> partn_content =
+        linux_platform::read_text_file(partition_file.c_str());
+    if (!partn_content) {
+        if (partn_content.error() ==
+                std::error_code(ENOENT, std::generic_category()) ||
+            partn_content.error() ==
+                std::error_code(ENOTDIR, std::generic_category())) {
+            return partition_snapshot{};
+        }
+        return fail(partn_content.error());
+    }
+    const result<std::uint32_t> partn =
+        parse_number<std::uint32_t>(*partn_content);
+    if (!partn) { return fail(partn.error()); }
+
+    storage_common::partition_record record;
+    record.identifier = part_entry;
+    record.disk_identifier = disk_entry;
+    record.partition_number = *partn;
+
+    const std::string start_file = part_path + "/start";
+    const result<std::string> start_content =
+        linux_platform::read_text_file(start_file.c_str());
+    if (start_content) {
+        const result<std::uint64_t> start_sectors =
+            parse_number<std::uint64_t>(*start_content);
+        if (!start_sectors) { return fail(start_sectors.error()); }
+        const result<std::uint64_t> start_bytes =
+            capacity_in_bytes(*start_sectors);
+        if (!start_bytes) { return fail(start_bytes.error()); }
+        record.has_start_offset_bytes = true;
+        record.start_offset_bytes = *start_bytes;
+    } else if (start_content.error() !=
+                   std::error_code(ENOENT, std::generic_category())) {
+        return fail(start_content.error());
+    }
+
+    const std::string size_file = part_path + "/size";
+    const result<std::string> size_content =
+        linux_platform::read_text_file(size_file.c_str());
+    if (size_content) {
+        const result<std::uint64_t> size_sectors =
+            parse_number<std::uint64_t>(*size_content);
+        if (!size_sectors) { return fail(size_sectors.error()); }
+        const result<std::uint64_t> size_bytes =
+            capacity_in_bytes(*size_sectors);
+        if (!size_bytes) { return fail(size_bytes.error()); }
+        record.has_size_bytes = true;
+        record.size_bytes = *size_bytes;
+    } else if (size_content.error() !=
+                   std::error_code(ENOENT, std::generic_category())) {
+        return fail(size_content.error());
+    }
+
+    const std::string ro_file = part_path + "/ro";
+    const result<std::string> ro_content =
+        linux_platform::read_text_file(ro_file.c_str());
+    if (ro_content) {
+        const result<bool> ro_flag = parse_flag(*ro_content);
+        if (!ro_flag) { return fail(ro_flag.error()); }
+        record.is_read_only = *ro_flag;
+    } else if (ro_content.error() !=
+                   std::error_code(ENOENT, std::generic_category())) {
+        return fail(ro_content.error());
+    }
+
+    const std::string uevent_file = part_path + "/uevent";
+    const result<std::string> uevent_content =
+        linux_platform::read_text_file(uevent_file.c_str());
+    if (uevent_content) {
+        const std::string_view uevent_text(*uevent_content);
+        std::size_t offset = 0U;
+        while (offset < uevent_text.size()) {
+            const std::size_t end = uevent_text.find('\n', offset);
+            const std::size_t limit =
+                (end == std::string_view::npos) ? uevent_text.size() : end;
+            const std::string_view line =
+                uevent_text.substr(offset, limit - offset);
+            offset = (end == std::string_view::npos)
+                         ? uevent_text.size()
+                         : end + 1U;
+            const std::size_t eq = line.find('=');
+            if (eq == std::string_view::npos) { continue; }
+            const std::string_view key = line.substr(0U, eq);
+            const std::string_view val =
+                trim_attribute(line.substr(eq + 1U));
+            if (key == "PARTNAME" && !val.empty()) {
+                record.has_name = true;
+                record.name = std::string(val);
+            } else if (key == "PARTUUID" && !val.empty()) {
+                record.has_uuid = true;
+                record.uuid = std::string(val);
+            }
+        }
+    } else if (uevent_content.error() !=
+                   std::error_code(ENOENT, std::generic_category())) {
+        return fail(uevent_content.error());
+    }
+
+    record.scheme = classify_partition_scheme(
+        record.has_uuid ? std::string_view(record.uuid) : std::string_view());
+
+    for (const mount_entry& m : mounts) {
+        if (m.device_name == part_entry) {
+            record.is_mounted = true;
+            record.mount_point = m.mount_point;
+            if (!m.fstype.empty()) {
+                record.has_filesystem_type = true;
+                record.filesystem_type = m.fstype;
+            }
+            break;
+        }
+    }
+
+    partition_snapshot snapshot;
+    snapshot.recorded = true;
+    snapshot.record = std::move(record);
+    return snapshot;
+}
+
+/// Enumerates all partitions across all hardware-backed disks.
+inline result<std::vector<storage_common::partition_record>> partitions() {
+    std::vector<storage_common::partition_record> records;
+    const result<std::vector<mount_entry>> mounts = collect_mount_table();
+    if (!mounts) { return fail(mounts.error()); }
+
+    const result<void> walked = walk_block_devices(
+        [&records, &mounts](const char* disk_name) -> result<void> {
+            const result<drive_snapshot> drive = collect_drive(disk_name);
+            if (!drive) { return fail(drive.error()); }
+            if (!drive->recorded) { return {}; }
+
+            const std::string disk_path =
+                std::string(block_root) + disk_name;
+            linux_platform::directory_handle disk_dir(disk_path.c_str());
+            if (!disk_dir.valid()) {
+                if (errno == ENOENT) { return {}; }
+                return fail(std::error_code(errno, std::generic_category()));
+            }
+
+            for (;;) {
+                errno = 0;
+                const ::dirent* entry = ::readdir(disk_dir.get());
+                if (entry == nullptr) {
+                    if (errno != 0) {
+                        return fail(std::error_code(errno, std::generic_category()));
+                    }
+                    break;
+                }
+                if (entry->d_name[0] == '.') { continue; }
+                const result<partition_snapshot> part =
+                    collect_partition(disk_name, entry->d_name, *mounts);
+                if (!part) { return fail(part.error()); }
+                if (part->recorded) {
+                    records.push_back(std::move(part->record));
+                }
+            }
+            return {};
+        });
+    if (!walked) { return fail(walked.error()); }
+    std::sort(records.begin(), records.end(),
+              [](const storage_common::partition_record& left,
+                 const storage_common::partition_record& right) {
+                  return left.identifier < right.identifier;
+              });
+    return records;
+}
+
 } // namespace storage_backend
 } // namespace detail
 } // namespace syscape
