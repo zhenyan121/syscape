@@ -1,8 +1,13 @@
 #ifndef SYSCAPE_DETAIL_HARDWARE_MACOS_HPP
 #define SYSCAPE_DETAIL_HARDWARE_MACOS_HPP
 
+#include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
@@ -277,6 +282,328 @@ inline result<std::string> hardware_uuid() {
     const result<platform_facts> facts = collect_platform_facts();
     if (!facts) { return fail(facts.error()); }
     return interpret_text(facts->has_uuid, facts->uuid);
+}
+
+inline result<std::uint32_t> copy_cfdata_u32(::CFDataRef value) {
+    if (value == nullptr) { return fail(errc::io_error); }
+    const ::CFIndex len = ::CFDataGetLength(value);
+    if (len != 4) { return fail(errc::malformed_data); }
+    const ::UInt8* bytes = ::CFDataGetBytePtr(value);
+    if (bytes == nullptr) { return fail(errc::io_error); }
+    return hardware_common::read_le_u32(bytes);
+}
+
+/// Reads the first 32-bit cell of a nonempty Open Firmware data array.
+inline result<std::uint32_t> copy_cfdata_first_u32(::CFDataRef value) {
+    if (value == nullptr) { return fail(errc::io_error); }
+    const ::CFIndex len = ::CFDataGetLength(value);
+    if (len < 4) { return fail(errc::malformed_data); }
+    const ::UInt8* bytes = ::CFDataGetBytePtr(value);
+    if (bytes == nullptr) { return fail(errc::io_error); }
+    return hardware_common::read_le_u32(bytes);
+}
+
+inline result<std::uint64_t> copy_cfnumber_u64(::CFNumberRef value) {
+    if (value == nullptr) { return fail(errc::io_error); }
+    std::int64_t num = 0;
+    if (!::CFNumberGetValue(value, kCFNumberSInt64Type, &num) || num < 0) {
+        return fail(errc::malformed_data);
+    }
+    return static_cast<std::uint64_t>(num);
+}
+
+inline result<std::optional<std::uint32_t>> optional_cfdata_u32(
+    ::CFTypeRef value) {
+    if (value == nullptr) { return std::optional<std::uint32_t>(); }
+    if (::CFGetTypeID(value) != ::CFDataGetTypeID()) {
+        return fail(errc::malformed_data);
+    }
+    const result<std::uint32_t> number =
+        copy_cfdata_u32(static_cast<::CFDataRef>(value));
+    if (!number) { return fail(number.error()); }
+    return std::optional<std::uint32_t>(*number);
+}
+
+/// Reads phys.hi from an Open Firmware PCI assigned-addresses array. Every
+/// nonempty entry contains three address cells and two size cells.
+inline result<std::optional<std::uint32_t>> optional_assigned_address_phys_hi(
+    ::CFTypeRef value) {
+    if (value == nullptr) { return std::optional<std::uint32_t>(); }
+    if (::CFGetTypeID(value) != ::CFDataGetTypeID()) {
+        return fail(errc::malformed_data);
+    }
+    const ::CFDataRef data = static_cast<::CFDataRef>(value);
+    const ::CFIndex length = ::CFDataGetLength(data);
+    constexpr ::CFIndex entry_size = 5 * 4;
+    if (length == 0) { return std::optional<std::uint32_t>(); }
+    if (length < 0 || length % entry_size != 0) {
+        return fail(errc::malformed_data);
+    }
+    const result<std::uint32_t> number = copy_cfdata_first_u32(data);
+    if (!number) { return fail(number.error()); }
+    return std::optional<std::uint32_t>(*number);
+}
+
+inline result<std::optional<std::uint64_t>> optional_cfnumber_u64(
+    ::CFTypeRef value) {
+    if (value == nullptr) { return std::optional<std::uint64_t>(); }
+    if (::CFGetTypeID(value) != ::CFNumberGetTypeID()) {
+        return fail(errc::malformed_data);
+    }
+    const result<std::uint64_t> number =
+        copy_cfnumber_u64(static_cast<::CFNumberRef>(value));
+    if (!number) { return fail(number.error()); }
+    return std::optional<std::uint64_t>(*number);
+}
+
+inline result<std::optional<std::string>> optional_cfstring_utf8(
+    ::CFTypeRef value) {
+    if (value == nullptr) { return std::optional<std::string>(); }
+    if (::CFGetTypeID(value) != ::CFStringGetTypeID()) {
+        return fail(errc::malformed_data);
+    }
+    const result<std::string> text =
+        copy_utf8_string(static_cast<::CFStringRef>(value));
+    if (!text) { return fail(text.error()); }
+    if (text->empty()) { return std::optional<std::string>(); }
+    return std::optional<std::string>(*text);
+}
+
+inline result<std::vector<::syscape::hardware::pci_device>> pci_devices() {
+#if defined(kIOMainPortDefault)
+    const ::io_service_t port = kIOMainPortDefault;
+#else
+    const ::io_service_t port = kIOMasterPortDefault;
+#endif
+    ::CFMutableDictionaryRef matching = ::IOServiceMatching("IOPCIDevice");
+    if (matching == nullptr) { return fail(errc::io_error); }
+    ::io_iterator_t iterator = IO_OBJECT_NULL;
+    if (::IOServiceGetMatchingServices(port, matching, &iterator) != KERN_SUCCESS ||
+        iterator == IO_OBJECT_NULL) {
+        return fail(errc::io_error);
+    }
+    const io_object_guard iter_guard(iterator);
+
+    std::vector<::syscape::hardware::pci_device> result_devices;
+    ::io_service_t service = IO_OBJECT_NULL;
+    while ((service = ::IOIteratorNext(iterator)) != IO_OBJECT_NULL) {
+        const io_object_guard service_guard(service);
+        ::syscape::hardware::pci_device dev;
+
+        // vendor-id
+        const cf_object ven_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("vendor-id"), ::kCFAllocatorDefault, 0));
+        const auto ven_val = optional_cfdata_u32(ven_ref.get());
+        if (!ven_val) { return fail(ven_val.error()); }
+        if (!*ven_val || **ven_val > 0xFFFFU) { return fail(errc::malformed_data); }
+        dev.vendor_id = static_cast<std::uint16_t>(**ven_val);
+
+        // device-id
+        const cf_object dev_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("device-id"), ::kCFAllocatorDefault, 0));
+        const auto device_val = optional_cfdata_u32(dev_ref.get());
+        if (!device_val) { return fail(device_val.error()); }
+        if (!*device_val || **device_val > 0xFFFFU) { return fail(errc::malformed_data); }
+        dev.device_id = static_cast<std::uint16_t>(**device_val);
+
+        // subsystem-vendor-id
+        const cf_object sven_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("subsystem-vendor-id"), ::kCFAllocatorDefault, 0));
+        const auto sven_val = optional_cfdata_u32(sven_ref.get());
+        if (!sven_val) { return fail(sven_val.error()); }
+        if (*sven_val) {
+            if (**sven_val > 0xFFFFU) { return fail(errc::malformed_data); }
+            dev.subsystem_vendor_id = static_cast<std::uint16_t>(**sven_val);
+        }
+
+        // subsystem-id
+        const cf_object sdev_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("subsystem-id"), ::kCFAllocatorDefault, 0));
+        const auto sdev_val = optional_cfdata_u32(sdev_ref.get());
+        if (!sdev_val) { return fail(sdev_val.error()); }
+        if (*sdev_val) {
+            if (**sdev_val > 0xFFFFU) { return fail(errc::malformed_data); }
+            dev.subsystem_device_id = static_cast<std::uint16_t>(**sdev_val);
+        }
+
+        // class-code
+        const cf_object cls_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("class-code"), ::kCFAllocatorDefault, 0));
+        const auto cls_val = optional_cfdata_u32(cls_ref.get());
+        if (!cls_val) { return fail(cls_val.error()); }
+        if (*cls_val) {
+                dev.programming_interface = static_cast<std::uint8_t>(**cls_val & 0xFFU);
+                dev.subclass_code = static_cast<std::uint8_t>((**cls_val >> 8U) & 0xFFU);
+                dev.class_code = static_cast<std::uint8_t>((**cls_val >> 16U) & 0xFFU);
+                dev.device_class = hardware_common::classify_pci_class(*dev.class_code);
+        }
+
+        // assigned-addresses (bus / device / function)
+        const cf_object addr_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("assigned-addresses"), ::kCFAllocatorDefault, 0));
+        const auto addr_val = optional_assigned_address_phys_hi(addr_ref.get());
+        if (!addr_val) { return fail(addr_val.error()); }
+        if (*addr_val) {
+            dev.bus = static_cast<std::uint8_t>((**addr_val >> 16U) & 0xFFU);
+            dev.device = static_cast<std::uint8_t>((**addr_val >> 11U) & 0x1FU);
+            dev.function = static_cast<std::uint8_t>((**addr_val >> 8U) & 0x07U);
+        }
+
+        result_devices.push_back(std::move(dev));
+    }
+
+    std::sort(result_devices.begin(), result_devices.end(), hardware_common::compare_pci_devices);
+    return result_devices;
+}
+
+inline result<std::vector<::syscape::hardware::usb_device>> usb_devices_for_class(
+    const char* service_class) {
+#if defined(kIOMainPortDefault)
+    const ::io_service_t port = kIOMainPortDefault;
+#else
+    const ::io_service_t port = kIOMasterPortDefault;
+#endif
+    ::CFMutableDictionaryRef matching = ::IOServiceMatching(service_class);
+    if (matching == nullptr) { return fail(errc::io_error); }
+    ::io_iterator_t iterator = IO_OBJECT_NULL;
+    if (::IOServiceGetMatchingServices(port, matching, &iterator) != KERN_SUCCESS ||
+        iterator == IO_OBJECT_NULL) {
+        return fail(errc::io_error);
+    }
+    const io_object_guard iter_guard(iterator);
+
+    std::vector<::syscape::hardware::usb_device> result_devices;
+    ::io_service_t service = IO_OBJECT_NULL;
+    while ((service = ::IOIteratorNext(iterator)) != IO_OBJECT_NULL) {
+        const io_object_guard service_guard(service);
+        ::syscape::hardware::usb_device dev;
+
+        // idVendor
+        const cf_object ven_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("idVendor"), ::kCFAllocatorDefault, 0));
+        const auto ven_val = optional_cfnumber_u64(ven_ref.get());
+        if (!ven_val) { return fail(ven_val.error()); }
+
+        // idProduct
+        const cf_object prod_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("idProduct"), ::kCFAllocatorDefault, 0));
+        const auto prod_val = optional_cfnumber_u64(prod_ref.get());
+        if (!prod_val) { return fail(prod_val.error()); }
+        if (!*ven_val || !*prod_val) { continue; }
+        if (**ven_val > 0xFFFFU || **prod_val > 0xFFFFU) {
+            return fail(errc::malformed_data);
+        }
+        dev.vendor_id = static_cast<std::uint16_t>(**ven_val);
+        dev.product_id = static_cast<std::uint16_t>(**prod_val);
+
+        // bcdDevice
+        const cf_object bcd_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("bcdDevice"), ::kCFAllocatorDefault, 0));
+        const auto bcd_val = optional_cfnumber_u64(bcd_ref.get());
+        if (!bcd_val) { return fail(bcd_val.error()); }
+        if (*bcd_val) {
+            if (**bcd_val > 0xFFFFU) { return fail(errc::malformed_data); }
+            dev.bcd_device = static_cast<std::uint16_t>(**bcd_val);
+        }
+
+        // bDeviceClass
+        const cf_object cls_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("bDeviceClass"), ::kCFAllocatorDefault, 0));
+        const auto usb_class = optional_cfnumber_u64(cls_ref.get());
+        if (!usb_class) { return fail(usb_class.error()); }
+        if (*usb_class) {
+            if (**usb_class > 0xFFU) { return fail(errc::malformed_data); }
+            dev.device_class = static_cast<std::uint8_t>(**usb_class);
+        }
+
+        // bDeviceSubClass
+        const cf_object sub_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("bDeviceSubClass"), ::kCFAllocatorDefault, 0));
+        const auto usb_subclass = optional_cfnumber_u64(sub_ref.get());
+        if (!usb_subclass) { return fail(usb_subclass.error()); }
+        if (*usb_subclass) {
+            if (**usb_subclass > 0xFFU) { return fail(errc::malformed_data); }
+            dev.device_subclass = static_cast<std::uint8_t>(**usb_subclass);
+        }
+
+        // bDeviceProtocol
+        const cf_object proto_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("bDeviceProtocol"), ::kCFAllocatorDefault, 0));
+        const auto usb_protocol = optional_cfnumber_u64(proto_ref.get());
+        if (!usb_protocol) { return fail(usb_protocol.error()); }
+        if (*usb_protocol) {
+            if (**usb_protocol > 0xFFU) { return fail(errc::malformed_data); }
+            dev.device_protocol = static_cast<std::uint8_t>(**usb_protocol);
+        }
+
+        // USB Vendor Name
+        const cf_object mfg_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("USB Vendor Name"), ::kCFAllocatorDefault, 0));
+        const auto utf8_mfg = optional_cfstring_utf8(mfg_ref.get());
+        if (!utf8_mfg) { return fail(utf8_mfg.error()); }
+        if (*utf8_mfg) { dev.manufacturer = **utf8_mfg; }
+
+        // USB Product Name
+        const cf_object pname_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("USB Product Name"), ::kCFAllocatorDefault, 0));
+        const auto utf8_pname = optional_cfstring_utf8(pname_ref.get());
+        if (!utf8_pname) { return fail(utf8_pname.error()); }
+        if (*utf8_pname) { dev.product = **utf8_pname; }
+
+        // USB Serial Number
+        const cf_object sn_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("USB Serial Number"), ::kCFAllocatorDefault, 0));
+        const auto utf8_sn = optional_cfstring_utf8(sn_ref.get());
+        if (!utf8_sn) { return fail(utf8_sn.error()); }
+        if (*utf8_sn) { dev.serial_number = **utf8_sn; }
+
+        // USB Address
+        const cf_object address_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("USB Address"), ::kCFAllocatorDefault, 0));
+        const auto address = optional_cfnumber_u64(address_ref.get());
+        if (!address) { return fail(address.error()); }
+        if (*address) {
+            if (**address > 127U) { return fail(errc::malformed_data); }
+            dev.device_address = static_cast<std::uint8_t>(**address);
+        }
+
+        // locationID / PortNum
+        const cf_object loc_ref(::IORegistryEntryCreateCFProperty(
+            service, CFSTR("locationID"), ::kCFAllocatorDefault, 0));
+        const auto loc_val = optional_cfnumber_u64(loc_ref.get());
+        if (!loc_val) { return fail(loc_val.error()); }
+        if (*loc_val) {
+            if (**loc_val > 0xFFFFFFFFULL) { return fail(errc::malformed_data); }
+            dev.bus_number = static_cast<std::uint8_t>((**loc_val >> 24U) & 0xFFU);
+            std::uint8_t immediate_port = 0U;
+            for (unsigned int shift = 20U;; shift -= 4U) {
+                const std::uint8_t component =
+                    static_cast<std::uint8_t>((**loc_val >> shift) & 0x0FU);
+                if (component != 0U) { immediate_port = component; }
+                if (shift == 0U) { break; }
+            }
+            if (immediate_port != 0U) {
+                dev.port_number = immediate_port;
+            }
+        }
+
+        result_devices.push_back(std::move(dev));
+    }
+
+    std::sort(result_devices.begin(), result_devices.end(), hardware_common::compare_usb_devices);
+    return result_devices;
+}
+
+inline result<std::vector<::syscape::hardware::usb_device>> usb_devices() {
+    result<std::vector<::syscape::hardware::usb_device>> devices =
+        usb_devices_for_class("IOUSBHostDevice");
+    if (!devices) { return fail(devices.error()); }
+    if (!devices->empty()) { return devices; }
+    return usb_devices_for_class("IOUSBDevice");
+}
+
+inline result<std::vector<::syscape::hardware::memory_device>> memory_devices() {
+    return fail(errc::not_supported);
 }
 
 } // namespace hardware_backend

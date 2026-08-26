@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 #include <string>
 #include <system_error>
@@ -96,6 +97,83 @@ void test_property_type_contracts() {
     ::CFRelease(data);
 }
 
+void test_inventory_property_conversion() {
+    namespace backend = syscape::detail::hardware_backend;
+
+    const ::UInt8 little_endian[] = {0x86U, 0x80U, 0x00U, 0x00U};
+    const ::CFDataRef data = ::CFDataCreate(
+        ::kCFAllocatorDefault, little_endian,
+        static_cast<::CFIndex>(sizeof(little_endian)));
+    expect(data != nullptr, "A synthetic PCI property must allocate");
+    if (data != nullptr) {
+        const auto value = backend::optional_cfdata_u32(data);
+        expect(value.has_value() && value->has_value() && **value == 0x8086U,
+               "PCI CFData numbers must decode explicitly as little endian");
+        ::CFRelease(data);
+    }
+
+    const ::UInt8 assigned_addresses[20] = {
+        0x00U, 0x08U, 0x02U, 0x00U,
+        0U, 0U, 0U, 0U, 0U, 0U,
+        0U, 0U, 0U, 0U, 0U, 0U,
+        0U, 0U, 0U, 0U};
+    const ::CFDataRef address_data = ::CFDataCreate(
+        ::kCFAllocatorDefault, assigned_addresses,
+        static_cast<::CFIndex>(sizeof(assigned_addresses)));
+    expect(address_data != nullptr,
+           "A synthetic assigned-addresses array must allocate");
+    if (address_data != nullptr) {
+        const auto first =
+            backend::optional_assigned_address_phys_hi(address_data);
+        expect(first.has_value() && first->has_value() &&
+                   **first == 0x00020800U,
+               "A multi-cell assigned-addresses value must expose phys.hi");
+        expect(backend::optional_cfdata_u32(address_data).error() ==
+                   syscape::errc::malformed_data,
+               "Scalar PCI properties must still reject extra cells");
+        ::CFRelease(address_data);
+    }
+
+    const ::UInt8 truncated_addresses[5] = {0U, 0U, 0U, 0U, 0U};
+    const ::CFDataRef truncated_data = ::CFDataCreate(
+        ::kCFAllocatorDefault, truncated_addresses,
+        static_cast<::CFIndex>(sizeof(truncated_addresses)));
+    expect(truncated_data != nullptr,
+           "A synthetic truncated assigned-addresses array must allocate");
+    if (truncated_data != nullptr) {
+        expect(backend::optional_assigned_address_phys_hi(truncated_data)
+                   .error() == syscape::errc::malformed_data,
+               "An incomplete assigned-addresses entry must fail");
+        ::CFRelease(truncated_data);
+    }
+
+    const ::CFDataRef empty_addresses = ::CFDataCreate(
+        ::kCFAllocatorDefault, nullptr, 0);
+    expect(empty_addresses != nullptr,
+           "An empty assigned-addresses array must allocate");
+    if (empty_addresses != nullptr) {
+        const auto empty =
+            backend::optional_assigned_address_phys_hi(empty_addresses);
+        expect(empty.has_value() && !empty->has_value(),
+               "An empty assigned-addresses array must leave BDF unknown");
+        ::CFRelease(empty_addresses);
+    }
+
+    std::int64_t number_value = 0x1234;
+    const ::CFNumberRef number = ::CFNumberCreate(
+        ::kCFAllocatorDefault, ::kCFNumberSInt64Type, &number_value);
+    expect(number != nullptr, "A synthetic USB number must allocate");
+    if (number != nullptr) {
+        const auto value = backend::optional_cfnumber_u64(number);
+        expect(value.has_value() && value->has_value() && **value == 0x1234U,
+               "USB CFNumber values must preserve their unsigned magnitude");
+        expect(backend::optional_cfdata_u32(number).error() ==
+                   syscape::errc::malformed_data,
+               "A PCI data property with the wrong CF type must fail");
+        ::CFRelease(number);
+    }
+}
+
 /// Exercises every public query against the running system. The checks stay
 /// tolerant about which facts this particular machine records, because the
 /// interface documents per-key absence, but they require every outcome to be
@@ -120,6 +198,7 @@ int main() {
     test_fact_interpretation();
     test_device_tree_data_conversion();
     test_property_type_contracts();
+    test_inventory_property_conversion();
 
     check_live("system_manufacturer", syscape::hardware::system_manufacturer);
     check_live("system_product_name", syscape::hardware::system_product_name);
@@ -137,6 +216,9 @@ int main() {
     check_live("chassis_form_factor",
                syscape::hardware::chassis_form_factor);
     check_live("hardware_uuid", syscape::hardware::hardware_uuid);
+    check_live("pci_devices", syscape::hardware::pci_devices);
+    check_live("usb_devices", syscape::hardware::usb_devices);
+    check_live("memory_devices", syscape::hardware::memory_devices);
 
     return failures == 0 ? 0 : 1;
 }

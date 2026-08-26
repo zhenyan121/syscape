@@ -54,6 +54,18 @@ inline result<std::string> hardware_uuid() {
     return fail(errc::not_supported);
 }
 
+inline result<std::vector<::syscape::hardware::pci_device>> pci_devices() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<::syscape::hardware::usb_device>> usb_devices() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<::syscape::hardware::memory_device>> memory_devices() {
+    return fail(errc::not_supported);
+}
+
 } // namespace hardware_backend
 } // namespace detail
 } // namespace syscape

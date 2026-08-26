@@ -305,6 +305,8 @@ if(WIN32)
     target_link_libraries(odr PRIVATE ole32 uuid)
     target_link_libraries(header_camera PRIVATE setupapi)
     target_link_libraries(camera_windows PRIVATE setupapi)
+    target_link_libraries(header_hardware PRIVATE setupapi)
+    target_link_libraries(hardware_windows PRIVATE setupapi)
     # Targets that call GetPerformanceInfo follow its documented Windows
     # linkage contract (Kernel32.lib on Windows 7 or later SDKs, otherwise
     # Psapi.lib) without imposing it on unrelated Hosted Full consumers.
@@ -324,7 +326,7 @@ if(WIN32)
     target_link_libraries(header_user PRIVATE advapi32)
     target_link_libraries(user_windows PRIVATE advapi32)
     target_link_libraries(odr PRIVATE advapi32)
-    # Storage and camera enumeration use documented SetupAPI device interfaces.
+    # Storage, hardware, and camera enumeration use documented SetupAPI APIs.
     target_link_libraries(header_storage PRIVATE setupapi)
     target_link_libraries(storage_windows PRIVATE setupapi)
     target_link_libraries(odr PRIVATE setupapi)

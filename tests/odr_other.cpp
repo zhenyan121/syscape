@@ -236,8 +236,14 @@ bool other_hardware_backend_callable() {
         syscape::hardware::chassis_form_factor();
     const syscape::result<std::string> uuid =
         syscape::hardware::hardware_uuid();
+    const auto pci = syscape::hardware::pci_devices();
+    const auto usb = syscape::hardware::usb_devices();
+    const auto mem = syscape::hardware::memory_devices();
     static_cast<void>(chassis);
     static_cast<void>(uuid);
+    static_cast<void>(pci);
+    static_cast<void>(usb);
+    static_cast<void>(mem);
     return manufacturer.has_value() ||
            manufacturer.error() == std::errc::operation_not_supported;
 }

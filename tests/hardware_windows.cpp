@@ -516,6 +516,13 @@ void test_malformed_tables() {
            "An index beyond the recorded strings contradicts the "
            "specification's indexing");
 
+    const std::vector<std::uint8_t> empty_string_set_index = make_table({
+        {system_structure(1U, 0U, 0U), {}},
+    });
+    expect(!backend::parse_smbios_table(empty_string_set_index.data(),
+                                        empty_string_set_index.size()),
+           "A nonzero index into an empty string set is malformed");
+
     const std::vector<std::uint8_t> no_end_marker = make_table({
         {system_structure(1U, 2U, 0U), {"Vendor", "Product"}},
     }, false);
@@ -551,6 +558,141 @@ void test_malformed_tables() {
            "Multiple boards require their containment fields");
 }
 
+void test_smbios_memory_devices_synthetic() {
+    namespace common = syscape::detail::hardware_common;
+
+    // Build Type 17 record
+    std::vector<std::uint8_t> dimm_fmt(36, 0);
+    dimm_fmt[0] = 17U;
+    dimm_fmt[1] = 36U;
+    dimm_fmt[0x0C] = 0xFFU;
+    dimm_fmt[0x0D] = 0x7FU; // Extended Size field is used
+    dimm_fmt[0x0E] = 0x0AU; // DIMM
+    dimm_fmt[0x10] = 1U;    // "DIMM 1"
+    dimm_fmt[0x11] = 2U;    // "BANK 1"
+    dimm_fmt[0x12] = 0x1AU; // DDR4
+    dimm_fmt[0x15] = 0x00U;
+    dimm_fmt[0x16] = 0x0EU; // 3584 MT/s
+    dimm_fmt[0x17] = 3U;    // "Samsung"
+    dimm_fmt[0x18] = 4U;    // "99887766"
+    dimm_fmt[0x1A] = 5U;    // "M378A4G43MB1"
+    dimm_fmt[0x1C] = 0x00U;
+    dimm_fmt[0x1D] = 0x80U; // 0x00008000 MB = 32 GB
+
+    const std::vector<std::uint8_t> table = make_table({
+        {dimm_fmt, {"DIMM 1", "BANK 1", "Samsung", "99887766", "M378A4G43MB1"}}
+    });
+
+    const auto parsed = common::parse_smbios_memory_devices(
+        table.data(), table.size(),
+        syscape::hardware::memory_speed_unit::megatransfers_per_second);
+    expect(parsed.has_value(), "Synthetic SMBIOS Type 17 record must parse");
+    if (parsed && !parsed->empty()) {
+        expect((*parsed)[0].locator == "DIMM 1", "Locator must be DIMM 1");
+        expect((*parsed)[0].bank_locator == "BANK 1", "Bank locator must be BANK 1");
+        expect((*parsed)[0].size_bytes.has_value() && *(*parsed)[0].size_bytes == 32768ULL * 1024ULL * 1024ULL,
+               "Size must be 32 GB");
+        expect((*parsed)[0].state == syscape::hardware::memory_device_state::installed,
+               "The memory device must be marked installed");
+        expect((*parsed)[0].form_factor == syscape::hardware::memory_form_factor::dimm, "Form factor must be DIMM");
+        expect((*parsed)[0].type == syscape::hardware::memory_type::ddr4, "Type must be DDR4");
+        expect((*parsed)[0].speed.has_value() && (*parsed)[0].speed->value == 3584U &&
+                   (*parsed)[0].speed->unit ==
+                       syscape::hardware::memory_speed_unit::megatransfers_per_second,
+               "Speed must be 3584 MT/s");
+        expect((*parsed)[0].manufacturer == "Samsung", "Manufacturer must be Samsung");
+        expect((*parsed)[0].serial_number == "99887766", "Serial number must match");
+        expect((*parsed)[0].part_number == "M378A4G43MB1", "Part number must match");
+    }
+
+    std::vector<std::uint8_t> empty_strings_fmt(0x15U, 0U);
+    empty_strings_fmt[0] = 17U;
+    empty_strings_fmt[0x10U] = 1U;
+    const std::vector<std::uint8_t> empty_strings = make_table({
+        {empty_strings_fmt, {}}
+    });
+    expect(common::parse_smbios_memory_devices(
+               empty_strings.data(), empty_strings.size()).error() ==
+               syscape::errc::malformed_data,
+           "A Type 17 index into an empty string set must fail");
+}
+
+void test_hex_wide_parser() {
+    namespace backend = syscape::detail::hardware_backend;
+
+    expect(backend::parse_hex_wide(L"10DE") == 0x10DEU, "10DE must parse as 0x10DE");
+    expect(backend::parse_hex_wide(L"0000") == 0x0000U, "0000 must parse as 0");
+    expect(backend::parse_hex_wide(L"FFFF") == 0xFFFFU, "FFFF must parse as 0xFFFF");
+    expect(!backend::parse_hex_wide(L"10DG").has_value(), "Invalid hex digit must fail");
+    expect(!backend::parse_hex_wide(L"").has_value(), "Empty string must fail");
+}
+
+void test_pci_hardware_id_parser() {
+    namespace backend = syscape::detail::hardware_backend;
+
+    syscape::hardware::pci_device root_node;
+    const auto root = backend::parse_pci_hardware_ids(
+        {L"PCI\\CC_060000"}, root_node);
+    expect(root.has_value() && !*root,
+           "A PCI enumerator node without VEN_/DEV_ must be skipped");
+
+    syscape::hardware::pci_device endpoint;
+    const auto parsed = backend::parse_pci_hardware_ids(
+        {L"PCI\\VEN_10DE&DEV_2684&SUBSYS_16B310DE&CC_030000"}, endpoint);
+    expect(parsed.has_value() && *parsed,
+           "A terminal PCI hardware ID must be representable");
+    expect(endpoint.vendor_id == 0x10DEU && endpoint.device_id == 0x2684U,
+           "PCI endpoint vendor and device IDs must parse");
+    expect(endpoint.device_class == syscape::hardware::pci_class::display_controller,
+           "PCI endpoint class must parse");
+}
+
+void test_usb_id_parsers() {
+    namespace backend = syscape::detail::hardware_backend;
+
+    syscape::hardware::usb_device interface_device;
+    const auto interface = backend::parse_usb_hardware_ids(
+        {L"USB\\VID_1234&PID_5678&mi_02"}, interface_device);
+    expect(interface.has_value() && !*interface,
+           "A composite USB interface PDO must be skipped");
+
+    syscape::hardware::usb_device physical_device;
+    const auto physical = backend::parse_usb_hardware_ids(
+        {L"USB\\VID_1234&PID_5678&REV_0201"}, physical_device);
+    expect(physical.has_value() && *physical,
+           "A physical USB device ID must be representable");
+    expect(physical_device.vendor_id == 0x1234U &&
+               physical_device.product_id == 0x5678U &&
+               physical_device.bcd_device == 0x0201U,
+           "Physical USB identifiers must parse");
+    expect(!physical_device.manufacturer && !physical_device.product,
+           "PnP identifiers must not fabricate USB string descriptors");
+
+    const auto compatible = backend::parse_usb_compatible_ids(
+        {L"USB\\CLASS_ef&SUBCLASS_02&PROT_01",
+         L"USB\\Class_ef&SubClass_02", L"USB\\class_ef"},
+        physical_device);
+    expect(compatible.has_value() &&
+               physical_device.device_class == 0xEFU &&
+               physical_device.device_subclass == 0x02U &&
+               physical_device.device_protocol == 0x01U,
+           "USB class codes must come from compatible IDs");
+}
+
+void test_live_windows_queries() {
+    const auto pci = syscape::hardware::pci_devices();
+    expect(pci.has_value() || pci.error() == syscape::errc::not_supported,
+           "pci_devices() must succeed or report not_supported");
+
+    const auto usb = syscape::hardware::usb_devices();
+    expect(usb.has_value() || usb.error() == syscape::errc::not_supported,
+           "usb_devices() must succeed or report not_supported");
+
+    const auto mem = syscape::hardware::memory_devices();
+    expect(mem.has_value() || mem.error() == syscape::errc::not_supported,
+           "memory_devices() must succeed or report not_supported");
+}
+
 } // namespace
 
 int main() {
@@ -564,5 +706,10 @@ int main() {
     test_absent_and_empty_strings();
     test_missing_uuid_field();
     test_malformed_tables();
+    test_smbios_memory_devices_synthetic();
+    test_hex_wide_parser();
+    test_pci_hardware_id_parser();
+    test_usb_id_parsers();
+    test_live_windows_queries();
     return failures == 0 ? 0 : 1;
 }

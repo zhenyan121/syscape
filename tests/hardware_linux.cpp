@@ -422,6 +422,353 @@ void run_live_checks() {
            "Repeated chassis queries must agree");
 }
 
+void test_pci_bdf_parser() {
+    namespace backend = syscape::detail::hardware_backend;
+
+    std::uint16_t domain = 0;
+    std::uint8_t bus = 0;
+    std::uint8_t device = 0;
+    std::uint8_t function = 0;
+
+    expect(backend::parse_pci_bdf("0000:00:00.0", domain, bus, device, function),
+           "Standard PCI BDF must parse");
+    expect(domain == 0 && bus == 0 && device == 0 && function == 0,
+           "Parsed values for 0000:00:00.0 must match");
+
+    expect(backend::parse_pci_bdf("0001:0a:1f.7", domain, bus, device, function),
+           "Hex values in PCI BDF must parse");
+    expect(domain == 1 && bus == 0x0A && device == 0x1F && function == 7,
+           "Parsed values for 0001:0a:1f.7 must match");
+
+    expect(!backend::parse_pci_bdf("0000:00:00", domain, bus, device, function),
+           "Missing function must fail");
+    expect(!backend::parse_pci_bdf("0000:00.0", domain, bus, device, function),
+           "Missing device colon must fail");
+    expect(!backend::parse_pci_bdf("gggg:00:00.0", domain, bus, device, function),
+           "Non-hex domain must fail");
+    expect(!backend::parse_pci_bdf("0000:00:00.g", domain, bus, device, function),
+           "Non-hex function must fail");
+    expect(!backend::parse_pci_bdf("0000:00:20.0", domain, bus, device, function),
+           "PCI device numbers above 31 must fail");
+    expect(!backend::parse_pci_bdf("0000:00:00.8", domain, bus, device, function),
+           "PCI function numbers above 7 must fail");
+}
+
+void test_usb_attribute_parsers() {
+    namespace backend = syscape::detail::hardware_backend;
+
+    const auto low_speed = backend::parse_usb_speed_mbps("1.5\n");
+    expect(low_speed.has_value() && low_speed->has_value() &&
+               **low_speed == 1.5,
+           "USB low-speed signaling rate must preserve 1.5 Mbps");
+    const auto high_speed = backend::parse_usb_speed_mbps("10000");
+    expect(high_speed.has_value() && high_speed->has_value() &&
+               **high_speed == 10000.0,
+           "Integral USB signaling rates must parse");
+    const auto unknown_speed = backend::parse_usb_speed_mbps("unknown\n");
+    expect(unknown_speed.has_value() && !unknown_speed->has_value(),
+           "An unnegotiated USB speed must remain unknown");
+    expect(!backend::parse_usb_speed_mbps("1.5junk").has_value(),
+           "USB speed trailing garbage must fail");
+
+    const auto nested_port = backend::parse_usb_port("1.2.7\n");
+    expect(nested_port.has_value() && nested_port->has_value() &&
+               **nested_port == 7U,
+           "Nested USB devpath must expose its immediate upstream port");
+    const auto root_port = backend::parse_usb_port("0\n");
+    expect(root_port.has_value() && !root_port->has_value(),
+           "A root hub devpath must not fabricate an upstream port");
+    expect(!backend::parse_usb_port("1.bad").has_value(),
+           "Malformed USB devpath must fail");
+}
+
+void test_pci_class_classifier() {
+    namespace common = syscape::detail::hardware_common;
+    using pci_class = syscape::hardware::pci_class;
+
+    expect(common::classify_pci_class(0x01U) == pci_class::mass_storage,
+           "0x01 must map to mass_storage");
+    expect(common::classify_pci_class(0x02U) == pci_class::network_controller,
+           "0x02 must map to network_controller");
+    expect(common::classify_pci_class(0x03U) == pci_class::display_controller,
+           "0x03 must map to display_controller");
+    expect(common::classify_pci_class(0x04U) == pci_class::multimedia_controller,
+           "0x04 must map to multimedia_controller");
+    expect(common::classify_pci_class(0x06U) == pci_class::bridge,
+           "0x06 must map to bridge");
+    expect(common::classify_pci_class(0x0CU) == pci_class::serial_bus_controller,
+           "0x0C must map to serial_bus_controller");
+    expect(common::classify_pci_class(0x13U) == pci_class::non_essential_instrumentation,
+           "0x13 must map to non_essential_instrumentation");
+    expect(common::classify_pci_class(0xFFU) == pci_class::unknown,
+           "Unrecognized class code must map to unknown");
+}
+
+void test_memory_classifiers() {
+    namespace common = syscape::detail::hardware_common;
+    using form_factor = syscape::hardware::memory_form_factor;
+    using mem_type = syscape::hardware::memory_type;
+
+    expect(common::classify_memory_form_factor(0x09U) == form_factor::proprietary,
+           "0x09 must map to proprietary");
+    expect(common::classify_memory_form_factor(0x0AU) == form_factor::dimm,
+           "0x0A must map to dimm");
+    expect(common::classify_memory_form_factor(0x0EU) == form_factor::sodimm,
+           "0x0E must map to sodimm");
+    expect(common::classify_memory_form_factor(0x12U) == form_factor::camm,
+           "0x12 must map to camm");
+    expect(common::classify_memory_form_factor(0xFFU) == form_factor::unknown,
+           "0xFF form factor must map to unknown");
+
+    expect(common::classify_memory_type(0x12U) == mem_type::ddr,
+           "0x12 must map to ddr");
+    expect(common::classify_memory_type(0x13U) == mem_type::ddr2,
+           "0x13 must map to ddr2");
+    expect(common::classify_memory_type(0x18U) == mem_type::ddr3,
+           "0x18 must map to ddr3");
+    expect(common::classify_memory_type(0x1AU) == mem_type::ddr4,
+           "0x1A must map to ddr4");
+    expect(common::classify_memory_type(0x22U) == mem_type::ddr5,
+           "0x22 must map to ddr5");
+    expect(common::classify_memory_type(0x23U) == mem_type::lpddr5,
+           "0x23 must map to lpddr5");
+    expect(common::classify_memory_type(0xFFU) == mem_type::unknown,
+           "0xFF memory type must map to unknown");
+}
+
+void test_smbios_type17_synthetic_parser() {
+    namespace common = syscape::detail::hardware_common;
+
+    const std::uint8_t little16[2] = {0x00U, 0x40U};
+    const std::uint8_t little32[4] = {0x00U, 0x80U, 0x00U, 0x00U};
+    expect(common::read_le_u16(little16) == 0x4000U,
+           "SMBIOS 16-bit fields must decode independently of host byte order");
+    expect(common::read_le_u32(little32) == 0x00008000U,
+           "SMBIOS 32-bit fields must decode independently of host byte order");
+
+    struct synthetic_structure {
+        std::vector<std::uint8_t> formatted;
+        std::vector<std::string> strings;
+    };
+
+    const auto build_table = [](const std::vector<synthetic_structure>& structures) {
+        std::vector<std::uint8_t> blob;
+        for (const auto& s : structures) {
+            std::vector<std::uint8_t> fmt = s.formatted;
+            fmt[1] = static_cast<std::uint8_t>(fmt.size());
+            blob.insert(blob.end(), fmt.begin(), fmt.end());
+            for (const auto& str : s.strings) {
+                blob.insert(blob.end(), str.begin(), str.end());
+                blob.push_back(0U);
+            }
+            if (s.strings.empty()) { blob.push_back(0U); }
+            blob.push_back(0U);
+        }
+        blob.push_back(127U);
+        blob.push_back(4U);
+        blob.push_back(0xFEU);
+        blob.push_back(0xFFU);
+        blob.push_back(0U);
+        blob.push_back(0U);
+        return blob;
+    };
+
+    // Slot 1: 16 GB DDR4-3200 DIMM
+    std::vector<std::uint8_t> dimm1_fmt(36, 0);
+    dimm1_fmt[0] = 17U; // Type 17
+    dimm1_fmt[1] = 36U; // Length
+    dimm1_fmt[0x0C] = 0x00U;
+    dimm1_fmt[0x0D] = 0x40U; // 0x4000 = 16384 MB (16 GB)
+    dimm1_fmt[0x0E] = 0x0AU; // DIMM
+    dimm1_fmt[0x10] = 1U;    // Locator ("DIMM 0")
+    dimm1_fmt[0x11] = 2U;    // Bank ("BANK 0")
+    dimm1_fmt[0x12] = 0x1AU; // DDR4
+    dimm1_fmt[0x15] = 0x80U;
+    dimm1_fmt[0x16] = 0x0CU; // 3200 MT/s
+    dimm1_fmt[0x17] = 3U;    // Manufacturer ("Crucial")
+    dimm1_fmt[0x18] = 4U;    // Serial Number ("12345678")
+    dimm1_fmt[0x1A] = 5U;    // Part Number ("CT16G4")
+    dimm1_fmt[0x20] = 0x80U;
+    dimm1_fmt[0x21] = 0x0CU; // Configured speed 3200 MT/s
+
+    // Slot 2: Empty slot
+    std::vector<std::uint8_t> dimm2_fmt(36, 0);
+    dimm2_fmt[0] = 17U;
+    dimm2_fmt[1] = 36U;
+    dimm2_fmt[0x0C] = 0x00U;
+    dimm2_fmt[0x0D] = 0x00U; // Size 0 -> empty socket
+    dimm2_fmt[0x0E] = 0x0AU; // DIMM
+    dimm2_fmt[0x10] = 1U;    // Locator ("DIMM 1")
+    dimm2_fmt[0x11] = 2U;    // Bank ("BANK 1")
+    dimm2_fmt[0x12] = 0x02U; // Unknown type
+
+    // Slot 3: 64 GB DDR5 Extended Size
+    std::vector<std::uint8_t> dimm3_fmt(36, 0);
+    dimm3_fmt[0] = 17U;
+    dimm3_fmt[1] = 36U;
+    dimm3_fmt[0x0C] = 0xFFU;
+    dimm3_fmt[0x0D] = 0x7FU; // 0x7FFF -> Extended Size used
+    dimm3_fmt[0x0E] = 0x0AU; // DIMM
+    dimm3_fmt[0x10] = 1U;    // Locator ("DIMM 2")
+    dimm3_fmt[0x11] = 2U;    // Bank ("BANK 2")
+    dimm3_fmt[0x12] = 0x22U; // DDR5
+    dimm3_fmt[0x15] = 0xC0U;
+    dimm3_fmt[0x16] = 0x12U; // 4800 MT/s (0x12C0)
+    // Extended size at 0x1C (4 bytes): 65536 MB (64 GB) -> 0x00010000
+    dimm3_fmt[0x1C] = 0x00U;
+    dimm3_fmt[0x1D] = 0x00U;
+    dimm3_fmt[0x1E] = 0x01U;
+    dimm3_fmt[0x1F] = 0x00U;
+
+    // Slot 4: Installed module whose capacity is unknown.
+    std::vector<std::uint8_t> dimm4_fmt(36, 0);
+    dimm4_fmt[0] = 17U;
+    dimm4_fmt[0x0C] = 0xFFU;
+    dimm4_fmt[0x0D] = 0xFFU;
+    dimm4_fmt[0x10] = 1U;
+
+    const std::vector<std::uint8_t> table = build_table({
+        {dimm1_fmt, {"DIMM 0", "BANK 0", "Crucial", "12345678", "CT16G4"}},
+        {dimm2_fmt, {"DIMM 1", "BANK 1"}},
+        {dimm3_fmt, {"DIMM 2", "BANK 2"}},
+        {dimm4_fmt, {"DIMM 3"}}
+    });
+
+    const auto parsed = common::parse_smbios_memory_devices(table.data(), table.size());
+    expect(parsed.has_value(), "Synthetic SMBIOS Type 17 table must parse successfully");
+    if (parsed) {
+        expect(parsed->size() == 4U, "Table must contain 4 memory devices");
+        // DIMM 0
+        expect((*parsed)[0].locator == "DIMM 0", "DIMM 0 locator must match");
+        expect((*parsed)[0].bank_locator == "BANK 0", "DIMM 0 bank must match");
+        expect((*parsed)[0].size_bytes.has_value() && *(*parsed)[0].size_bytes == 16384ULL * 1024ULL * 1024ULL,
+               "DIMM 0 size must be 16 GB");
+        expect((*parsed)[0].state == syscape::hardware::memory_device_state::installed,
+               "DIMM 0 must be marked installed");
+        expect((*parsed)[0].form_factor == syscape::hardware::memory_form_factor::dimm, "DIMM 0 form factor must match");
+        expect((*parsed)[0].type == syscape::hardware::memory_type::ddr4, "DIMM 0 type must be DDR4");
+        expect((*parsed)[0].speed.has_value() && (*parsed)[0].speed->value == 3200U &&
+                   (*parsed)[0].speed->unit == syscape::hardware::memory_speed_unit::unknown,
+               "DIMM 0 speed must preserve 3200 with an unknown unit");
+        expect((*parsed)[0].configured_speed.has_value() &&
+                   (*parsed)[0].configured_speed->value == 3200U,
+               "DIMM 0 configured speed must preserve 3200");
+        expect((*parsed)[0].manufacturer == "Crucial", "DIMM 0 manufacturer must match");
+        expect((*parsed)[0].serial_number == "12345678", "DIMM 0 serial number must match");
+        expect((*parsed)[0].part_number == "CT16G4", "DIMM 0 part number must match");
+
+        // DIMM 1 (empty slot)
+        expect((*parsed)[1].locator == "DIMM 1", "DIMM 1 locator must match");
+        expect(!(*parsed)[1].size_bytes.has_value(), "Empty slot must have nullopt size");
+        expect((*parsed)[1].state == syscape::hardware::memory_device_state::not_installed,
+               "Empty slot must be distinguished from unknown capacity");
+        expect((*parsed)[1].form_factor == syscape::hardware::memory_form_factor::dimm, "DIMM 1 form factor must match");
+
+        // DIMM 2 (extended size 64 GB)
+        expect((*parsed)[2].locator == "DIMM 2", "DIMM 2 locator must match");
+        expect((*parsed)[2].size_bytes.has_value() && *(*parsed)[2].size_bytes == 65536ULL * 1024ULL * 1024ULL,
+               "DIMM 2 size must be 64 GB");
+        expect((*parsed)[2].type == syscape::hardware::memory_type::ddr5, "DIMM 2 type must be DDR5");
+        expect((*parsed)[2].speed.has_value() && (*parsed)[2].speed->value == 4800U,
+               "DIMM 2 speed must preserve 4800");
+
+        expect((*parsed)[3].state == syscape::hardware::memory_device_state::installed &&
+                   !(*parsed)[3].size_bytes.has_value(),
+               "Unknown installed capacity must not be confused with an empty slot");
+    }
+
+    std::vector<std::uint8_t> missing_end = table;
+    missing_end.resize(missing_end.size() - 6U);
+    expect(!common::parse_smbios_memory_devices(
+                missing_end.data(), missing_end.size()).has_value(),
+           "A memory table without the SMBIOS end marker must fail");
+
+    std::vector<std::uint8_t> trailing_garbage = table;
+    trailing_garbage.push_back(0xA5U);
+    expect(!common::parse_smbios_memory_devices(
+                trailing_garbage.data(), trailing_garbage.size()).has_value(),
+           "Nonzero data after the SMBIOS end marker must fail");
+
+    std::vector<std::uint8_t> short_extended_fmt(0x15U, 0U);
+    short_extended_fmt[0] = 17U;
+    short_extended_fmt[0x0C] = 0xFFU;
+    short_extended_fmt[0x0D] = 0x7FU;
+    short_extended_fmt[0x10] = 1U;
+    const auto short_extended = build_table({
+        {short_extended_fmt, {"DIMM short"}}
+    });
+    expect(!common::parse_smbios_memory_devices(
+                short_extended.data(), short_extended.size()).has_value(),
+           "The Extended Size sentinel without its field must fail");
+
+    std::vector<std::uint8_t> reserved_extended_fmt(0x20U, 0U);
+    reserved_extended_fmt[0] = 17U;
+    reserved_extended_fmt[0x0C] = 0xFFU;
+    reserved_extended_fmt[0x0D] = 0x7FU;
+    reserved_extended_fmt[0x10] = 1U;
+    reserved_extended_fmt[0x1FU] = 0x80U;
+    const auto reserved_extended = build_table({
+        {reserved_extended_fmt, {"DIMM reserved"}}
+    });
+    expect(!common::parse_smbios_memory_devices(
+                reserved_extended.data(), reserved_extended.size()).has_value(),
+           "A set reserved bit in Extended Size must fail");
+
+    std::vector<std::uint8_t> empty_strings_fmt(0x15U, 0U);
+    empty_strings_fmt[0] = 17U;
+    empty_strings_fmt[0x10U] = 1U;
+    const auto empty_strings = build_table({
+        {empty_strings_fmt, {}}
+    });
+    expect(common::parse_smbios_memory_devices(
+               empty_strings.data(), empty_strings.size()).error() ==
+               syscape::errc::malformed_data,
+           "A nonzero Type 17 index into an empty string set must fail");
+}
+
+void test_live_device_inventory() {
+    // PCI devices
+    const auto pci_res = syscape::hardware::pci_devices();
+    expect(pci_res.has_value() || pci_res.error() == syscape::errc::not_supported,
+           "pci_devices() must succeed or report not_supported");
+    if (pci_res) {
+        expect(!pci_res->empty(), "A Linux system should expose observable PCI devices");
+        for (std::size_t i = 1; i < pci_res->size(); ++i) {
+            expect(!syscape::detail::hardware_common::compare_pci_devices((*pci_res)[i], (*pci_res)[i - 1]),
+                   "PCI devices must be sorted deterministically by BDF");
+        }
+        for (const auto& dev : *pci_res) {
+            expect(dev.vendor_id != 0U, "PCI device vendor ID must be nonzero");
+            expect(dev.device_id != 0U, "PCI device ID must be nonzero");
+        }
+    }
+
+    // USB devices
+    const auto usb_res = syscape::hardware::usb_devices();
+    expect(usb_res.has_value() || usb_res.error() == syscape::errc::not_supported,
+           "usb_devices() must succeed or report not_supported");
+    if (usb_res) {
+        for (std::size_t i = 1; i < usb_res->size(); ++i) {
+            expect(!syscape::detail::hardware_common::compare_usb_devices((*usb_res)[i], (*usb_res)[i - 1]),
+                   "USB devices must be sorted deterministically");
+        }
+    }
+
+    // Memory devices
+    const auto mem_res = syscape::hardware::memory_devices();
+    expect(mem_res.has_value() ||
+           mem_res.error() == syscape::errc::not_supported ||
+           mem_res.error() == std::error_code(EACCES, std::generic_category()) ||
+           mem_res.error() == std::error_code(EPERM, std::generic_category()),
+           "memory_devices() must succeed, report not_supported, or preserve permission denied");
+    if (mem_res) {
+        for (std::size_t i = 1; i < mem_res->size(); ++i) {
+            expect(!syscape::detail::hardware_common::compare_memory_devices((*mem_res)[i], (*mem_res)[i - 1]),
+                   "Memory devices must be sorted deterministically by locator");
+        }
+    }
+}
+
 } // namespace
 
 int main() {
@@ -430,6 +777,12 @@ int main() {
     test_chassis_classifier();
     test_uuid_renderer();
     test_uuid_boundary_validator();
+    test_pci_bdf_parser();
+    test_usb_attribute_parsers();
+    test_pci_class_classifier();
+    test_memory_classifiers();
+    test_smbios_type17_synthetic_parser();
     run_live_checks();
+    test_live_device_inventory();
     return failures == 0 ? 0 : 1;
 }

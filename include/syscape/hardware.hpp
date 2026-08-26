@@ -2,38 +2,26 @@
 #define SYSCAPE_HARDWARE_HPP
 
 /// @file
-/// @brief Hosted hardware identity, chassis, firmware, and machine-UUID
-/// queries.
+/// @brief Hosted hardware identity, chassis, firmware, machine-UUID, and
+/// device inventory queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note This first hardware slice exposes the platform-recorded identity of
-/// the system, its motherboard, and its firmware, the chassis form factor,
-/// and the firmware-recorded hardware UUID. A documented device inventory
-/// remains a later slice, and serial numbers stay outside this slice.
-/// @note Linux implements the queries through the kernel's documented sysfs
-/// DMI-id interface under /sys/class/dmi/id. The kernel documents that
-/// interface in its testing ABI classification rather than its stable ABI
-/// classification, so future kernels may evolve the rendered attributes.
-/// Machines whose firmware provides no DMI records expose no such directory,
-/// and every query then reports not_supported. Native failures while probing
-/// that directory are preserved. The product_uuid attribute is readable by
-/// the privileged account only, so unprivileged callers receive the native
-/// permission failure instead of an absent value.
-/// @note Windows implements the queries through the documented
-/// GetSystemFirmwareTable('RSMB') interface and parses the returned raw
-/// SMBIOS structures according to the public DMTF SMBIOS specification.
-/// Duplicate singleton system or BIOS records are malformed. Multi-board
-/// machines use the hosting-board and board-type fields to identify the
-/// motherboard, whose chassis handle selects the system enclosure; an
-/// ambiguous topology reports not_supported instead of guessing by record
-/// order. The call lives in Kernel32 and needs no additional import library.
-/// UUID fields use the version-dependent byte ordering recorded by the raw
-/// table header, including the SMBIOS 2.6 little-endian clarification.
-/// @note macOS implements the queries through the documented IOKit registry
-/// properties of the platform-expert device, enforcing their documented
-/// CFData or CFString representation at that boundary. Darwin exposes no
-/// publicly documented firmware-version or chassis-classification source
-/// reachable there, so those queries report not_supported. Callers must link
-/// the IOKit and CoreFoundation frameworks.
+/// @note This module exposes the platform-recorded identity of the system,
+/// its motherboard, and its firmware, the chassis form factor, the
+/// firmware-recorded hardware UUID, as well as hardware device inventory:
+/// PCI/PCIe devices, USB bus devices, and physical memory slots/modules.
+/// @note Linux implements identity queries through sysfs DMI-id under
+/// /sys/class/dmi/id. PCI devices are enumerated by scanning
+/// /sys/bus/pci/devices/. USB devices are enumerated by scanning
+/// /sys/bus/usb/devices/. Physical memory modules are parsed from the raw
+/// SMBIOS structure table at /sys/firmware/dmi/tables/DMI when readable.
+/// @note Windows implements identity and memory module queries through
+/// GetSystemFirmwareTable('RSMB') parsing DMTF SMBIOS tables. PCI and USB
+/// devices are enumerated via SetupAPI device discovery and property queries.
+/// Callers using those inventory queries must link Setupapi.lib.
+/// @note macOS implements identity and device queries via IOKit
+/// registry properties (IOPlatformExpertDevice, IOPCIDevice, IOUSBDevice).
+/// Physical memory-module enumeration has no verified public source there and
+/// reports not_supported. Callers must link IOKit and CoreFoundation.
 /// @note hardware_uuid() exposes a machine identifier. The query is explicit,
 /// preserves permission failures, performs no logging, persistence, or
 /// network access, and reports the SMBIOS-documented absence renderings as
@@ -48,7 +36,9 @@
 #endif
 
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace syscape {
 namespace hardware {
@@ -103,6 +93,206 @@ enum class form_factor : std::uint8_t {
     embedded_pc,
     mini_pc,
     stick_pc
+};
+
+/// PCI device base class classification according to PCI-SIG specification.
+enum class pci_class : std::uint8_t {
+    unknown,
+    unclassified,
+    mass_storage,
+    network_controller,
+    display_controller,
+    multimedia_controller,
+    memory_controller,
+    bridge,
+    communication_controller,
+    generic_system_peripheral,
+    input_device_controller,
+    docking_station,
+    processor,
+    serial_bus_controller,
+    wireless_controller,
+    intelligent_controller,
+    satellite_communication,
+    encryption_controller,
+    signal_processing_controller,
+    processing_accelerator,
+    non_essential_instrumentation
+};
+
+/// Physical memory module form factor according to SMBIOS Type 17 specification.
+enum class memory_form_factor : std::uint8_t {
+    unknown,
+    other,
+    simm,
+    sip,
+    chip,
+    dip,
+    zip,
+    soj,
+    proprietary,
+    dimm,
+    tsop,
+    row_of_chips,
+    rimm,
+    sodimm,
+    srimm,
+    fb_dimm,
+    die,
+    camm
+};
+
+/// Memory technology and standard according to SMBIOS Type 17 specification.
+enum class memory_type : std::uint8_t {
+    unknown,
+    other,
+    dram,
+    edram,
+    vram,
+    sram,
+    ram,
+    rom,
+    flash,
+    eeprom,
+    feprom,
+    eprom,
+    cdram,
+    three_d_ram,
+    sdram,
+    sgram,
+    rdram,
+    ddr,
+    ddr2,
+    ddr2_fb_dimm,
+    ddr3,
+    fbd2,
+    ddr4,
+    lpddr,
+    lpddr2,
+    lpddr3,
+    lpddr4,
+    logical_non_volatile,
+    hbm,
+    hbm2,
+    ddr5,
+    lpddr5,
+    hbm3
+};
+
+/// Installation state recorded for one physical memory socket/device.
+enum class memory_device_state : std::uint8_t {
+    /// Firmware does not identify whether a module is installed.
+    unknown,
+    /// The physical socket is not populated.
+    not_installed,
+    /// A memory device is installed, although its capacity can remain unknown.
+    installed
+};
+
+/// Unit assigned by the SMBIOS revision to a recorded memory speed value.
+enum class memory_speed_unit : std::uint8_t {
+    /// The table revision is unavailable, so MHz and MT/s cannot be separated.
+    unknown,
+    /// Megahertz, as specified through SMBIOS 3.0.
+    megahertz,
+    /// Megatransfers per second, as specified by SMBIOS 3.1 and later.
+    megatransfers_per_second
+};
+
+/// One firmware-recorded memory speed together with its exact unit.
+struct memory_speed {
+    /// Numeric speed in the accompanying unit.
+    std::uint32_t value{0U};
+    /// Unit determined from the SMBIOS table revision.
+    memory_speed_unit unit{memory_speed_unit::unknown};
+};
+
+/// PCI/PCIe device description.
+struct pci_device {
+    /// PCI domain / segment number, if the backend exposes it.
+    std::optional<std::uint16_t> domain{};
+    /// PCI bus number, if the backend exposes it.
+    std::optional<std::uint8_t> bus{};
+    /// PCI device number on the bus, if the backend exposes it.
+    std::optional<std::uint8_t> device{};
+    /// PCI function number on the device, if the backend exposes it.
+    std::optional<std::uint8_t> function{};
+    /// PCI 16-bit vendor identifier assigned by PCI-SIG.
+    std::uint16_t vendor_id{0};
+    /// PCI 16-bit device identifier assigned by the vendor.
+    std::uint16_t device_id{0};
+    /// Optional PCI subsystem vendor identifier.
+    std::optional<std::uint16_t> subsystem_vendor_id{};
+    /// Optional PCI subsystem device identifier.
+    std::optional<std::uint16_t> subsystem_device_id{};
+    /// PCI base class code, if exposed (e.g. 0x03 for display controller).
+    std::optional<std::uint8_t> class_code{};
+    /// PCI subclass code, if exposed (e.g. 0x00 for VGA-compatible).
+    std::optional<std::uint8_t> subclass_code{};
+    /// PCI programming interface register code, if exposed.
+    std::optional<std::uint8_t> programming_interface{};
+    /// Portable PCI base class classification.
+    pci_class device_class{pci_class::unknown};
+    /// Bound kernel driver or service name, if bound.
+    std::optional<std::string> driver{};
+    /// Physical or ACPI slot identifier string, if exposed.
+    std::optional<std::string> slot_name{};
+};
+
+/// USB bus device description.
+struct usb_device {
+    /// Host USB bus controller number, if exposed.
+    std::optional<std::uint8_t> bus_number{};
+    /// Device address assigned on the bus, if exposed.
+    std::optional<std::uint8_t> device_address{};
+    /// Hub port number on the upstream hub, if exposed.
+    std::optional<std::uint8_t> port_number{};
+    /// USB 16-bit vendor identifier assigned by USB-IF.
+    std::uint16_t vendor_id{0};
+    /// USB 16-bit product identifier assigned by the vendor.
+    std::uint16_t product_id{0};
+    /// Device release number in binary-coded decimal, if exposed.
+    std::optional<std::uint16_t> bcd_device{};
+    /// USB device class code, if exposed.
+    std::optional<std::uint8_t> device_class{};
+    /// USB device subclass code, if exposed.
+    std::optional<std::uint8_t> device_subclass{};
+    /// USB device protocol code, if exposed.
+    std::optional<std::uint8_t> device_protocol{};
+    /// Manufacturer string descriptor in UTF-8, if exposed.
+    std::optional<std::string> manufacturer{};
+    /// Product string descriptor in UTF-8, if exposed.
+    std::optional<std::string> product{};
+    /// Serial number string descriptor in UTF-8, if exposed.
+    std::optional<std::string> serial_number{};
+    /// Operating signaling speed in megabits per second (e.g. 480, 5000, 10000).
+    std::optional<double> speed_mbps{};
+};
+
+/// Physical memory slot and installed memory module record (SMBIOS Type 17).
+struct memory_device {
+    /// Socket or board slot label (e.g. "DIMM 0", "ChannelA-DIMM0").
+    std::string locator{};
+    /// Bank or channel label (e.g. "BANK 0"), if exposed.
+    std::optional<std::string> bank_locator{};
+    /// Whether the slot is populated according to firmware.
+    memory_device_state state{memory_device_state::unknown};
+    /// Installed memory module capacity in bytes, if firmware records it.
+    std::optional<std::uint64_t> size_bytes{};
+    /// Physical form factor of the module or socket.
+    memory_form_factor form_factor{memory_form_factor::unknown};
+    /// Memory technology and generation.
+    memory_type type{memory_type::unknown};
+    /// Manufacturer-rated speed and its SMBIOS-defined unit, if exposed.
+    std::optional<memory_speed> speed{};
+    /// Configured/operating speed and its SMBIOS-defined unit, if exposed.
+    std::optional<memory_speed> configured_speed{};
+    /// Memory module manufacturer string in UTF-8, if exposed.
+    std::optional<std::string> manufacturer{};
+    /// Memory module serial number string in UTF-8, if exposed.
+    std::optional<std::string> serial_number{};
+    /// Memory module manufacturer part number string in UTF-8, if exposed.
+    std::optional<std::string> part_number{};
 };
 
 } // namespace hardware
@@ -244,6 +434,40 @@ inline result<form_factor> chassis_form_factor() {
 inline result<std::string> hardware_uuid() {
     return detail::hardware_common::validate_uuid_text(
         detail::hardware_backend::hardware_uuid());
+}
+
+/// Returns all observable PCI and PCIe devices on the system.
+///
+/// Address components absent from a platform source remain empty. Devices are
+/// sorted deterministically by address and then identity fields.
+/// @return Vector of PCI devices; malformed source data, native discovery
+/// failures, and invalid text encodings are reported as errors.
+inline result<std::vector<pci_device>> pci_devices() {
+    return detail::hardware_common::validate_pci_devices(
+        detail::hardware_backend::pci_devices());
+}
+
+/// Returns all connected USB bus devices on the system.
+///
+/// Optional topology and descriptor fields remain empty when the platform does
+/// not expose them. Devices are sorted deterministically by topology and
+/// identity fields.
+/// @return Vector of USB devices; malformed source data, native discovery
+/// failures, and invalid text encodings are reported as errors.
+inline result<std::vector<usb_device>> usb_devices() {
+    return detail::hardware_common::validate_usb_devices(
+        detail::hardware_backend::usb_devices());
+}
+
+/// Returns physical memory slots and installed memory modules (SMBIOS Type 17).
+///
+/// The state field distinguishes an unpopulated slot from an installed module
+/// whose capacity is unknown. Records are sorted by slot and bank locator.
+/// @return Vector of memory slots/devices, or an error such as permission_denied
+/// or not_supported.
+inline result<std::vector<memory_device>> memory_devices() {
+    return detail::hardware_common::validate_memory_devices(
+        detail::hardware_backend::memory_devices());
 }
 
 } // namespace hardware

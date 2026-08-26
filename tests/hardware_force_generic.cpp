@@ -42,5 +42,8 @@ int main() {
     expect_unsupported("chassis_form_factor",
                        syscape::hardware::chassis_form_factor);
     expect_unsupported("hardware_uuid", syscape::hardware::hardware_uuid);
+    expect_unsupported("pci_devices", syscape::hardware::pci_devices);
+    expect_unsupported("usb_devices", syscape::hardware::usb_devices);
+    expect_unsupported("memory_devices", syscape::hardware::memory_devices);
     return failures == 0 ? 0 : 1;
 }

@@ -32,5 +32,8 @@ int main() {
     if (!honest(syscape::hardware::firmware_release_date)) { return 9; }
     if (!honest(syscape::hardware::chassis_form_factor)) { return 10; }
     if (!honest(syscape::hardware::hardware_uuid)) { return 11; }
+    if (!honest(syscape::hardware::pci_devices)) { return 12; }
+    if (!honest(syscape::hardware::usb_devices)) { return 13; }
+    if (!honest(syscape::hardware::memory_devices)) { return 14; }
     return 0;
 }
