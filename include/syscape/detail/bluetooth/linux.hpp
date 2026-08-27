@@ -287,6 +287,9 @@ inline void query_hci_ioctl(int dev_id, bluetooth::adapter_info& info) {
     if (sock < 0) {
         return;
     }
+    const linux_platform::file_descriptor owned_sock(sock);
+    static_cast<void>(owned_sock);
+
     hci_dev_info di{};
     di.dev_id = static_cast<std::uint16_t>(dev_id);
     if (::ioctl(sock, HCIGETDEVINFO, &di) == 0) {
@@ -301,7 +304,6 @@ inline void query_hci_ioctl(int dev_id, bluetooth::adapter_info& info) {
         }
         apply_hci_flags(di.flags, info);
     }
-    ::close(sock);
 }
 
 inline result<std::vector<bluetooth::adapter_info>> adapters() {

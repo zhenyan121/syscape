@@ -160,10 +160,10 @@ inline result<std::vector<::syscape::display::display_info>> collect_displays() 
 
     linux_platform::directory_handle drm_dir(drm_class_root);
     if (!drm_dir.valid()) {
-        if (errno == ENOENT) {
+        if (drm_dir.error() == ENOENT) {
             return fail(errc::not_supported);
         }
-        return fail(std::error_code(errno, std::generic_category()));
+        return fail(std::error_code(drm_dir.error(), std::generic_category()));
     }
 
     for (;;) {

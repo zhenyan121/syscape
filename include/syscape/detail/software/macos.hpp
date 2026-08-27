@@ -63,11 +63,29 @@ private:
     int error_;
 };
 
+class macos_file_descriptor {
+public:
+    explicit macos_file_descriptor(int fd) noexcept : fd_(fd) {}
+    macos_file_descriptor(const macos_file_descriptor&) = delete;
+    macos_file_descriptor& operator=(const macos_file_descriptor&) = delete;
+    ~macos_file_descriptor() {
+        if (fd_ >= 0) {
+            ::close(fd_);
+        }
+    }
+    int get() const noexcept { return fd_; }
+
+private:
+    int fd_;
+};
+
 inline result<std::string> read_text_file(const char* path, std::size_t max_size = 512U * 1024U) {
     const int fd = ::open(path, O_RDONLY | O_CLOEXEC);
     if (fd < 0) {
         return fail(std::error_code(errno, std::generic_category()));
     }
+    const macos_file_descriptor guard(fd);
+
     char buffer[4096];
     std::string content;
     for (;;) {
@@ -75,19 +93,16 @@ inline result<std::string> read_text_file(const char* path, std::size_t max_size
         if (count > 0) {
             const std::size_t size = static_cast<std::size_t>(count);
             if (content.size() > max_size || size > max_size - content.size()) {
-                ::close(fd);
                 return fail(errc::value_too_large);
             }
             content.append(buffer, size);
             continue;
         }
         if (count == 0) {
-            ::close(fd);
             return content;
         }
         if (errno != EINTR) {
             const int err = errno;
-            ::close(fd);
             return fail(std::error_code(err, std::generic_category()));
         }
     }

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <syscape/result.hpp>
 
@@ -15,6 +16,19 @@ inline result<std::string> get(std::string_view /*name*/) {
 }
 
 inline result<bool> has(std::string_view /*name*/) {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<::syscape::environment::environment_variable>>
+environment_variables() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::string> current_working_directory() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::string> find_executable(std::string_view /*name*/) {
     return fail(errc::not_supported);
 }
 

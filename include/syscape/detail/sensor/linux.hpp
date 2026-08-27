@@ -122,7 +122,7 @@ inline result<void> enumerate_hwmon_temperatures_in_dir(
 
     const lplat::directory_handle handle(dir_path.c_str());
     if (!handle.valid()) {
-        const std::error_code error(errno, std::generic_category());
+        const std::error_code error(handle.error(), std::generic_category());
         if (is_missing_attribute(error) ||
             error == std::error_code(ENOTDIR, std::generic_category())) {
             return {};
@@ -251,7 +251,7 @@ inline result<void> enumerate_hwmon_fans_in_dir(
 
     const lplat::directory_handle handle(dir_path.c_str());
     if (!handle.valid()) {
-        const std::error_code error(errno, std::generic_category());
+        const std::error_code error(handle.error(), std::generic_category());
         if (is_missing_attribute(error) ||
             error == std::error_code(ENOTDIR, std::generic_category())) {
             return {};
@@ -393,7 +393,7 @@ inline result<std::vector<::syscape::sensor::temperature_sensor>> temperatures_a
 
     const lplat::directory_handle handle(hwmon_root.c_str());
     if (!handle.valid()) {
-        return fail(std::error_code(errno, std::generic_category()));
+        return fail(std::error_code(handle.error(), std::generic_category()));
     }
 
     std::vector<::syscape::sensor::temperature_sensor> results;
@@ -454,7 +454,7 @@ inline result<std::vector<::syscape::sensor::fan_sensor>> fans_at(
 
     const lplat::directory_handle handle(hwmon_root.c_str());
     if (!handle.valid()) {
-        return fail(std::error_code(errno, std::generic_category()));
+        return fail(std::error_code(handle.error(), std::generic_category()));
     }
 
     std::vector<::syscape::sensor::fan_sensor> results;
@@ -515,7 +515,7 @@ inline result<std::vector<::syscape::sensor::thermal_zone>> thermal_zones_at(
 
     const lplat::directory_handle handle(thermal_root.c_str());
     if (!handle.valid()) {
-        return fail(std::error_code(errno, std::generic_category()));
+        return fail(std::error_code(handle.error(), std::generic_category()));
     }
 
     std::vector<::syscape::sensor::thermal_zone> results;

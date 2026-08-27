@@ -193,6 +193,7 @@ inline inode_pid_map_type build_inode_pid_map() {
         if (fd_dir == nullptr) {
             continue;
         }
+        const dir_closer fd_closer{fd_dir};
 
         struct dirent* fd_entry = nullptr;
         while ((fd_entry = ::readdir(fd_dir)) != nullptr) {
@@ -219,7 +220,6 @@ inline inode_pid_map_type build_inode_pid_map() {
                 }
             }
         }
-        ::closedir(fd_dir);
     }
 
     for (auto& item : map) {

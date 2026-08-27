@@ -4,10 +4,10 @@
 #include <string_view>
 #include <system_error>
 
+#include <syscape/environment.hpp>
 #include <syscape/detail/environment/common.hpp>
 #include <syscape/detail/environment/linux.hpp>
 #include <syscape/detail/environment/posix.hpp>
-#include <syscape/environment.hpp>
 
 namespace {
 
@@ -91,7 +91,145 @@ void test_environment_variables() {
            "has must report an existing variable independently of its value encoding");
     ::unsetenv("SYSCAPE_TEST_INVALID_UTF8");
 
+    // Test environment_variables() snapshot
+    const auto vars = syscape::environment::environment_variables();
+    expect(vars.has_value(), "environment_variables snapshot must succeed");
+    expect(vars && !vars->empty(), "environment_variables snapshot must not be empty");
+    if (vars) {
+        bool found_test_var = false;
+        bool is_sorted = true;
+        for (std::size_t i = 0; i < vars->size(); ++i) {
+            if ((*vars)[i].name == "SYSCAPE_TEST_ENV_VAR") {
+                found_test_var = true;
+                expect((*vars)[i].value == "hello_syscape",
+                       "snapshot value for SYSCAPE_TEST_ENV_VAR must match");
+            }
+            if (i > 0 && (*vars)[i - 1].name > (*vars)[i].name) {
+                is_sorted = false;
+            }
+        }
+        expect(found_test_var, "snapshot must contain SYSCAPE_TEST_ENV_VAR");
+        expect(is_sorted, "snapshot must be lexicographically sorted by name");
+
+        // Test comparison operators
+        if (!vars->empty()) {
+            const syscape::environment::environment_variable copy = (*vars)[0];
+            expect(copy == (*vars)[0], "environment_variable copy equality must hold");
+            expect(!(copy != (*vars)[0]), "environment_variable copy inequality must be false");
+            syscape::environment::environment_variable modified = copy;
+            modified.value += "_diff";
+            expect(copy != modified, "different value must not be equal");
+        }
+    }
+
     ::unsetenv("SYSCAPE_TEST_ENV_VAR");
+}
+
+void test_current_working_directory() {
+    const auto cwd = syscape::environment::current_working_directory();
+    expect(cwd.has_value(), "current_working_directory must succeed");
+    expect(cwd && !cwd->empty() && cwd->front() == '/',
+           "current_working_directory on Linux must be an absolute path");
+
+    char buf[4096];
+    if (::getcwd(buf, sizeof(buf)) != nullptr) {
+        expect(cwd && *cwd == buf,
+               "current_working_directory must match getcwd");
+    }
+}
+
+void test_find_executable() {
+    // Standard commands
+    const auto sh_path = syscape::environment::find_executable("sh");
+    expect(sh_path.has_value(), "find_executable('sh') must succeed");
+    expect(sh_path && !sh_path->empty() && sh_path->front() == '/',
+           "find_executable('sh') must return an absolute path");
+
+    const auto ls_path = syscape::environment::find_executable("ls");
+    expect(ls_path.has_value(), "find_executable('ls') must succeed");
+
+    // Non-existent command
+    const auto nonexistent =
+        syscape::environment::find_executable("syscape_nonexistent_binary_xyz123");
+    expect(!nonexistent, "find_executable of non-existent binary must fail");
+    expect(!nonexistent &&
+               nonexistent.error() ==
+                   syscape::make_error_code(syscape::errc::not_found),
+           "find_executable of non-existent binary must return not_found");
+
+    // Direct path lookup with slash
+    if (sh_path) {
+        const auto direct_sh = syscape::environment::find_executable(*sh_path);
+        expect(direct_sh.has_value() && *direct_sh == *sh_path,
+               "find_executable with explicit path must resolve correctly");
+    }
+
+    // Directory lookup (not an executable)
+    const auto dir_lookup = syscape::environment::find_executable("/tmp");
+    expect(!dir_lookup &&
+               dir_lookup.error() ==
+                   syscape::make_error_code(syscape::errc::not_found),
+           "find_executable on directory must return not_found");
+
+    // Invalid arguments
+    const auto empty_name = syscape::environment::find_executable("");
+    expect(!empty_name &&
+               empty_name.error() ==
+                   syscape::make_error_code(syscape::errc::invalid_argument),
+           "find_executable with empty name must return invalid_argument");
+
+    const auto null_name =
+        syscape::environment::find_executable(std::string_view("a\0b", 3));
+    expect(!null_name &&
+               null_name.error() ==
+                   syscape::make_error_code(syscape::errc::invalid_argument),
+           "find_executable with embedded null must return invalid_argument");
+
+    const char invalid_utf8[] = {'\xff', '\xfe', '\0'};
+    const auto invalid_utf8_name =
+        syscape::environment::find_executable(invalid_utf8);
+    expect(!invalid_utf8_name &&
+               invalid_utf8_name.error() ==
+                   syscape::make_error_code(syscape::errc::invalid_encoding),
+           "find_executable with invalid UTF-8 must return invalid_encoding");
+
+    // Test relative path resolution returning absolute normalized path
+    const auto rel_self = syscape::environment::find_executable("./tests_environment_linux");
+    if (rel_self) {
+        expect(!rel_self->empty() && rel_self->front() == '/',
+               "find_executable on relative path must return absolute path");
+        expect(rel_self->find("/./") == std::string::npos,
+               "find_executable returned path must not contain /./");
+    }
+
+    // Test PATH search with trailing and leading colons
+    const char* old_path = ::getenv("PATH");
+    const std::string saved_path = old_path != nullptr ? old_path : "";
+
+    ::setenv("PATH", "/usr/bin:/bin:", 1);
+    const auto sh_trailing = syscape::environment::find_executable("sh");
+    expect(sh_trailing.has_value(), "find_executable with trailing colon in PATH must succeed");
+    expect(sh_trailing && !sh_trailing->empty() && sh_trailing->front() == '/',
+           "find_executable with trailing colon in PATH must return absolute path");
+
+    ::setenv("PATH", ":/usr/bin:/bin", 1);
+    const auto sh_leading = syscape::environment::find_executable("sh");
+    expect(sh_leading.has_value(), "find_executable with leading colon in PATH must succeed");
+    expect(sh_leading && !sh_leading->empty() && sh_leading->front() == '/',
+           "find_executable with leading colon in PATH must return absolute path");
+
+    if (!saved_path.empty()) {
+        ::setenv("PATH", saved_path.c_str(), 1);
+    } else {
+        ::unsetenv("PATH");
+    }
+}
+
+void test_separators() {
+    expect(syscape::environment::path_list_separator() == ':',
+           "path_list_separator on Linux must be ':'");
+    expect(syscape::environment::directory_separator() == '/',
+           "directory_separator on Linux must be '/'");
 }
 
 void test_standard_directories() {
@@ -160,7 +298,10 @@ void test_common_helpers() {
 
 int main() {
     test_common_helpers();
+    test_separators();
     test_environment_variables();
+    test_current_working_directory();
+    test_find_executable();
     test_standard_directories();
     test_terminal_detection();
 

@@ -9,8 +9,16 @@ bool unsupported(const syscape::result<T>& value) {
 }
 
 int main() {
+    constexpr char list_sep = syscape::environment::path_list_separator();
+    constexpr char dir_sep = syscape::environment::directory_separator();
+    static_cast<void>(list_sep);
+    static_cast<void>(dir_sep);
+
     return unsupported(syscape::environment::get("PATH")) &&
                    unsupported(syscape::environment::has("PATH")) &&
+                   unsupported(syscape::environment::environment_variables()) &&
+                   unsupported(syscape::environment::current_working_directory()) &&
+                   unsupported(syscape::environment::find_executable("ls")) &&
                    unsupported(syscape::environment::temp_directory()) &&
                    unsupported(syscape::environment::home_directory()) &&
                    unsupported(syscape::environment::config_directory()) &&

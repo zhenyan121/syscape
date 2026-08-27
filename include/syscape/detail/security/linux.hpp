@@ -164,10 +164,10 @@ inline result<::syscape::security::tpm_info> tpm_at(const char* class_root) {
 
     const lplat::directory_handle dir(class_root);
     if (!dir.valid()) {
-        if (errno == ENOENT) {
+        if (dir.error() == ENOENT) {
             return info;
         }
-        return fail(std::error_code(errno, std::generic_category()));
+        return fail(std::error_code(dir.error(), std::generic_category()));
     }
 
     for (;;) {

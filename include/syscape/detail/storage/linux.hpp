@@ -356,11 +356,10 @@ template <typename Visit>
 inline result<void> walk_block_devices(Visit visit) {
     linux_platform::directory_handle directory(block_root);
     if (!directory.valid()) {
-        const std::error_code error(errno, std::generic_category());
-        if (error == std::error_code(ENOENT, std::generic_category())) {
+        if (directory.error() == ENOENT) {
             return {};
         }
-        return fail(error);
+        return fail(std::error_code(directory.error(), std::generic_category()));
     }
     for (;;) {
         errno = 0;
@@ -715,8 +714,8 @@ inline result<std::vector<storage_common::partition_record>> partitions() {
                 std::string(block_root) + disk_name;
             linux_platform::directory_handle disk_dir(disk_path.c_str());
             if (!disk_dir.valid()) {
-                if (errno == ENOENT) { return {}; }
-                return fail(std::error_code(errno, std::generic_category()));
+                if (disk_dir.error() == ENOENT) { return {}; }
+                return fail(std::error_code(disk_dir.error(), std::generic_category()));
             }
 
             for (;;) {

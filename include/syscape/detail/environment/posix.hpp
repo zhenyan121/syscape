@@ -14,6 +14,9 @@ namespace environment_backend {
 
 using environment_posix::get;
 using environment_posix::has;
+using environment_posix::environment_variables;
+using environment_posix::current_working_directory;
+using environment_posix::find_executable;
 using environment_posix::home_directory;
 using environment_posix::is_interactive_stderr;
 using environment_posix::is_interactive_stdin;
