@@ -1,4 +1,5 @@
 #include <cerrno>
+#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <deque>
@@ -16,6 +17,7 @@
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netpacket/packet.h>
 #include <unistd.h>
 
@@ -1382,6 +1384,256 @@ void test_live_dns() {
     }
 }
 
+void test_parse_proc_net_dev_synthetic() {
+    fake_index_api::reset();
+    const char* sample =
+        "Inter-|   Receive                                                |  Transmit\n"
+        " face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n"
+        "    lo:  156714    1605    1    2    0     0          0         7   156714    1605    3    4    0     5       0          0\n"
+        "  eth0: 473213045  364467    0   10    0     0          0         6 51094699  122984    0    0    0     0       0          0\n";
+
+    const auto parsed =
+        syscape::detail::network_backend::parse_proc_net_dev<fake_index_api>(sample);
+    expect(parsed.has_value(), "Synthetic proc_net_dev parses successfully");
+    if (!parsed) { return; }
+
+    expect(parsed->size() == 2U, "Parsed exactly two interfaces");
+    const auto& lo = (*parsed)[0];
+    expect(lo.name == "lo", "lo interface name matches");
+    expect(lo.index == 1U, "lo interface index resolved");
+    expect(lo.rx_bytes == 156714ULL, "lo rx_bytes match");
+    expect(lo.rx_packets == 1605ULL, "lo rx_packets match");
+    expect(lo.rx_errors == 1ULL, "lo rx_errors match");
+    expect(lo.rx_dropped == 2ULL, "lo rx_dropped match");
+    expect(lo.rx_multicast.has_value() && *lo.rx_multicast == 7ULL, "lo rx_multicast match");
+    expect(lo.tx_bytes == 156714ULL, "lo tx_bytes match");
+    expect(lo.tx_packets == 1605ULL, "lo tx_packets match");
+    expect(lo.tx_errors == 3ULL, "lo tx_errors match");
+    expect(lo.tx_dropped == 4ULL, "lo tx_dropped match");
+    expect(lo.collisions.has_value() && *lo.collisions == 5ULL, "lo collisions match");
+
+    const auto& eth0 = (*parsed)[1];
+    expect(eth0.name == "eth0", "eth0 interface name matches");
+    expect(eth0.index == 2U, "eth0 interface index resolved");
+    expect(eth0.rx_bytes == 473213045ULL, "eth0 rx_bytes match");
+    expect(eth0.rx_packets == 364467ULL, "eth0 rx_packets match");
+    expect(eth0.rx_errors == 0ULL, "eth0 rx_errors match");
+    expect(eth0.rx_dropped == 10ULL, "eth0 rx_dropped match");
+    expect(eth0.rx_multicast.has_value() && *eth0.rx_multicast == 6ULL, "eth0 rx_multicast match");
+    expect(eth0.tx_bytes == 51094699ULL, "eth0 tx_bytes match");
+    expect(eth0.tx_packets == 122984ULL, "eth0 tx_packets match");
+    expect(eth0.tx_errors == 0ULL, "eth0 tx_errors match");
+    expect(eth0.tx_dropped == 0ULL, "eth0 tx_dropped match");
+    expect(eth0.collisions.has_value() && *eth0.collisions == 0ULL, "eth0 collisions match");
+}
+
+void test_parse_proc_net_dev_malformed() {
+    fake_index_api::reset();
+    // Empty name
+    const char* empty_name =
+        "   :  156714    1605    0    0    0     0          0         0   156714    1605    0    0    0     0       0          0\n";
+    expect(!syscape::detail::network_backend::parse_proc_net_dev<fake_index_api>(empty_name),
+           "Empty interface name in proc_net_dev is rejected");
+
+    // Nonnumeric field
+    const char* non_num =
+        "  lo:  156714    abc    0    0    0     0          0         0   156714    1605    0    0    0     0       0          0\n";
+    expect(!syscape::detail::network_backend::parse_proc_net_dev<fake_index_api>(non_num),
+           "Nonnumeric field in proc_net_dev is rejected");
+
+    // Truncated fields (fewer than 16)
+    const char* truncated =
+        "  lo:  156714    1605    0    0    0     0          0         0   156714\n";
+    expect(!syscape::detail::network_backend::parse_proc_net_dev<fake_index_api>(truncated),
+           "Truncated line with fewer than 16 numbers is rejected");
+
+    // Overflow integer
+    const char* overflow =
+        "  lo:  9999999999999999999999999999999999999    1605    0    0    0     0          0         0   156714    1605    0    0    0     0       0          0\n";
+    expect(!syscape::detail::network_backend::parse_proc_net_dev<fake_index_api>(overflow),
+           "Overflow number in proc_net_dev is rejected");
+
+    const char* unknown_line =
+        "Inter-|   Receive | Transmit\n"
+        " face |bytes packets|bytes packets\n"
+        "unexpected platform text\n";
+    expect(!syscape::detail::network_backend::parse_proc_net_dev<fake_index_api>(unknown_line),
+           "A non-header line without a separator is rejected");
+
+    const char* trailing_field =
+        "  lo:  1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 garbage\n";
+    expect(!syscape::detail::network_backend::parse_proc_net_dev<fake_index_api>(trailing_field),
+           "Trailing fields after the documented counters are rejected");
+
+    const char* colon_name =
+        "  vlan:blue:  1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16\n";
+    const auto colon_parsed =
+        syscape::detail::network_backend::parse_proc_net_dev<fake_index_api>(colon_name);
+    expect(colon_parsed && colon_parsed->size() == 1U &&
+               (*colon_parsed)[0U].name == "vlan:blue",
+           "The final separator preserves a colon in an interface name");
+}
+
+bool write_statistics_fixture(const std::string& path, const char* value) {
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    output << value;
+    return output.good();
+}
+
+void test_sysfs_statistics_semantics_and_errors() {
+    char root_template[] = "/tmp/syscape-network-stats-XXXXXX";
+    const char* root_value = ::mkdtemp(root_template);
+    expect(root_value != nullptr, "Created a temporary statistics fixture");
+    if (root_value == nullptr) { return; }
+
+    const std::string root(root_value);
+    const std::string interface_dir = root + "/eth-test";
+    const std::string statistics_dir = interface_dir + "/statistics";
+    expect(::mkdir(interface_dir.c_str(), 0700) == 0 &&
+               ::mkdir(statistics_dir.c_str(), 0700) == 0,
+           "Created synthetic sysfs directories");
+
+    struct fixture_value {
+        const char* name;
+        const char* value;
+    };
+    const fixture_value values[] = {
+        {"rx_bytes", "10\n"}, {"tx_bytes", "20\n"},
+        {"rx_packets", "1\n"}, {"tx_packets", "2\n"},
+        {"rx_errors", "3\n"}, {"tx_errors", "4\n"},
+        {"rx_dropped", "5\n"}, {"rx_missed_errors", "7\n"},
+        {"tx_dropped", "6\n"}, {"multicast", "8\n"},
+        {"collisions", "9\n"}};
+    for (const fixture_value& value : values) {
+        expect(write_statistics_fixture(
+                   statistics_dir + "/" + value.name, value.value),
+               "Wrote a synthetic sysfs counter");
+    }
+
+    fake_index_api::reset();
+    fake_index_api::next_index = 17U;
+    const std::string base = root + "/";
+    const auto converted = syscape::detail::network_backend::
+        read_sysfs_statistics<fake_index_api>("eth-test", base.c_str());
+    expect(converted && converted->rx_dropped == 12U,
+           "sysfs receive drops include missed packets like procfs");
+
+    expect(write_statistics_fixture(
+               statistics_dir + "/rx_dropped", "18446744073709551615\n") &&
+               write_statistics_fixture(
+                   statistics_dir + "/rx_missed_errors", "1\n"),
+           "Rewrote receive drop counters for overflow testing");
+    fake_index_api::reset();
+    const auto overflow = syscape::detail::network_backend::
+        read_sysfs_statistics<fake_index_api>("eth-test", base.c_str());
+    expect(!overflow && overflow.error() == syscape::errc::value_too_large,
+           "Combining sysfs receive drop counters rejects overflow");
+    expect(write_statistics_fixture(statistics_dir + "/rx_dropped", "5\n") &&
+               write_statistics_fixture(
+                   statistics_dir + "/rx_missed_errors", "7\n"),
+           "Restored receive drop counters");
+
+    expect(write_statistics_fixture(statistics_dir + "/multicast", "bad\n"),
+           "Rewrote the optional counter with malformed data");
+    fake_index_api::reset();
+    const auto malformed = syscape::detail::network_backend::
+        read_sysfs_statistics<fake_index_api>("eth-test", base.c_str());
+    expect(!malformed && malformed.error() == syscape::errc::malformed_data,
+           "Malformed optional sysfs counters are not hidden");
+
+    expect(write_statistics_fixture(statistics_dir + "/multicast", "8\n"),
+           "Restored the optional multicast counter");
+    expect(::unlink((statistics_dir + "/collisions").c_str()) == 0,
+           "Removed an optional synthetic counter");
+    fake_index_api::reset();
+    const auto absent = syscape::detail::network_backend::
+        read_sysfs_statistics<fake_index_api>("eth-test", base.c_str());
+    expect(absent && !absent->collisions,
+           "A genuinely absent optional sysfs counter stays unavailable");
+
+    for (const fixture_value& value : values) {
+        static_cast<void>(::unlink(
+            (statistics_dir + "/" + value.name).c_str()));
+    }
+    static_cast<void>(::rmdir(statistics_dir.c_str()));
+    static_cast<void>(::rmdir(interface_dir.c_str()));
+    static_cast<void>(::rmdir(root.c_str()));
+}
+
+void test_statistics_boundary_validation() {
+    using namespace syscape::detail::network_common;
+    // Empty name
+    statistics_record rec;
+    rec.name = "";
+    rec.index = 1U;
+    expect(!validate_statistics_record(rec), "Empty name fails validation");
+
+    // Zero index
+    rec.name = "eth0";
+    rec.index = 0U;
+    expect(!validate_statistics_record(rec), "Zero index fails validation");
+
+    // Invalid UTF-8 name
+    rec.name = "\xFF\xFE";
+    rec.index = 1U;
+    const auto res = validate_statistics_record(rec);
+    expect(!res && res.error() == syscape::errc::invalid_encoding,
+           "Invalid UTF-8 name fails with invalid_encoding");
+
+    // Valid record
+    rec.name = "eth0";
+    rec.index = 1U;
+    expect(validate_statistics_record(rec).has_value(), "Valid record passes validation");
+}
+
+void test_live_statistics() {
+    const auto stats = syscape::network::statistics();
+    expect(stats.has_value(), "Live statistics query succeeds");
+    if (!stats) { return; }
+
+    expect(!stats->empty(), "Live system has at least one interface with statistics");
+    for (const auto& entry : *stats) {
+        expect(!entry.name.empty(), "Interface name is non-empty");
+        expect(entry.index > 0U, "Interface index is nonzero");
+    }
+
+    // Look up "lo"
+    const auto lo_stat = syscape::network::statistics("lo");
+    if (lo_stat) {
+        expect(lo_stat->name == "lo", "Looked up lo statistics by name");
+        expect(lo_stat->index > 0U, "lo has nonzero index");
+
+        const auto lo_by_idx = syscape::network::statistics(lo_stat->index);
+        expect(lo_by_idx.has_value(), "Looked up lo statistics by index");
+        if (lo_by_idx) {
+            expect(lo_by_idx->name == "lo", "Index lookup returned lo");
+            expect(lo_by_idx->index == lo_stat->index, "Index matches");
+        }
+    }
+
+    // Invalid arguments
+    const auto empty_name_res = syscape::network::statistics("");
+    expect(!empty_name_res && empty_name_res.error() == syscape::errc::invalid_argument,
+           "statistics(\"\") returns invalid_argument");
+
+    const std::string_view null_embedded("lo\0hidden", 9);
+    const auto null_res = syscape::network::statistics(null_embedded);
+    expect(!null_res && null_res.error() == syscape::errc::invalid_argument,
+           "statistics with embedded null returns invalid_argument");
+
+    const auto zero_idx_res = syscape::network::statistics(0U);
+    expect(!zero_idx_res && zero_idx_res.error() == syscape::errc::invalid_argument,
+           "statistics(0U) returns invalid_argument");
+
+    const auto nonexistent = syscape::network::statistics("nonexistent_iface_xyz_123");
+    expect(!nonexistent && nonexistent.error() == syscape::errc::not_found,
+           "Nonexistent interface name returns not_found");
+
+    const auto nonexistent_idx = syscape::network::statistics(999999U);
+    expect(!nonexistent_idx && nonexistent_idx.error() == syscape::errc::not_found,
+           "Nonexistent interface index returns not_found");
+}
+
 } // namespace
 
 int main() {
@@ -1413,5 +1665,10 @@ int main() {
     test_dns_reader_errors();
     test_dns_boundary_validation();
     test_live_dns();
+    test_parse_proc_net_dev_synthetic();
+    test_parse_proc_net_dev_malformed();
+    test_sysfs_statistics_semantics_and_errors();
+    test_statistics_boundary_validation();
+    test_live_statistics();
     return failures == 0 ? 0 : 1;
 }

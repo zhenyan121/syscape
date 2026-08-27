@@ -143,8 +143,14 @@ bool other_network_backend_callable() {
         interfaces = syscape::network::interfaces();
     const auto routes = syscape::network::routes();
     const auto gateways = syscape::network::default_gateways();
+    const auto stats = syscape::network::statistics();
+    const auto stats_name = syscape::network::statistics("lo");
+    const auto stats_idx = syscape::network::statistics(1U);
     static_cast<void>(routes);
     static_cast<void>(gateways);
+    static_cast<void>(stats);
+    static_cast<void>(stats_name);
+    static_cast<void>(stats_idx);
     return interfaces.has_value() != static_cast<bool>(interfaces.error());
 }
 

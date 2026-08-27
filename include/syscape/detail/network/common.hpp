@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -264,6 +265,60 @@ inline result<dns_record> validate_dns_record(result<dns_record> record) {
         }
     }
     return record;
+}
+
+/// One network interface statistics record shared by the network backends
+/// awaiting boundary validation.
+struct statistics_record {
+    std::string name;
+    std::uint32_t index = 0U;
+    std::uint64_t rx_bytes = 0U;
+    std::uint64_t tx_bytes = 0U;
+    std::uint64_t rx_packets = 0U;
+    std::uint64_t tx_packets = 0U;
+    std::uint64_t rx_errors = 0U;
+    std::uint64_t tx_errors = 0U;
+    std::uint64_t rx_dropped = 0U;
+    std::uint64_t tx_dropped = 0U;
+    std::optional<std::uint64_t> rx_multicast;
+    std::optional<std::uint64_t> collisions;
+};
+
+/// Adds two counters without silently wrapping the portable representation.
+inline result<std::uint64_t> add_statistics_counters(
+    std::uint64_t left, std::uint64_t right) noexcept {
+    if (left > (std::numeric_limits<std::uint64_t>::max)() - right) {
+        return fail(errc::value_too_large);
+    }
+    return left + right;
+}
+
+/// Validates one converted statistics record at the public boundary.
+inline result<statistics_record> validate_statistics_record(
+    result<statistics_record> record) {
+    if (!record) { return fail(record.error()); }
+    if (record->name.empty() || record->index == 0U) {
+        return fail(errc::malformed_data);
+    }
+    if (!is_valid_utf8(record->name)) {
+        return fail(errc::invalid_encoding);
+    }
+    return record;
+}
+
+/// Validates converted statistics records at the public boundary.
+inline result<std::vector<statistics_record>> validate_statistics_records(
+    result<std::vector<statistics_record>> records) {
+    if (!records) { return fail(records.error()); }
+    for (const statistics_record& entry : *records) {
+        if (entry.name.empty() || entry.index == 0U) {
+            return fail(errc::malformed_data);
+        }
+        if (!is_valid_utf8(entry.name)) {
+            return fail(errc::invalid_encoding);
+        }
+    }
+    return records;
 }
 
 } // namespace network_common

@@ -4,5 +4,6 @@
 #include <syscape/detail/network/posix.hpp>
 #include <syscape/detail/network/routes_macos.hpp>
 #include <syscape/detail/network/dns_macos.hpp>
+#include <syscape/detail/network/stats_macos.hpp>
 
 #endif

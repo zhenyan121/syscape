@@ -2,7 +2,7 @@
 #define SYSCAPE_NETWORK_HPP
 
 /// @file
-/// @brief Hosted network interface, address, route, and gateway queries.
+/// @brief Hosted network interface, address, route, gateway, and statistics queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note Linux and macOS enumerate interfaces through the documented
 /// getifaddrs interface, resolving interface indices through POSIX
@@ -10,7 +10,9 @@
 /// rows and macOS through AF_LINK rows. Windows enumerates adapters through
 /// GetAdaptersAddresses. Linux obtains routes from NETLINK_ROUTE, Windows
 /// from GetIpForwardTable2 with GetUnicastIpAddressTable context, and macOS
-/// from a PF_ROUTE NET_RT_DUMP2 sysctl.
+/// from a PF_ROUTE NET_RT_DUMP2 sysctl. Interface traffic and error
+/// statistics query /proc/net/dev and sysfs on Linux, GetIfTable2 / GetIfEntry2
+/// on Windows, and a PF_ROUTE NET_RT_IFLIST2 sysctl on macOS.
 /// The Windows sources require Windows Vista or later. Applications that use
 /// this header on Windows must link the Iphlpapi import library;
 /// Syscape itself stays header-only and does not add linkage for unrelated
@@ -18,15 +20,15 @@
 /// @note The implemented network slices expose interface names, indices,
 /// operational state, loopback classification, link-layer (hardware)
 /// addresses, MTU values, and unicast IPv4/IPv6 addresses with prefix lengths
-/// and numeric IPv6 scope identifiers, together with forwarding unicast
-/// routes, explicit default gateways, and the system DNS resolver
-/// configuration (resolver addresses, ordered search domains where exposed,
-/// and the separately recorded local domain name). Host-name queries are
-/// provided by syscape/os.hpp rather than duplicated here. Expected failures are
-/// returned as native error codes where available, or as syscape::errc values for
-/// missing, malformed, or unsupported data. On macOS this header also
-/// requires linking the SystemConfiguration and CoreFoundation frameworks;
-/// on Windows it requires the Iphlpapi import library documented below.
+/// and numeric IPv6 scope identifiers, forwarding unicast routes, explicit
+/// default gateways, the system DNS resolver configuration, and cumulative
+/// interface traffic and error statistics (rx/tx bytes, packets, errors, drops,
+/// multicast, and collisions). Host-name queries are provided by syscape/os.hpp
+/// rather than duplicated here. Expected failures are returned as native error
+/// codes where available, or as syscape::errc values for missing, malformed, or
+/// unsupported data. On macOS this header also requires linking the
+/// SystemConfiguration and CoreFoundation frameworks; on Windows it requires
+/// the Iphlpapi import library documented below.
 
 #include <syscape/detail/config.hpp>
 
@@ -364,6 +366,139 @@ inline result<dns_configuration> dns() {
     configuration.search_domains = std::move(validated->search_domains);
     configuration.domain_name = std::move(validated->domain_name);
     return configuration;
+}
+
+/// Cumulative network interface traffic, packet, and error metrics.
+struct interface_statistics {
+    /// Operating-system interface name, reported verbatim without
+    /// canonicalization.
+    std::string name;
+
+    /// Nonzero operating-system interface index.
+    std::uint32_t index = 0U;
+
+    /// Cumulative bytes received by this interface.
+    std::uint64_t rx_bytes = 0U;
+
+    /// Cumulative bytes transmitted by this interface.
+    std::uint64_t tx_bytes = 0U;
+
+    /// Cumulative packets received by this interface.
+    std::uint64_t rx_packets = 0U;
+
+    /// Cumulative packets transmitted by this interface.
+    std::uint64_t tx_packets = 0U;
+
+    /// Cumulative receive errors reported for this interface.
+    std::uint64_t rx_errors = 0U;
+
+    /// Cumulative transmit errors reported for this interface.
+    std::uint64_t tx_errors = 0U;
+
+    /// Cumulative incoming packets dropped by this interface.
+    std::uint64_t rx_dropped = 0U;
+
+    /// Cumulative outgoing packets dropped by this interface.
+    std::uint64_t tx_dropped = 0U;
+
+    /// Multicast packets received, when reported by the platform.
+    std::optional<std::uint64_t> rx_multicast;
+
+    /// Transmit collisions detected, when reported by the platform.
+    std::optional<std::uint64_t> collisions;
+};
+
+} // namespace network
+
+namespace detail {
+namespace network_public {
+
+inline network::interface_statistics make_public_statistics(
+    network_common::statistics_record&& rec) {
+    network::interface_statistics entry;
+    entry.name = std::move(rec.name);
+    entry.index = rec.index;
+    entry.rx_bytes = rec.rx_bytes;
+    entry.tx_bytes = rec.tx_bytes;
+    entry.rx_packets = rec.rx_packets;
+    entry.tx_packets = rec.tx_packets;
+    entry.rx_errors = rec.rx_errors;
+    entry.tx_errors = rec.tx_errors;
+    entry.rx_dropped = rec.rx_dropped;
+    entry.tx_dropped = rec.tx_dropped;
+    entry.rx_multicast = rec.rx_multicast;
+    entry.collisions = rec.collisions;
+    return entry;
+}
+
+} // namespace network_public
+} // namespace detail
+
+namespace network {
+
+/// Returns traffic and error statistics for all observable network interfaces.
+///
+/// The snapshot reflects the counters observed during the call; values change
+/// continuously with system network activity. The counters are cumulative since
+/// interface creation or system boot and can wrap when a platform's native
+/// counter representation reaches its limit.
+///
+/// @return A snapshot of interface statistics, malformed_data for unusable
+/// platform records, invalid_encoding when a name is not valid UTF-8,
+/// not_supported when the platform exposes no acceptable source, or a native
+/// platform error.
+inline result<std::vector<interface_statistics>> statistics() {
+    result<std::vector<detail::network_common::statistics_record>> records =
+        detail::network_common::validate_statistics_records(
+            detail::network_backend::statistics());
+    if (!records) { return fail(records.error()); }
+    std::vector<interface_statistics> entries;
+    entries.reserve(records->size());
+    for (detail::network_common::statistics_record& record : *records) {
+        entries.push_back(
+            detail::network_public::make_public_statistics(std::move(record)));
+    }
+    return entries;
+}
+
+/// Returns traffic and error statistics for a specific interface by name.
+///
+/// @param interface_name Exact operating-system interface name (UTF-8).
+/// @return The interface's statistics, not_found if no interface with that name
+/// exists, invalid_argument if the name is empty or contains embedded nulls,
+/// invalid_encoding if the name is not valid UTF-8, not_supported when
+/// the platform exposes no acceptable source, or a native platform error.
+inline result<interface_statistics> statistics(
+    std::string_view interface_name) {
+    if (interface_name.empty() ||
+        interface_name.find('\0') != std::string_view::npos) {
+        return fail(errc::invalid_argument);
+    }
+    if (!detail::is_valid_utf8(interface_name)) {
+        return fail(errc::invalid_encoding);
+    }
+    result<detail::network_common::statistics_record> record =
+        detail::network_common::validate_statistics_record(
+            detail::network_backend::statistics_by_name(interface_name));
+    if (!record) { return fail(record.error()); }
+    return detail::network_public::make_public_statistics(std::move(*record));
+}
+
+/// Returns traffic and error statistics for a specific interface by OS index.
+///
+/// @param interface_index Nonzero operating-system interface index.
+/// @return The interface's statistics, not_found if no interface with that
+/// index exists, invalid_argument if index is 0, not_supported when the
+/// platform exposes no acceptable source, or a native platform error.
+inline result<interface_statistics> statistics(std::uint32_t interface_index) {
+    if (interface_index == 0U) {
+        return fail(errc::invalid_argument);
+    }
+    result<detail::network_common::statistics_record> record =
+        detail::network_common::validate_statistics_record(
+            detail::network_backend::statistics_by_index(interface_index));
+    if (!record) { return fail(record.error()); }
+    return detail::network_public::make_public_statistics(std::move(*record));
 }
 
 } // namespace network

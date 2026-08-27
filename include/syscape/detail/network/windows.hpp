@@ -645,6 +645,165 @@ inline result<network_common::dns_record> dns() {
     return collect_dns(native_adapter_api{}, native_dns_params_api{});
 }
 
+/// Platform API for querying MIB_IF_TABLE2 and MIB_IF_ROW2.
+struct native_if_table_api {
+    static result<::PMIB_IF_TABLE2> table() {
+        ::PMIB_IF_TABLE2 ptr = nullptr;
+        const ::DWORD status = ::GetIfTable2(&ptr);
+        if (status != NO_ERROR) {
+            return fail(std::error_code(static_cast<int>(status),
+                                        std::system_category()));
+        }
+        return ptr;
+    }
+
+    static void release(::PMIB_IF_TABLE2 ptr) noexcept {
+        if (ptr != nullptr) {
+            ::FreeMibTable(ptr);
+        }
+    }
+
+    static result<::MIB_IF_ROW2> entry(std::uint32_t index) {
+        ::MIB_IF_ROW2 row {};
+        row.InterfaceIndex = static_cast<::NET_IFINDEX>(index);
+        const ::DWORD status = ::GetIfEntry2(&row);
+        if (status == ERROR_NOT_FOUND || status == ERROR_FILE_NOT_FOUND) {
+            return fail(errc::not_found);
+        }
+        if (status != NO_ERROR) {
+            return fail(std::error_code(static_cast<int>(status),
+                                        std::system_category()));
+        }
+        return row;
+    }
+};
+
+/// Converts one MIB_IF_ROW2 entry into a statistics record.
+inline result<network_common::statistics_record> convert_if_row(
+    const ::MIB_IF_ROW2& row) {
+    result<std::string> name = [row]() -> result<std::string> {
+        if (row.Alias[0] != L'\0') {
+            return wide_to_utf8(std::wstring_view(row.Alias));
+        }
+        if (row.Description[0] != L'\0') {
+            return wide_to_utf8(std::wstring_view(row.Description));
+        }
+        return fail(errc::malformed_data);
+    }();
+    if (!name) { return fail(name.error()); }
+
+    network_common::statistics_record rec;
+    rec.name = std::move(*name);
+    rec.index = static_cast<std::uint32_t>(row.InterfaceIndex);
+    rec.rx_bytes = row.InOctets;
+    rec.tx_bytes = row.OutOctets;
+    const result<std::uint64_t> rx_packets =
+        network_common::add_statistics_counters(row.InUcastPkts,
+                                                row.InNUcastPkts);
+    if (!rx_packets) { return fail(rx_packets.error()); }
+    rec.rx_packets = *rx_packets;
+    const result<std::uint64_t> tx_packets =
+        network_common::add_statistics_counters(row.OutUcastPkts,
+                                                row.OutNUcastPkts);
+    if (!tx_packets) { return fail(tx_packets.error()); }
+    rec.tx_packets = *tx_packets;
+    rec.rx_errors = row.InErrors;
+    rec.tx_errors = row.OutErrors;
+    rec.rx_dropped = row.InDiscards;
+    rec.tx_dropped = row.OutDiscards;
+    return rec;
+}
+
+template <typename TableApi = native_if_table_api>
+inline result<std::vector<network_common::statistics_record>> collect_statistics(
+    TableApi api = TableApi{}) {
+    const result<::PMIB_IF_TABLE2> table = api.table();
+    if (!table) { return fail(table.error()); }
+    if (*table == nullptr) { return fail(errc::malformed_data); }
+    struct table_guard {
+        ::PMIB_IF_TABLE2 ptr;
+        ~table_guard() { TableApi::release(ptr); }
+    } guard{*table};
+
+    std::vector<network_common::statistics_record> records;
+    records.reserve(guard.ptr->NumEntries);
+    for (::ULONG i = 0U; i < guard.ptr->NumEntries; ++i) {
+        const ::MIB_IF_ROW2& row = guard.ptr->Table[i];
+        if (row.InterfaceIndex == 0U) { continue; }
+        result<network_common::statistics_record> rec = convert_if_row(row);
+        if (!rec) { return fail(rec.error()); }
+        records.push_back(std::move(*rec));
+    }
+    return records;
+}
+
+/// Returns statistics for all network interfaces on Windows.
+inline result<std::vector<network_common::statistics_record>> statistics() {
+    result<std::vector<network_common::statistics_record>> records =
+        collect_statistics(native_if_table_api{});
+    if (!records) { return fail(records.error()); }
+
+    // Use the same names exposed by network::interfaces() whenever the
+    // adapter table is available, including its documented identifier
+    // fallback when a friendly name is absent.
+    const result<std::vector<network_common::interface_record>> adapters =
+        interfaces();
+    if (adapters) {
+        for (network_common::statistics_record& record : *records) {
+            for (const network_common::interface_record& adapter : *adapters) {
+                if (adapter.index == record.index) {
+                    record.name = adapter.name;
+                    break;
+                }
+            }
+        }
+    }
+    return records;
+}
+
+/// Returns statistics for a specific interface by index on Windows.
+inline result<network_common::statistics_record> statistics_by_index(
+    std::uint32_t index) {
+    if (index == 0U) {
+        return fail(errc::invalid_argument);
+    }
+    const result<::MIB_IF_ROW2> row = native_if_table_api::entry(index);
+    if (!row) { return fail(row.error()); }
+    result<network_common::statistics_record> record = convert_if_row(*row);
+    if (!record) { return fail(record.error()); }
+    const result<std::vector<network_common::interface_record>> adapters =
+        interfaces();
+    if (adapters) {
+        for (const network_common::interface_record& adapter : *adapters) {
+            if (adapter.index == record->index) {
+                record->name = adapter.name;
+                break;
+            }
+        }
+    }
+    return record;
+}
+
+/// Returns statistics for a specific interface by name on Windows.
+inline result<network_common::statistics_record> statistics_by_name(
+    std::string_view name) {
+    if (name.empty() || name.find('\0') != std::string_view::npos) {
+        return fail(errc::invalid_argument);
+    }
+    if (!is_valid_utf8(name)) {
+        return fail(errc::invalid_encoding);
+    }
+    const result<std::vector<network_common::statistics_record>> all =
+        statistics();
+    if (!all) { return fail(all.error()); }
+    for (const network_common::statistics_record& rec : *all) {
+        if (rec.name == name) {
+            return rec;
+        }
+    }
+    return fail(errc::not_found);
+}
+
 } // namespace network_backend
 } // namespace detail
 } // namespace syscape

@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -731,6 +732,84 @@ void test_windows_dns_edge_cases() {
     fake_params_api::fail_call = false;
 }
 
+struct fake_if_table_api {
+    static ::PMIB_IF_TABLE2 table_value;
+    static bool fail_call;
+    static ::DWORD native_error;
+
+    static syscape::result<::PMIB_IF_TABLE2> table() {
+        if (fail_call) {
+            return syscape::fail(std::error_code(
+                static_cast<int>(native_error), std::system_category()));
+        }
+        return table_value;
+    }
+
+    static void release(::PMIB_IF_TABLE2) noexcept {}
+};
+
+::PMIB_IF_TABLE2 fake_if_table_api::table_value = nullptr;
+bool fake_if_table_api::fail_call = false;
+::DWORD fake_if_table_api::native_error = 0U;
+
+void test_windows_statistics_conversion() {
+    alignas(::MIB_IF_TABLE2) unsigned char storage[sizeof(::MIB_IF_TABLE2) + sizeof(::MIB_IF_ROW2)];
+    std::memset(storage, 0, sizeof(storage));
+    ::PMIB_IF_TABLE2 table = reinterpret_cast<::PMIB_IF_TABLE2>(storage);
+    table->NumEntries = 1U;
+    ::MIB_IF_ROW2& row = table->Table[0];
+    row.InterfaceIndex = 42U;
+    std::wcscpy(row.Alias, L"Ethernet 1");
+    row.InOctets = 1000ULL;
+    row.OutOctets = 2000ULL;
+    row.InUcastPkts = 10ULL;
+    row.InNUcastPkts = 2ULL;
+    row.OutUcastPkts = 20ULL;
+    row.OutNUcastPkts = 3ULL;
+    row.InErrors = 1ULL;
+    row.OutErrors = 2ULL;
+    row.InDiscards = 3ULL;
+    row.OutDiscards = 4ULL;
+
+    fake_if_table_api::table_value = table;
+    fake_if_table_api::fail_call = false;
+
+    fake_if_table_api api;
+    const auto collected =
+        syscape::detail::network_backend::collect_statistics(api);
+    expect(collected.has_value(), "Windows statistics collect successfully");
+    if (collected) {
+        expect(collected->size() == 1U, "One statistics entry collected");
+        const auto& rec = (*collected)[0];
+        expect(rec.name == "Ethernet 1", "Friendly alias name converted");
+        expect(rec.index == 42U, "Interface index matches");
+        expect(rec.rx_bytes == 1000ULL, "rx_bytes match");
+        expect(rec.tx_bytes == 2000ULL, "tx_bytes match");
+        expect(rec.rx_packets == 12ULL, "rx_packets match");
+        expect(rec.tx_packets == 23ULL, "tx_packets match");
+        expect(rec.rx_errors == 1ULL, "rx_errors match");
+        expect(rec.tx_errors == 2ULL, "tx_errors match");
+        expect(rec.rx_dropped == 3ULL, "rx_dropped match");
+        expect(rec.tx_dropped == 4ULL, "tx_dropped match");
+        expect(!rec.rx_multicast,
+               "Windows leaves unavailable multicast packet count empty");
+    }
+
+    row.InUcastPkts = (std::numeric_limits<::ULONG64>::max)();
+    row.InNUcastPkts = 1ULL;
+    const auto overflow =
+        syscape::detail::network_backend::convert_if_row(row);
+    expect(!overflow && overflow.error() == syscape::errc::value_too_large,
+           "Combined Windows packet counters reject overflow");
+
+    fake_if_table_api::table_value = nullptr;
+    const auto null_table =
+        syscape::detail::network_backend::collect_statistics(
+            fake_if_table_api{});
+    expect(!null_table && null_table.error() == syscape::errc::malformed_data,
+           "A successful Windows table call cannot return a null table");
+}
+
 } // namespace
 
 int main() {
@@ -750,5 +829,6 @@ int main() {
     test_windows_non_forwarding_routes_are_filtered();
     test_windows_dns_collection_order_and_bindings();
     test_windows_dns_edge_cases();
+    test_windows_statistics_conversion();
     return failures == 0 ? 0 : 1;
 }

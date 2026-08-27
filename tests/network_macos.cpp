@@ -1,3 +1,4 @@
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -11,6 +12,7 @@
 #include <sys/socket.h>
 #include <net/if.h>
 #include <net/if_dl.h>
+#include <net/route.h>
 #include <netinet/in.h>
 #include <ifaddrs.h>
 
@@ -692,6 +694,88 @@ void test_macos_dns_address_shapes() {
     fake_store_api::value = nullptr;
 }
 
+struct fake_statistics_interface_api {
+    static bool fail;
+
+    static syscape::result<std::string> name_of(std::uint32_t) {
+        if (fail) {
+            return syscape::fail(std::error_code(
+                EACCES, std::generic_category()));
+        }
+        return std::string("en0");
+    }
+};
+
+bool fake_statistics_interface_api::fail = false;
+
+void test_macos_statistics_conversion() {
+    const auto null_data = syscape::detail::network_backend::
+        parse_darwin_statistics_dump<fake_statistics_interface_api>(
+            nullptr, 1U);
+    expect(!null_data &&
+               null_data.error() == syscape::errc::malformed_data,
+           "A nonempty Darwin dump requires a data buffer");
+
+    ::if_msghdr2 header {};
+    header.ifm_msglen = static_cast<decltype(header.ifm_msglen)>(
+        sizeof(header));
+    header.ifm_version = RTM_VERSION;
+    header.ifm_type = RTM_IFINFO2;
+    header.ifm_index = 1U;
+    header.ifm_snd_drops = 6;
+    header.ifm_data.ifi_ibytes = 12345ULL;
+    header.ifm_data.ifi_obytes = 67890ULL;
+    header.ifm_data.ifi_ipackets = 100ULL;
+    header.ifm_data.ifi_opackets = 200ULL;
+    header.ifm_data.ifi_ierrors = 1ULL;
+    header.ifm_data.ifi_oerrors = 2ULL;
+    header.ifm_data.ifi_iqdrops = 3ULL;
+    header.ifm_data.ifi_imcasts = 4ULL;
+    header.ifm_data.ifi_collisions = 5ULL;
+
+    const auto converted = syscape::detail::network_backend::
+        parse_darwin_statistics_dump<fake_statistics_interface_api>(
+            reinterpret_cast<const unsigned char*>(&header), sizeof(header));
+    expect(converted.has_value(),
+           "Darwin if_data statistics convert successfully");
+    if (converted) {
+        expect(converted->size() == 1U, "One interface statistics entry");
+        const auto& rec = (*converted)[0];
+        expect(rec.name == "en0", "Name matches");
+        expect(rec.index == 1U, "Index matches");
+        expect(rec.rx_bytes == 12345ULL, "rx_bytes match");
+        expect(rec.tx_bytes == 67890ULL, "tx_bytes match");
+        expect(rec.rx_packets == 100ULL, "rx_packets match");
+        expect(rec.tx_packets == 200ULL, "tx_packets match");
+        expect(rec.rx_errors == 1ULL, "rx_errors match");
+        expect(rec.tx_errors == 2ULL, "tx_errors match");
+        expect(rec.rx_dropped == 3ULL, "rx_dropped match");
+        expect(rec.tx_dropped == 6ULL, "tx_dropped matches queue drops");
+        expect(rec.rx_multicast.has_value() && *rec.rx_multicast == 4ULL,
+               "rx_multicast matches");
+        expect(rec.collisions.has_value() && *rec.collisions == 5ULL,
+               "collisions match");
+    }
+
+    fake_statistics_interface_api::fail = true;
+    const auto failed_name = syscape::detail::network_backend::
+        parse_darwin_statistics_dump<fake_statistics_interface_api>(
+            reinterpret_cast<const unsigned char*>(&header), sizeof(header));
+    expect(!failed_name &&
+               failed_name.error() ==
+                   std::error_code(EACCES, std::generic_category()),
+           "Interface-name lookup errors are preserved");
+    fake_statistics_interface_api::fail = false;
+
+    header.ifm_snd_drops = -1;
+    const auto negative_drops = syscape::detail::network_backend::
+        parse_darwin_statistics_dump<fake_statistics_interface_api>(
+            reinterpret_cast<const unsigned char*>(&header), sizeof(header));
+    expect(!negative_drops &&
+               negative_drops.error() == syscape::errc::malformed_data,
+           "Negative Darwin queue-drop counts are malformed");
+}
+
 } // namespace
 
 int main() {
@@ -709,5 +793,6 @@ int main() {
     test_macos_dns_partial_and_absent();
     test_macos_dns_type_mismatches_fail();
     test_macos_dns_address_shapes();
+    test_macos_statistics_conversion();
     return failures == 0 ? 0 : 1;
 }

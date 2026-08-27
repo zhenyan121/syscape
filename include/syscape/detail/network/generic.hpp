@@ -20,6 +20,20 @@ inline result<network_common::dns_record> dns() {
     return fail(errc::not_supported);
 }
 
+inline result<std::vector<network_common::statistics_record>> statistics() {
+    return fail(errc::not_supported);
+}
+
+inline result<network_common::statistics_record> statistics_by_name(
+    std::string_view) {
+    return fail(errc::not_supported);
+}
+
+inline result<network_common::statistics_record> statistics_by_index(
+    std::uint32_t) {
+    return fail(errc::not_supported);
+}
+
 } // namespace network_backend
 } // namespace detail
 } // namespace syscape
