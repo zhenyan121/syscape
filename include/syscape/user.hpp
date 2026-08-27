@@ -2,18 +2,20 @@
 #define SYSCAPE_USER_HPP
 
 /// @file
-/// @brief Hosted user identity queries.
+/// @brief Hosted user identity and active login session queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note Linux and macOS share a POSIX backend; Windows provides a native
-/// backend for the textual queries and for token-elevation classification.
-/// Other targets use the generic not-supported fallback.
-/// @note On Windows, privilege() uses the documented process-token
-/// interfaces; applications that use this query on Windows must link the
-/// Advapi32 import library. Syscape itself stays header-only and does not
-/// impose that linkage on unrelated Hosted Full consumers.
+/// @note This module exposes:
+/// - Real and effective user and group numeric identifiers (real_user_id(), effective_user_id(), real_group_id(), effective_group_id()).
+/// - Supplementary group numeric memberships (supplementary_groups()).
+/// - Privilege state classification (privilege()).
+/// - Login name, user name, home directory, and login shell (login_name(), user_name(), home_directory(), shell()).
+/// - Active user login sessions and logged-in user names (sessions(), logged_in_users()).
+/// @note Linux and macOS share a POSIX backend querying passwd, groups, getlogin_r, and utmpx.
+/// @note Windows provides a native backend querying GetUserNameW, SHGetKnownFolderPath,
+/// process token elevation (Advapi32.lib), and Terminal Services session enumeration (Wtsapi32.lib).
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
-/// @note Privacy: user names and home directories can identify persons or
+/// @note Privacy: user names, home directories, and login sessions can identify persons or
 /// accounts. Every query here is explicit, performs no logging, persistence,
 /// telemetry, or network access, and preserves platform permission errors.
 
@@ -23,7 +25,9 @@
 #error "syscape/user.hpp requires C++17 or later"
 #endif
 
+#include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -50,6 +54,15 @@ namespace user {
 
 /// Privilege classification of the calling process's effective identity.
 using privilege_state = detail::user_common::privilege_state;
+
+/// Classification of a user login session type.
+using session_type = detail::user_common::session_type;
+
+/// Operational state of a login session.
+using session_state = detail::user_common::session_state;
+
+/// Information describing an active user login session.
+using session_info = detail::user_common::session_info;
 
 /// Returns the real user identifier of the calling process.
 ///
@@ -209,6 +222,30 @@ inline result<std::string> home_directory() {
 inline result<std::string> shell() {
     return detail::user_common::validate_utf8_shell(
         detail::user_backend::shell());
+}
+
+/// Returns all active user login sessions recorded by the operating system.
+///
+/// POSIX platforms query the system utmpx database in-process without spawning
+/// external commands like who or w. Windows queries the Terminal Services
+/// session API (WTSEnumerateSessionsW and WTSQuerySessionInformationW).
+/// The returned list contains active user sessions sorted deterministically
+/// by username, terminal, and session ID.
+/// @return A list of active login sessions, not_supported when the platform
+/// exposes no acceptable session source, or a native platform error.
+inline result<std::vector<session_info>> sessions() {
+    return detail::user_backend::sessions();
+}
+
+/// Returns the unique user names of all currently logged-in active users.
+///
+/// Derived from active user sessions with duplicates removed and sorted
+/// alphabetically. If no users are logged in, returns an empty list.
+/// @return Sorted unique user names, not_supported when the platform
+/// exposes no acceptable session source, or a native platform error.
+inline result<std::vector<std::string>> logged_in_users() {
+    return detail::user_common::extract_logged_in_users(
+        detail::user_backend::sessions());
 }
 
 } // namespace user

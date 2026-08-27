@@ -321,11 +321,11 @@ if(WIN32)
     # contract without imposing Iphlpapi on unrelated Hosted Full consumers.
     target_link_libraries(odr PRIVATE iphlpapi)
     target_link_libraries(network_windows PRIVATE iphlpapi)
-    # Targets that call the user privilege API follow its documented Windows
-    # linkage contract without imposing Advapi32 on unrelated consumers.
-    target_link_libraries(header_user PRIVATE advapi32)
-    target_link_libraries(user_windows PRIVATE advapi32)
-    target_link_libraries(odr PRIVATE advapi32)
+    # Targets that call the user privilege and session APIs follow their documented
+    # Windows linkage contracts without imposing Advapi32 or Wtsapi32 on unrelated consumers.
+    target_link_libraries(header_user PRIVATE advapi32 wtsapi32)
+    target_link_libraries(user_windows PRIVATE advapi32 wtsapi32)
+    target_link_libraries(odr PRIVATE advapi32 wtsapi32)
     # Storage, hardware, and camera enumeration use documented SetupAPI APIs.
     target_link_libraries(header_storage PRIVATE setupapi)
     target_link_libraries(storage_windows PRIVATE setupapi)

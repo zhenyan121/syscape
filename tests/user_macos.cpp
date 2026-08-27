@@ -48,5 +48,11 @@ int main() {
     const syscape::result<std::string> shell = syscape::user::shell();
     if (!shell || !syscape::detail::is_valid_utf8(*shell)) { return 7; }
 
+    const auto sessions = syscape::user::sessions();
+    if (!sessions) { return 8; }
+
+    const auto logged_in = syscape::user::logged_in_users();
+    if (!logged_in) { return 9; }
+
     return 0;
 }

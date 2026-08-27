@@ -52,6 +52,10 @@ inline result<std::string> login_name() {
     return fail(errc::not_supported);
 }
 
+inline result<std::vector<user_common::session_info>> sessions() {
+    return fail(errc::not_supported);
+}
+
 } // namespace user_backend
 } // namespace detail
 } // namespace syscape

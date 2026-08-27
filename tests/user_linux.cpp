@@ -506,6 +506,222 @@ void test_runtime_login_name() {
            "Native session-reference failures must match the query result");
 }
 
+void test_utmpx_parsing_empty() {
+    const auto result = syscape::detail::user_backend::parse_utmpx_entries(
+        []() -> const ::utmpx* { return nullptr; });
+    expect(result.has_value(), "Empty utmpx database must succeed");
+    expect(result->empty(), "Empty utmpx database must return 0 sessions");
+}
+
+void test_utmpx_filtering_and_classification() {
+    std::vector<::utmpx> entries(7);
+
+    // Entry 0: BOOT_TIME (2) -> skip
+    entries[0] = ::utmpx {};
+    entries[0].ut_type = 2; // BOOT_TIME
+    std::strncpy(entries[0].ut_user, "reboot", sizeof(entries[0].ut_user));
+    std::strncpy(entries[0].ut_line, "~", sizeof(entries[0].ut_line));
+
+    // Entry 1: INIT_PROCESS (5) -> skip
+    entries[1] = ::utmpx {};
+    entries[1].ut_type = 5; // INIT_PROCESS
+    entries[1].ut_pid = 1;
+
+    // Entry 2: USER_PROCESS (7), bob on pts/0 from 192.168.1.50
+    entries[2] = ::utmpx {};
+    entries[2].ut_type = 7; // USER_PROCESS
+    entries[2].ut_pid = 2002;
+    std::strncpy(entries[2].ut_user, "bob", sizeof(entries[2].ut_user));
+    std::strncpy(entries[2].ut_line, "pts/0", sizeof(entries[2].ut_line));
+    std::strncpy(entries[2].ut_id, "ts0", sizeof(entries[2].ut_id));
+    std::strncpy(entries[2].ut_host, "192.168.1.50", sizeof(entries[2].ut_host));
+    entries[2].ut_tv.tv_sec = 1700000000;
+    entries[2].ut_tv.tv_usec = 100000;
+
+    // Entry 3: USER_PROCESS (7), alice on tty1
+    entries[3] = ::utmpx {};
+    entries[3].ut_type = 7; // USER_PROCESS
+    entries[3].ut_pid = 1001;
+    std::strncpy(entries[3].ut_user, "alice", sizeof(entries[3].ut_user));
+    std::strncpy(entries[3].ut_line, "tty1", sizeof(entries[3].ut_line));
+    std::strncpy(entries[3].ut_id, "1", sizeof(entries[3].ut_id));
+    entries[3].ut_tv.tv_sec = 1700000050;
+
+    // Entry 4: USER_PROCESS (7), charlie on :0 (graphical)
+    entries[4] = ::utmpx {};
+    entries[4].ut_type = 7; // USER_PROCESS
+    entries[4].ut_pid = 3003;
+    std::strncpy(entries[4].ut_user, "charlie", sizeof(entries[4].ut_user));
+    std::strncpy(entries[4].ut_line, ":0", sizeof(entries[4].ut_line));
+    std::strncpy(entries[4].ut_id, "d0", sizeof(entries[4].ut_id));
+    std::strncpy(entries[4].ut_host, ":0", sizeof(entries[4].ut_host));
+
+    // Entry 5: DEAD_PROCESS (8) -> skip
+    entries[5] = ::utmpx {};
+    entries[5].ut_type = 8; // DEAD_PROCESS
+
+    // Entry 6: USER_PROCESS (7) with empty user -> skip
+    entries[6] = ::utmpx {};
+    entries[6].ut_type = 7; // USER_PROCESS
+
+    std::size_t index = 0;
+    const auto result = syscape::detail::user_backend::parse_utmpx_entries(
+        [&]() -> const ::utmpx* {
+            if (index < entries.size()) {
+                return &entries[index++];
+            }
+            return nullptr;
+        });
+
+    expect(result.has_value(), "Synthetic utmpx parsing must succeed");
+    expect(result->size() == 3U, "Synthetic utmpx must extract 3 user sessions");
+
+    if (result->size() == 3U) {
+        // Sorted: alice, bob, charlie
+        const auto& s0 = (*result)[0];
+        expect(s0.user_name == "alice", "Session 0 user must be alice");
+        expect(s0.terminal == "tty1", "Session 0 terminal must be tty1");
+        expect(s0.session_id.has_value() && *s0.session_id == "1",
+               "Session 0 session_id must be 1");
+        expect(s0.pid.has_value() && *s0.pid == 1001U,
+               "Session 0 pid must be 1001");
+        expect(s0.type == syscape::user::session_type::console,
+               "Session 0 type must be console");
+        expect(s0.state == syscape::user::session_state::active,
+               "Session 0 state must be active");
+        expect(!s0.remote_host.has_value(), "Session 0 remote_host must be absent");
+        expect(s0.login_time.has_value(), "Session 0 login_time must be present");
+
+        const auto& s1 = (*result)[1];
+        expect(s1.user_name == "bob", "Session 1 user must be bob");
+        expect(s1.terminal == "pts/0", "Session 1 terminal must be pts/0");
+        expect(s1.type == syscape::user::session_type::remote,
+               "Session 1 type must be remote");
+        expect(s1.remote_host.has_value() && *s1.remote_host == "192.168.1.50",
+               "Session 1 remote_host must be 192.168.1.50");
+
+        const auto& s2 = (*result)[2];
+        expect(s2.user_name == "charlie", "Session 2 user must be charlie");
+        expect(s2.terminal == ":0", "Session 2 terminal must be :0");
+        expect(s2.type == syscape::user::session_type::graphical,
+               "Session 2 type must be graphical");
+        expect(!s2.remote_host.has_value(),
+               "Session 2 remote_host must be absent for graphical display");
+    }
+
+    const auto users = syscape::detail::user_common::extract_logged_in_users(result);
+    expect(users.has_value(), "extract_logged_in_users must succeed");
+    expect(users->size() == 3U, "extract_logged_in_users must return 3 users");
+    if (users->size() == 3U) {
+        expect((*users)[0] == "alice", "User 0 must be alice");
+        expect((*users)[1] == "bob", "User 1 must be bob");
+        expect((*users)[2] == "charlie", "User 2 must be charlie");
+    }
+}
+
+void test_utmpx_encoding_validation() {
+    // 1. Invalid UTF-8 in username
+    {
+        ::utmpx entry {};
+        entry.ut_type = 7; // USER_PROCESS
+        entry.ut_user[0] = static_cast<char>(0xFF);
+        entry.ut_user[1] = '\0';
+
+        bool yielded = false;
+        const auto result = syscape::detail::user_backend::parse_utmpx_entries(
+            [&]() -> const ::utmpx* {
+                if (!yielded) {
+                    yielded = true;
+                    return &entry;
+                }
+                return nullptr;
+            });
+        expect(!result, "Invalid UTF-8 username in utmpx must fail");
+        expect(result.error() == syscape::errc::invalid_encoding,
+               "Invalid UTF-8 username in utmpx must report invalid_encoding");
+    }
+
+    // 2. Invalid UTF-8 in terminal line
+    {
+        ::utmpx entry {};
+        entry.ut_type = 7;
+        std::strncpy(entry.ut_user, "alice", sizeof(entry.ut_user));
+        entry.ut_line[0] = static_cast<char>(0xFF);
+        entry.ut_line[1] = '\0';
+
+        bool yielded = false;
+        const auto result = syscape::detail::user_backend::parse_utmpx_entries(
+            [&]() -> const ::utmpx* {
+                if (!yielded) {
+                    yielded = true;
+                    return &entry;
+                }
+                return nullptr;
+            });
+        expect(!result, "Invalid UTF-8 terminal line in utmpx must fail");
+        expect(result.error() == syscape::errc::invalid_encoding,
+               "Invalid UTF-8 terminal line in utmpx must report invalid_encoding");
+    }
+
+    // 3. Invalid UTF-8 in session id
+    {
+        ::utmpx entry {};
+        entry.ut_type = 7;
+        std::strncpy(entry.ut_user, "alice", sizeof(entry.ut_user));
+        std::strncpy(entry.ut_line, "tty1", sizeof(entry.ut_line));
+        entry.ut_id[0] = static_cast<char>(0xFF);
+        entry.ut_id[1] = '\0';
+
+        bool yielded = false;
+        const auto result = syscape::detail::user_backend::parse_utmpx_entries(
+            [&]() -> const ::utmpx* {
+                if (!yielded) {
+                    yielded = true;
+                    return &entry;
+                }
+                return nullptr;
+            });
+        expect(!result, "Invalid UTF-8 session id in utmpx must fail");
+        expect(result.error() == syscape::errc::invalid_encoding,
+               "Invalid UTF-8 session id in utmpx must report invalid_encoding");
+    }
+}
+
+void test_runtime_sessions_and_users() {
+    const auto sessions_res = syscape::user::sessions();
+    expect(sessions_res.has_value(), "syscape::user::sessions() must succeed on Linux");
+
+    const auto users_res = syscape::user::logged_in_users();
+    expect(users_res.has_value(), "syscape::user::logged_in_users() must succeed on Linux");
+
+    if (sessions_res) {
+        for (const auto& s : *sessions_res) {
+            expect(!s.user_name.empty(), "Live session user_name must not be empty");
+            expect(syscape::detail::is_valid_utf8(s.user_name),
+                   "Live session user_name must be valid UTF-8");
+            expect(syscape::detail::is_valid_utf8(s.terminal),
+                   "Live session terminal must be valid UTF-8");
+            if (s.remote_host.has_value()) {
+                expect(syscape::detail::is_valid_utf8(*s.remote_host),
+                       "Live session remote_host must be valid UTF-8");
+            }
+            expect(s.state == syscape::user::session_state::active,
+                   "Live session state must be active");
+        }
+    }
+
+    if (users_res) {
+        for (const auto& u : *users_res) {
+            expect(!u.empty(), "Logged-in user name must not be empty");
+            expect(syscape::detail::is_valid_utf8(u),
+                   "Logged-in user name must be valid UTF-8");
+        }
+        // Verify sorted & unique
+        expect(std::is_sorted(users_res->begin(), users_res->end()),
+               "Logged-in users must be sorted");
+    }
+}
+
 } // namespace
 
 int main() {
@@ -520,5 +736,9 @@ int main() {
     test_runtime_queries();
     test_runtime_supplementary_groups();
     test_runtime_login_name();
+    test_utmpx_parsing_empty();
+    test_utmpx_filtering_and_classification();
+    test_utmpx_encoding_validation();
+    test_runtime_sessions_and_users();
     return failures == 0 ? 0 : 1;
 }

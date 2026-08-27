@@ -3,12 +3,15 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <mutex>
 #include <string>
 #include <system_error>
 #include <type_traits>
+#include <utmpx.h>
 #include <vector>
 
 #include <sys/types.h>
@@ -17,11 +20,153 @@
 
 #include <syscape/detail/posix/passwd.hpp>
 #include <syscape/detail/user/common.hpp>
+#include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
 
 namespace syscape {
 namespace detail {
 namespace user_backend {
+
+/// Safely extracts a null-terminated string from a fixed-size char array.
+template <std::size_t N>
+inline std::string fixed_array_to_string(const char (&array)[N]) {
+    std::size_t len = 0;
+    while (len < N && array[len] != '\0') {
+        ++len;
+    }
+    return std::string(array, len);
+}
+
+/// Classifies the session type from terminal line name and remote host.
+inline user_common::session_type classify_posix_session_type(
+    const std::string& terminal, const std::string& remote_host) {
+    if (terminal.rfind(":", 0) == 0 || remote_host.rfind(":", 0) == 0 ||
+        terminal.find("X11") != std::string::npos ||
+        terminal.find("wayland") != std::string::npos) {
+        return user_common::session_type::graphical;
+    }
+    if (terminal.rfind("tty", 0) == 0 || terminal == "console") {
+        return user_common::session_type::console;
+    }
+    if (terminal.rfind("pts/", 0) == 0 || terminal.rfind("pty", 0) == 0 ||
+        terminal.rfind("ttyp", 0) == 0) {
+        if (!remote_host.empty() && remote_host != ":0" &&
+            remote_host != ":0.0" && remote_host != "localhost" &&
+            remote_host != "127.0.0.1" && remote_host != "::1" &&
+            remote_host.rfind(":", 0) != 0 &&
+            remote_host.rfind("tmux(", 0) != 0 &&
+            remote_host.rfind("screen(", 0) != 0) {
+            return user_common::session_type::remote;
+        }
+        return user_common::session_type::pseudo_terminal;
+    }
+    if (!remote_host.empty() && remote_host.rfind(":", 0) != 0) {
+        return user_common::session_type::remote;
+    }
+    return user_common::session_type::other;
+}
+
+/// Parses active user login sessions from an injectable utmpx reader.
+template <typename ReadNextOperation>
+inline result<std::vector<user_common::session_info>> parse_utmpx_entries(
+    ReadNextOperation read_next) {
+    std::vector<user_common::session_info> sessions;
+
+    for (;;) {
+        const ::utmpx* entry = read_next();
+        if (entry == nullptr) {
+            break;
+        }
+        if (entry->ut_type != USER_PROCESS) {
+            continue;
+        }
+
+        const std::string user = fixed_array_to_string(entry->ut_user);
+        if (user.empty()) {
+            continue;
+        }
+        if (!is_valid_utf8(user)) {
+            return fail(errc::invalid_encoding);
+        }
+
+        const std::string terminal = fixed_array_to_string(entry->ut_line);
+        if (!is_valid_utf8(terminal)) {
+            return fail(errc::invalid_encoding);
+        }
+
+        user_common::session_info session;
+        session.user_name = user;
+        session.terminal = terminal;
+
+        const std::string id = fixed_array_to_string(entry->ut_id);
+        if (!id.empty()) {
+            if (!is_valid_utf8(id)) {
+                return fail(errc::invalid_encoding);
+            }
+            session.session_id = id;
+        }
+
+        if (entry->ut_pid > 0) {
+            session.pid = static_cast<std::uint32_t>(entry->ut_pid);
+        }
+
+        const std::string host = fixed_array_to_string(entry->ut_host);
+        if (!host.empty()) {
+            if (!is_valid_utf8(host)) {
+                return fail(errc::invalid_encoding);
+            }
+        }
+
+        session.type = classify_posix_session_type(session.terminal, host);
+        session.state = user_common::session_state::active;
+
+        if (session.type == user_common::session_type::remote && !host.empty()) {
+            session.remote_host = host;
+        }
+
+        if (entry->ut_tv.tv_sec > 0) {
+            const auto sec = std::chrono::seconds(entry->ut_tv.tv_sec);
+            const auto usec = std::chrono::microseconds(entry->ut_tv.tv_usec);
+            session.login_time = std::chrono::system_clock::time_point(
+                std::chrono::duration_cast<std::chrono::system_clock::duration>(
+                    sec + usec));
+        }
+
+        sessions.push_back(std::move(session));
+    }
+
+    std::sort(sessions.begin(), sessions.end(),
+              [](const user_common::session_info& a,
+                 const user_common::session_info& b) {
+                  if (a.user_name != b.user_name) {
+                      return a.user_name < b.user_name;
+                  }
+                  if (a.terminal != b.terminal) {
+                      return a.terminal < b.terminal;
+                  }
+                  if (a.session_id != b.session_id) {
+                      return a.session_id < b.session_id;
+                  }
+                  return a.pid < b.pid;
+              });
+
+    return sessions;
+}
+
+inline std::mutex& utmpx_mutex() {
+    static std::mutex instance;
+    return instance;
+}
+
+/// Returns all active user login sessions from the POSIX utmpx database.
+inline result<std::vector<user_common::session_info>> sessions() {
+    std::lock_guard<std::mutex> lock(utmpx_mutex());
+    ::setutxent();
+    struct utmpx_cleanup {
+        ~utmpx_cleanup() { ::endutxent(); }
+    } cleanup;
+    return parse_utmpx_entries([]() { return ::getutxent(); });
+}
 
 /// Narrows a POSIX user or group identifier to the portable width.
 template <typename NativeIdentifier>

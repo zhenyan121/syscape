@@ -100,6 +100,10 @@ bool other_user_backend_callable() {
     const syscape::result<std::string> home =
         syscape::user::home_directory();
     const syscape::result<std::string> shell = syscape::user::shell();
+    const syscape::result<std::vector<syscape::user::session_info>> sessions =
+        syscape::user::sessions();
+    const syscape::result<std::vector<std::string>> logged_in =
+        syscape::user::logged_in_users();
     static_cast<void>(effective_user);
     static_cast<void>(real_group);
     static_cast<void>(effective_group);
@@ -109,6 +113,8 @@ bool other_user_backend_callable() {
     static_cast<void>(name);
     static_cast<void>(home);
     static_cast<void>(shell);
+    static_cast<void>(sessions);
+    static_cast<void>(logged_in);
     return real_user.has_value() ||
            real_user.error() == std::errc::operation_not_supported;
 }

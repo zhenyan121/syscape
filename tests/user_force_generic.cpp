@@ -20,7 +20,9 @@ int main() {
                    unsupported(syscape::user::user_name()) &&
                    unsupported(syscape::user::login_name()) &&
                    unsupported(syscape::user::home_directory()) &&
-                   unsupported(syscape::user::shell())
+                   unsupported(syscape::user::shell()) &&
+                   unsupported(syscape::user::sessions()) &&
+                   unsupported(syscape::user::logged_in_users())
                ? 0
                : 1;
 }

@@ -12,6 +12,7 @@
 #include <windows.h>
 #include <lmcons.h>
 #include <shlobj.h>
+#include <wtsapi32.h>
 
 #include <syscape/detail/user/common.hpp>
 #include <syscape/detail/utf8.hpp>
@@ -98,6 +99,310 @@ public:
 private:
     ::PWSTR value_;
 };
+
+/// Converts a hundred-nanosecond count to a nanoseconds duration with overflow check.
+inline result<std::chrono::nanoseconds> hundred_nanoseconds_to_duration(
+    std::uint64_t units) noexcept {
+    constexpr std::uint64_t maximum_units = static_cast<std::uint64_t>(
+        (std::chrono::nanoseconds::max)().count() / 100U);
+    if (units > maximum_units) { return fail(errc::value_too_large); }
+    return std::chrono::nanoseconds(units * 100U);
+}
+
+/// Converts a wall-clock FILETIME value to a system-clock time point with bounds and epoch validation.
+inline result<std::chrono::system_clock::time_point> filetime_to_time_point(
+    const ::FILETIME& value) {
+    using clock = std::chrono::system_clock;
+    // 11644473600 seconds separate the 1601 FILETIME and 1970 Unix epochs.
+    constexpr std::uint64_t unix_epoch_offset_units = 116444736000000000ULL;
+    const std::uint64_t raw_units =
+        (static_cast<std::uint64_t>(value.dwHighDateTime) << 32U) |
+        static_cast<std::uint64_t>(value.dwLowDateTime);
+    if (raw_units < unix_epoch_offset_units) {
+        return fail(errc::malformed_data);
+    }
+    const result<std::chrono::nanoseconds> since_unix_epoch =
+        hundred_nanoseconds_to_duration(raw_units - unix_epoch_offset_units);
+    if (!since_unix_epoch) { return fail(since_unix_epoch.error()); }
+    return clock::time_point(
+        std::chrono::duration_cast<clock::duration>(*since_unix_epoch));
+}
+
+/// Extracts a bounded wide string slice from a WTS return buffer.
+inline result<std::wstring_view> extract_bounded_wide_string(
+    const wchar_t* buffer, ::DWORD bytes) {
+    if (buffer == nullptr && bytes == 0U) {
+        return std::wstring_view{};
+    }
+    if (buffer == nullptr || bytes == 0U) {
+        return fail(errc::malformed_data);
+    }
+    if ((bytes % sizeof(wchar_t)) != 0U) {
+        return fail(errc::malformed_data);
+    }
+    const std::size_t max_chars = bytes / sizeof(wchar_t);
+    std::size_t len = 0U;
+    bool found_null = false;
+    while (len < max_chars) {
+        if (buffer[len] == L'\0') {
+            found_null = true;
+            break;
+        }
+        ++len;
+    }
+    if (!found_null) {
+        return fail(errc::malformed_data);
+    }
+    return std::wstring_view(buffer, len);
+}
+
+/// Maps a Windows Terminal Services connect state to a portable session_state.
+inline user_common::session_state map_wts_connect_state(
+    ::WTS_CONNECTSTATE_CLASS state) {
+    switch (state) {
+    case WTSActive:
+    case WTSConnected:
+    case WTSShadow:
+        return user_common::session_state::active;
+    case WTSIdle:
+        return user_common::session_state::idle;
+    case WTSDisconnected:
+        return user_common::session_state::disconnected;
+    default:
+        return user_common::session_state::other;
+    }
+}
+
+/// Classifies a Windows session type based on station name, remote host, and session ID.
+inline user_common::session_type classify_windows_session_type(
+    const std::string& terminal,
+    const std::optional<std::string>& remote_host,
+    std::uint32_t session_id) {
+    if (terminal == "Console" || terminal == "console") {
+        return user_common::session_type::graphical;
+    }
+    if (terminal.rfind("RDP-", 0) == 0 || terminal.rfind("rdp-", 0) == 0 ||
+        remote_host.has_value()) {
+        return user_common::session_type::remote;
+    }
+    if (session_id == 0) {
+        return user_common::session_type::system;
+    }
+    return user_common::session_type::other;
+}
+
+/// Parses active user login sessions from injectable WTS operations.
+template <typename EnumerateFn, typename QueryFn, typename FreeFn>
+inline result<std::vector<user_common::session_info>> parse_wts_sessions_impl(
+    EnumerateFn enumerate, QueryFn query, FreeFn free_mem) {
+    ::PWTS_SESSION_INFOW pSessions = nullptr;
+    ::DWORD count = 0;
+    if (!enumerate(WTS_CURRENT_SERVER_HANDLE, 0, 1, &pSessions, &count)) {
+        return fail(last_error());
+    }
+    if (pSessions == nullptr && count > 0) {
+        return fail(errc::malformed_data);
+    }
+    struct enum_guard {
+        ::PWTS_SESSION_INFOW ptr;
+        FreeFn free_fn;
+        ~enum_guard() {
+            if (ptr != nullptr) { free_fn(ptr); }
+        }
+    } guard{pSessions, free_mem};
+
+    std::vector<user_common::session_info> results;
+    results.reserve(count);
+
+    for (::DWORD i = 0; i < count; ++i) {
+        const ::WTS_SESSION_INFOW& wts_session = pSessions[i];
+        ::LPWSTR user_buf = nullptr;
+        ::DWORD user_bytes = 0;
+        if (!query(WTS_CURRENT_SERVER_HANDLE, wts_session.SessionId, WTSUserName,
+                   reinterpret_cast<::LPWSTR*>(&user_buf), &user_bytes)) {
+            return fail(last_error());
+        }
+        struct user_guard {
+            void* ptr;
+            FreeFn free_fn;
+            ~user_guard() {
+                if (ptr != nullptr) { free_fn(ptr); }
+            }
+        } u_guard{user_buf, free_mem};
+
+        const auto user_view = extract_bounded_wide_string(user_buf, user_bytes);
+        if (!user_view) {
+            return fail(user_view.error());
+        }
+        if (user_view->empty()) {
+            continue;
+        }
+        const auto user_utf8 = wide_to_utf8(*user_view);
+        if (!user_utf8) {
+            return fail(user_utf8.error());
+        }
+        if (user_utf8->empty()) {
+            continue;
+        }
+
+        user_common::session_info session;
+        session.user_name = *user_utf8;
+        session.session_id = std::to_string(wts_session.SessionId);
+
+        if (wts_session.pWinStationName != nullptr) {
+            const auto term_utf8 = wide_to_utf8(wts_session.pWinStationName);
+            if (!term_utf8) {
+                return fail(term_utf8.error());
+            }
+            session.terminal = *term_utf8;
+        }
+
+        session.state = map_wts_connect_state(wts_session.State);
+
+        std::optional<std::string> client_host;
+
+        // Query Client Name
+        ::LPWSTR client_buf = nullptr;
+        ::DWORD client_bytes = 0;
+        if (query(WTS_CURRENT_SERVER_HANDLE, wts_session.SessionId, WTSClientName,
+                  reinterpret_cast<::LPWSTR*>(&client_buf), &client_bytes)) {
+            struct client_guard {
+                void* ptr;
+                FreeFn free_fn;
+                ~client_guard() {
+                    if (ptr != nullptr) { free_fn(ptr); }
+                }
+            } c_guard{client_buf, free_mem};
+            const auto client_view =
+                extract_bounded_wide_string(client_buf, client_bytes);
+            if (!client_view) {
+                return fail(client_view.error());
+            }
+            if (!client_view->empty()) {
+                const auto client_utf8 = wide_to_utf8(*client_view);
+                if (!client_utf8) {
+                    return fail(client_utf8.error());
+                }
+                if (!client_utf8->empty()) {
+                    client_host = *client_utf8;
+                }
+            }
+        }
+
+        // Query Client Address if client_host not yet set
+        if (!client_host.has_value()) {
+            ::PWTS_CLIENT_ADDRESS addr_buf = nullptr;
+            ::DWORD addr_bytes = 0;
+            if (query(WTS_CURRENT_SERVER_HANDLE, wts_session.SessionId,
+                      WTSClientAddress,
+                      reinterpret_cast<::LPWSTR*>(&addr_buf), &addr_bytes)) {
+                struct addr_guard {
+                    void* ptr;
+                    FreeFn free_fn;
+                    ~addr_guard() {
+                        if (ptr != nullptr) { free_fn(ptr); }
+                    }
+                } a_guard{addr_buf, free_mem};
+                if (addr_buf == nullptr && addr_bytes > 0U) {
+                    return fail(errc::malformed_data);
+                }
+                if (addr_buf != nullptr) {
+                    if (addr_bytes < sizeof(::WTS_CLIENT_ADDRESS)) {
+                        return fail(errc::malformed_data);
+                    }
+                    // AF_INET has standard constant value 2 across Windows SDKs.
+                    constexpr ::DWORD wts_af_inet = 2U;
+                    if (addr_buf->AddressFamily == wts_af_inet) {
+                        std::string ip =
+                            std::to_string(addr_buf->Address[2]) + "." +
+                            std::to_string(addr_buf->Address[3]) + "." +
+                            std::to_string(addr_buf->Address[4]) + "." +
+                            std::to_string(addr_buf->Address[5]);
+                        if (ip != "0.0.0.0") {
+                            client_host = std::move(ip);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Query Logon Time via WTSSessionInfo (WTSInfoExLevel1)
+        ::PWTSINFOEXW info_buf = nullptr;
+        ::DWORD info_bytes = 0;
+        if (query(WTS_CURRENT_SERVER_HANDLE, wts_session.SessionId,
+                  static_cast<::WTS_INFO_CLASS>(25) /* WTSSessionInfoEx */,
+                  reinterpret_cast<::LPWSTR*>(&info_buf), &info_bytes)) {
+            struct info_guard {
+                void* ptr;
+                FreeFn free_fn;
+                ~info_guard() {
+                    if (ptr != nullptr) { free_fn(ptr); }
+                }
+            } i_guard{info_buf, free_mem};
+            if (info_buf == nullptr && info_bytes > 0U) {
+                return fail(errc::malformed_data);
+            }
+            if (info_buf != nullptr) {
+                if (info_bytes < sizeof(::WTSINFOEXW)) {
+                    return fail(errc::malformed_data);
+                }
+                if (info_buf->Level == 1) {
+                    const auto& l1 = info_buf->Data.WTSInfoExLevel1;
+                    ::FILETIME ft;
+                    ft.dwLowDateTime = l1.LogonTime.LowPart;
+                    ft.dwHighDateTime = static_cast<::DWORD>(l1.LogonTime.HighPart);
+                    if (ft.dwLowDateTime != 0 || ft.dwHighDateTime != 0) {
+                        const auto tp = filetime_to_time_point(ft);
+                        if (!tp) {
+                            return fail(tp.error());
+                        }
+                        session.login_time = *tp;
+                    }
+                }
+            }
+        }
+
+        session.type = classify_windows_session_type(
+            session.terminal, client_host, wts_session.SessionId);
+
+        if (session.type == user_common::session_type::remote &&
+            client_host.has_value()) {
+            session.remote_host = std::move(client_host);
+        }
+
+        results.push_back(std::move(session));
+    }
+
+    std::sort(results.begin(), results.end(),
+              [](const user_common::session_info& a,
+                 const user_common::session_info& b) {
+                  if (a.user_name != b.user_name) {
+                      return a.user_name < b.user_name;
+                  }
+                  if (a.terminal != b.terminal) {
+                      return a.terminal < b.terminal;
+                  }
+                  return a.session_id < b.session_id;
+              });
+
+    return results;
+}
+
+/// Returns all active user login sessions from Windows Terminal Services.
+inline result<std::vector<user_common::session_info>> sessions() {
+    return parse_wts_sessions_impl(
+        [](::HANDLE server, ::DWORD reserved, ::DWORD version,
+           ::PWTS_SESSION_INFOW* ppSessionInfo, ::DWORD* pCount) -> ::BOOL {
+            return ::WTSEnumerateSessionsW(server, reserved, version,
+                                           ppSessionInfo, pCount);
+        },
+        [](::HANDLE server, ::DWORD sessionId, ::WTS_INFO_CLASS infoClass,
+           ::LPWSTR* ppBuffer, ::DWORD* pBytesReturned) -> ::BOOL {
+            return ::WTSQuerySessionInformationW(server, sessionId, infoClass,
+                                                 ppBuffer, pBytesReturned);
+        },
+        [](void* ptr) { ::WTSFreeMemory(ptr); });
+}
 
 /// Returns not_supported because Windows defines no POSIX-style numeric user
 /// or group identifier concept.
