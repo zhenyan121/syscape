@@ -228,6 +228,22 @@ inline result<virtualization_common::sandbox_type> sandbox() {
     return info->type;
 }
 
+inline result<virtualization_common::cgroup_version_type> cgroup_hierarchy_version() {
+    return fail(errc::not_supported);
+}
+
+inline result<virtualization_common::cgroup_record> current_cgroup() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<virtualization_common::namespace_record>> namespaces() {
+    return fail(errc::not_supported);
+}
+
+inline result<bool> is_namespace_isolated() {
+    return fail(errc::not_supported);
+}
+
 } // namespace virtualization_backend
 } // namespace detail
 } // namespace syscape

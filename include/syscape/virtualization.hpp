@@ -12,18 +12,25 @@
 /// - Windows Subsystem for Linux (WSL) presence and version (WSL 1 vs WSL 2).
 /// - Application sandbox detection (e.g. Flatpak, Snap, Apple App Sandbox,
 ///   Windows AppContainer).
+/// - Cgroup hierarchy version (v1, v2, hybrid), process cgroup path, enabled
+///   controllers, and active resource limits (memory.max, cpu.max, pids.max).
+/// - Linux namespace enumeration, inode IDs, and isolation classification
+///   (PID, Mount, Net, User, IPC, UTS, Cgroup, Time).
 /// @note Linux implements hypervisor queries through CPUID instruction leaves
 /// (leaf 1 ECX hypervisor bit and leaf 0x40000000 signature), DMI sysfs attributes
 /// under /sys/class/dmi/id, and /sys/hypervisor/type. Container queries inspect
 /// /run/systemd/container, /.dockerenv, /.containerenv, cgroup path hierarchies,
 /// and /proc/vz. WSL queries inspect WSL interop endpoints and kernel release
 /// strings. Sandbox queries inspect Flatpak and Snap environment indicators.
+/// Cgroup queries inspect /proc/self/cgroup and /sys/fs/cgroup. Namespace queries
+/// inspect /proc/self/ns/* symlinks and /proc/1/ns/* root references.
 /// @note Windows implements hypervisor queries through CPUID instruction leaves
 /// and raw SMBIOS table inspection. Sandbox queries inspect process token
-/// AppContainer classifications.
+/// AppContainer classifications. Cgroup and namespace queries return not_supported.
 /// @note macOS implements hypervisor queries through sysctl kern.hv_vmm_present,
 /// machdep.cpu.features VMM flags, and IOKit platform expert device matching.
-/// Sandbox queries inspect the Apple sandbox environment.
+/// Sandbox queries inspect the Apple sandbox environment. Cgroup and namespace
+/// queries return not_supported.
 
 #include <syscape/detail/config.hpp>
 
@@ -31,8 +38,12 @@
 #error "syscape/virtualization.hpp requires C++17 or later"
 #endif
 
+#include <syscape/detail/utf8.hpp>
+
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace syscape {
 namespace virtualization {
@@ -115,6 +126,99 @@ enum class sandbox_type : std::uint8_t {
     windows_app_container,
     /// Other classified sandbox environment.
     other
+};
+
+/// Classified cgroup hierarchy version.
+enum class cgroup_version : std::uint8_t {
+    /// Cgroup hierarchy is not present, unmounted, or unsupported.
+    none,
+    /// Legacy cgroup v1 multi-hierarchy.
+    v1,
+    /// Unified cgroup v2 single hierarchy.
+    v2,
+    /// Hybrid cgroup v1 and v2 hierarchy.
+    hybrid
+};
+
+/// Linux namespace category.
+enum class namespace_type : std::uint8_t {
+    /// Unrecognized or unspecified namespace category.
+    unknown,
+    /// Cgroup namespace (CLONE_NEWCGROUP).
+    cgroup,
+    /// IPC namespace (CLONE_NEWIPC).
+    ipc,
+    /// Mount / filesystem namespace (CLONE_NEWNS).
+    mount,
+    /// Network namespace (CLONE_NEWNET).
+    net,
+    /// Process ID namespace (CLONE_NEWPID).
+    pid,
+    /// Process ID namespace for child processes.
+    pid_for_children,
+    /// Time namespace (CLONE_NEWTIME).
+    time,
+    /// Time namespace for child processes.
+    time_for_children,
+    /// User namespace (CLONE_NEWUSER).
+    user,
+    /// UTS / hostname namespace (CLONE_NEWUTS).
+    uts
+};
+
+/// Metadata describing a single namespace membership of the calling process.
+struct namespace_info {
+    /// Namespace category.
+    namespace_type type = namespace_type::unknown;
+
+    /// Platform-specific namespace name (e.g. "net", "pid", "mnt").
+    std::string name;
+
+    /// Inode identifier of the namespace (from /proc/self/ns/* or stat).
+    std::uint64_t inode = 0U;
+
+    /// Device ID of the namespace filesystem / proc mount.
+    std::uint64_t device_id = 0U;
+
+    /// Indicates whether this namespace is isolated from the root / init namespace.
+    /// std::nullopt if the init namespace cannot be observed (e.g. unprivileged user).
+    std::optional<bool> is_isolated;
+};
+
+/// Resource limits configured by the controlling cgroup.
+struct cgroup_limits {
+    /// Maximum memory limit in bytes (std::nullopt if unconstrained or "max").
+    std::optional<std::uint64_t> memory_max_bytes;
+
+    /// High memory throttle threshold in bytes (std::nullopt if unconstrained or "max").
+    std::optional<std::uint64_t> memory_high_bytes;
+
+    /// Maximum swap usage limit in bytes (std::nullopt if unconstrained or "max").
+    std::optional<std::uint64_t> memory_swap_max_bytes;
+
+    /// CPU quota in microseconds per period (std::nullopt if unconstrained or "max").
+    std::optional<std::uint64_t> cpu_quota_us;
+
+    /// CPU scheduling period in microseconds, if configured.
+    std::optional<std::uint64_t> cpu_period_us;
+
+    /// Maximum number of process IDs / tasks allowed in the cgroup (std::nullopt if "max").
+    std::optional<std::uint64_t> pids_max;
+};
+
+/// Information describing the active cgroup hierarchy and membership for the current process.
+struct cgroup_info {
+    /// Hierarchy version (v1, v2, hybrid, or none).
+    cgroup_version version = cgroup_version::none;
+
+    /// Relative cgroup path of the process within the unified or primary hierarchy (e.g. "/user.slice/...").
+    std::string path;
+
+    /// Configured resource constraints for this cgroup.
+    cgroup_limits limits;
+
+    /// List of enabled cgroup controllers (e.g. "cpu", "memory", "pids", "io").
+    std::vector<std::string> controllers;
 };
 
 } // namespace virtualization
@@ -214,6 +318,55 @@ inline result<bool> is_sandboxed() {
 /// @return The sandbox type enum (sandbox_type::none if not sandboxed), or an error.
 inline result<sandbox_type> sandbox() {
     return detail::virtualization_backend::sandbox();
+}
+
+/// Returns the detected cgroup hierarchy version.
+///
+/// @return The cgroup_version enum, or an error if unsupported or inaccessible.
+inline result<cgroup_version> cgroup_hierarchy_version() {
+    return detail::virtualization_backend::cgroup_hierarchy_version();
+}
+
+/// Returns the full cgroup configuration and active resource limits for the calling process.
+///
+/// @return The cgroup_info structure, or an error if unsupported or inaccessible.
+inline result<cgroup_info> current_cgroup() {
+    auto res = detail::virtualization_backend::current_cgroup();
+    if (!res) {
+        return fail(res.error());
+    }
+    if (!detail::is_valid_utf8(res->path)) {
+        return fail(errc::invalid_encoding);
+    }
+    for (const auto& ctrl : res->controllers) {
+        if (!detail::is_valid_utf8(ctrl)) {
+            return fail(errc::invalid_encoding);
+        }
+    }
+    return res;
+}
+
+/// Enumerates all active namespace memberships and isolation statuses for the calling process.
+///
+/// @return A vector of namespace_info structures, or an error.
+inline result<std::vector<namespace_info>> namespaces() {
+    auto res = detail::virtualization_backend::namespaces();
+    if (!res) {
+        return fail(res.error());
+    }
+    for (const auto& ns : *res) {
+        if (!detail::is_valid_utf8(ns.name)) {
+            return fail(errc::invalid_encoding);
+        }
+    }
+    return res;
+}
+
+/// Checks whether the calling process is running in any isolated namespace relative to PID 1.
+///
+/// @return true if running in an isolated namespace, false if in root namespaces, or an error.
+inline result<bool> is_namespace_isolated() {
+    return detail::virtualization_backend::is_namespace_isolated();
 }
 
 } // namespace virtualization

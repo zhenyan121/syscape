@@ -41,5 +41,13 @@ int main() {
                        syscape::virtualization::is_sandboxed);
     expect_unsupported("sandbox",
                        syscape::virtualization::sandbox);
+    expect_unsupported("cgroup_hierarchy_version",
+                       syscape::virtualization::cgroup_hierarchy_version);
+    expect_unsupported("current_cgroup",
+                       syscape::virtualization::current_cgroup);
+    expect_unsupported("namespaces",
+                       syscape::virtualization::namespaces);
+    expect_unsupported("is_namespace_isolated",
+                       syscape::virtualization::is_namespace_isolated);
     return failures == 0 ? 0 : 1;
 }

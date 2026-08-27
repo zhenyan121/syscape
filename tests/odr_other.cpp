@@ -283,10 +283,22 @@ bool other_virtualization_backend_callable() {
         syscape::virtualization::is_wsl();
     const syscape::result<bool> sb =
         syscape::virtualization::is_sandboxed();
+    const syscape::result<syscape::virtualization::cgroup_version> cg_ver =
+        syscape::virtualization::cgroup_hierarchy_version();
+    const syscape::result<syscape::virtualization::cgroup_info> cg_info =
+        syscape::virtualization::current_cgroup();
+    const syscape::result<std::vector<syscape::virtualization::namespace_info>> ns_list =
+        syscape::virtualization::namespaces();
+    const syscape::result<bool> ns_iso =
+        syscape::virtualization::is_namespace_isolated();
     static_cast<void>(vendor);
     static_cast<void>(cont);
     static_cast<void>(wsl);
     static_cast<void>(sb);
+    static_cast<void>(cg_ver);
+    static_cast<void>(cg_info);
+    static_cast<void>(ns_list);
+    static_cast<void>(ns_iso);
     return hv.has_value() ||
            hv.error() == std::errc::operation_not_supported;
 }
