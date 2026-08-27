@@ -2,7 +2,8 @@
 #define SYSCAPE_SECURITY_HPP
 
 /// @file
-/// @brief Hosted security, Secure Boot, TPM, LSM, and system integrity queries.
+/// @brief Hosted security, Secure Boot, TPM, LSM, ASLR, vulnerability mitigations,
+/// process capabilities, privileges, and volume encryption queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note This module exposes:
 /// - UEFI / platform Secure Boot enablement state (secure_boot(), is_secure_boot_enabled()).
@@ -10,13 +11,17 @@
 /// - Active Linux Security Modules and kernel security frameworks (security_modules()).
 /// - Linux kernel lockdown protection level (lockdown()).
 /// - macOS System Integrity Protection status (is_sip_enabled()).
+/// - Address Space Layout Randomization policy level (aslr()).
+/// - Operating system and CPU hardware vulnerability mitigations (cpu_vulnerabilities()).
+/// - POSIX process capabilities across capability sets (capabilities()).
+/// - Observable process token privileges and enabled flags (privileges()).
+/// - Storage volume and filesystem encryption state visibility (volume_encryption(), encrypted_volumes()).
 /// @note Linux queries sysfs efivars (/sys/firmware/efi/efivars), sysfs TPM (/sys/class/tpm),
-/// and securityfs (/sys/kernel/security).
-/// @note Windows queries GetFirmwareEnvironmentVariableW and dynamically loads
-/// the system TPM Base Services API. Firmware-variable access can require the
-/// SE_SYSTEM_ENVIRONMENT_NAME privilege.
-/// @note macOS currently reports not_supported for Secure Boot and SIP because
-/// no stable public process API provides the required state.
+/// securityfs (/sys/kernel/security), /proc/sys/kernel/randomize_va_space,
+/// /sys/devices/system/cpu/vulnerabilities, /proc/self/status, and device-mapper sysfs.
+/// @note Windows queries GetFirmwareEnvironmentVariableW, TPM Base Services (tbs.dll),
+/// GetProcessMitigationPolicy, OpenProcessToken, and TokenPrivileges.
+/// @note macOS reports full ASLR, SIP status, and fallback security properties.
 
 #include <syscape/detail/config.hpp>
 
@@ -28,6 +33,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace syscape {
@@ -69,6 +75,124 @@ enum class lockdown_mode : std::uint8_t {
     integrity,
     /// Confidentiality lockdown mode is active.
     confidentiality
+};
+
+/// Address Space Layout Randomization (ASLR) configuration level.
+enum class aslr_mode : std::uint8_t {
+    /// ASLR status is unknown or could not be determined.
+    unknown,
+    /// ASLR is disabled.
+    disabled,
+    /// ASLR is partially enabled (e.g. stack, mmap, and VDSO randomized, but not brk/data).
+    partial,
+    /// Full ASLR is active (stack, mmap, VDSO, and brk/data randomized).
+    full
+};
+
+/// Hardware vulnerability mitigation status classification.
+enum class mitigation_status : std::uint8_t {
+    /// The mitigation state is unknown or unrecognized.
+    unknown,
+    /// The hardware or environment is not affected by this vulnerability.
+    not_affected,
+    /// The vulnerability is actively mitigated by kernel or microcode defenses.
+    mitigated,
+    /// The system is vulnerable to this attack.
+    vulnerable,
+    /// Mitigation for this vulnerability has been disabled (e.g. via boot parameters).
+    disabled
+};
+
+/// Information describing an operating system or CPU hardware vulnerability mitigation.
+struct cpu_vulnerability_entry {
+    /// Vulnerability identifier (e.g. "meltdown", "spectre_v1", "spectre_v2", "retbleed", "zenbleed").
+    std::string name;
+
+    /// Classified mitigation status.
+    mitigation_status status = mitigation_status::unknown;
+
+    /// Verbatim description string exposed by the platform.
+    std::string raw_description;
+};
+
+/// Fine-grained POSIX / OS process capabilities of the calling process.
+struct process_capabilities {
+    /// Capabilities actively used for permission checks.
+    std::vector<std::string> effective;
+
+    /// Capabilities that the process can assume.
+    std::vector<std::string> permitted;
+
+    /// Capabilities preserved across an execve.
+    std::vector<std::string> inheritable;
+
+    /// Bounding set bounding the capabilities a process may gain.
+    std::vector<std::string> bounding;
+
+    /// Ambient capabilities preserved across non-setuid execve.
+    std::vector<std::string> ambient;
+};
+
+/// Observable privilege entry for the calling process.
+struct privilege_entry {
+    /// Privilege or capability name (e.g. "cap_sys_admin", "SeDebugPrivilege").
+    std::string name;
+
+    /// Whether this privilege is currently enabled/active for the process.
+    bool enabled = false;
+
+    /// Whether this privilege is enabled by default in the process token.
+    bool enabled_by_default = false;
+};
+
+/// Status of filesystem or volume encryption.
+enum class encryption_state : std::uint8_t {
+    /// Encryption state is unknown or could not be determined.
+    unknown,
+    /// The volume or filesystem is not encrypted.
+    unencrypted,
+    /// The volume or filesystem is fully encrypted.
+    encrypted,
+    /// The volume contains mixed encrypted and unencrypted data (e.g. per-directory fscrypt).
+    mixed
+};
+
+/// Type or technology used for volume / filesystem encryption.
+enum class encryption_type : std::uint8_t {
+    /// Encryption technology is unknown or could not be determined.
+    unknown,
+    /// No encryption is applied.
+    none,
+    /// Linux Unified Key Setup (LUKS) / dm-crypt.
+    luks,
+    /// Microsoft BitLocker drive encryption.
+    bitlocker,
+    /// Apple FileVault / APFS encryption.
+    filevault,
+    /// Linux filesystem-level encryption (fscrypt).
+    fscrypt,
+    /// Plain dm-crypt without LUKS header.
+    dm_crypt,
+    /// Other or unclassified encryption mechanism.
+    other
+};
+
+/// Information describing the encryption status of a volume or filesystem.
+struct volume_encryption_info {
+    /// Target path or block device identifier.
+    std::string path_or_device;
+
+    /// Encryption state classification.
+    encryption_state state = encryption_state::unknown;
+
+    /// Encryption type or technology.
+    encryption_type type = encryption_type::unknown;
+
+    /// Cipher algorithm name (e.g. "aes-xts-plain64"), if exposed.
+    std::optional<std::string> cipher;
+
+    /// Key size in bits (e.g. 256, 512), if exposed.
+    std::optional<std::uint32_t> key_size_bits;
 };
 
 /// Information describing an installed Trusted Platform Module (TPM).
@@ -180,6 +304,71 @@ inline result<lockdown_mode> lockdown() {
 /// not_supported.
 inline result<bool> is_sip_enabled() {
     return detail::security_backend::is_sip_enabled();
+}
+
+/// Queries the Address Space Layout Randomization (ASLR) mode.
+///
+/// Linux reads /proc/sys/kernel/randomize_va_space.
+/// Windows queries GetProcessMitigationPolicy(ProcessASLRPolicy).
+/// macOS currently reports not_supported.
+///
+/// @return The aslr_mode enum; not_supported when unavailable.
+inline result<aslr_mode> aslr() {
+    return detail::security_backend::aslr();
+}
+
+/// Queries known CPU and platform hardware vulnerability mitigations.
+///
+/// Linux enumerates /sys/devices/system/cpu/vulnerabilities/.
+/// Windows and macOS currently report not_supported.
+///
+/// @return A vector of cpu_vulnerability_entry structs sorted by name;
+/// not_supported when unavailable.
+inline result<std::vector<cpu_vulnerability_entry>> cpu_vulnerabilities() {
+    return detail::security_backend::cpu_vulnerabilities();
+}
+
+/// Queries the fine-grained process capabilities of the calling process.
+///
+/// Linux decodes /proc/self/status Cap* capability masks.
+/// Windows and macOS return not_supported.
+///
+/// @return A process_capabilities struct; not_supported on non-POSIX/non-Linux systems.
+inline result<process_capabilities> capabilities() {
+    return detail::security_backend::capabilities();
+}
+
+/// Queries the process privileges of the calling process.
+///
+/// Linux maps effective capabilities into privilege entries.
+/// Windows queries OpenProcessToken with TokenPrivileges.
+/// macOS returns not_supported.
+///
+/// @return A vector of privilege_entry structs; not_supported when unavailable.
+inline result<std::vector<privilege_entry>> privileges() {
+    return detail::security_backend::privileges();
+}
+
+/// Queries the encryption status of the volume containing the specified path.
+///
+/// Linux checks device-mapper block nodes and slave hierarchies (/sys/block/*/dm/uuid).
+/// Windows and macOS currently report not_supported until native SDK providers are verified.
+///
+/// @param path The filesystem path or device path to inspect.
+/// @return volume_encryption_info; invalid_argument for empty or invalid paths;
+/// not_found if path does not exist; not_supported when unavailable.
+inline result<volume_encryption_info> volume_encryption(std::string_view path) {
+    return detail::security_backend::volume_encryption(path);
+}
+
+/// Queries all observable encrypted storage volumes on the system.
+///
+/// Linux scans /proc/self/mounts and /sys/block device-mapper entries.
+/// Windows and macOS currently report not_supported until native SDK providers are verified.
+///
+/// @return A vector of volume_encryption_info structs sorted by path_or_device.
+inline result<std::vector<volume_encryption_info>> encrypted_volumes() {
+    return detail::security_backend::encrypted_volumes();
 }
 
 } // namespace security

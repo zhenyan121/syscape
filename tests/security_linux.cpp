@@ -368,9 +368,386 @@ void test_synthetic_tpm_version_parser() {
            "Empty version string must parse as unknown");
 }
 
+void test_synthetic_aslr_parser() {
+    namespace scomm = syscape::detail::security_common;
+    using syscape::security::aslr_mode;
+
+    const auto d0 = scomm::parse_aslr_mode("0");
+    expect(d0.has_value() && *d0 == aslr_mode::disabled, "0 must parse as disabled");
+
+    const auto p1 = scomm::parse_aslr_mode("1");
+    expect(p1.has_value() && *p1 == aslr_mode::partial, "1 must parse as partial");
+
+    const auto f2 = scomm::parse_aslr_mode("2\n");
+    expect(f2.has_value() && *f2 == aslr_mode::full, "2 with newline must parse as full");
+
+    const auto u3 = scomm::parse_aslr_mode("3");
+    expect(u3.has_value() && *u3 == aslr_mode::unknown, "3 must parse as unknown");
+
+    const auto empty = scomm::parse_aslr_mode("");
+    expect(!empty && empty.error() == syscape::errc::malformed_data, "Empty ASLR string must fail");
+
+    const auto invalid = scomm::parse_aslr_mode("foo");
+    expect(!invalid && invalid.error() == syscape::errc::malformed_data, "Non-numeric ASLR string must fail");
+}
+
+void test_synthetic_vulnerability_parser() {
+    namespace scomm = syscape::detail::security_common;
+    using syscape::security::mitigation_status;
+
+    expect(scomm::parse_vulnerability_status("Not affected") == mitigation_status::not_affected,
+           "Not affected must parse correctly");
+    expect(scomm::parse_vulnerability_status("not affected\n") == mitigation_status::not_affected,
+           "not affected with whitespace must parse correctly");
+    expect(scomm::parse_vulnerability_status("Mitigation: PTI") == mitigation_status::mitigated,
+           "Mitigation: PTI must parse as mitigated");
+    expect(scomm::parse_vulnerability_status("Mitigated") == mitigation_status::mitigated,
+           "Mitigated must parse as mitigated");
+    expect(scomm::parse_vulnerability_status("Vulnerable: Clear CPU buffers") == mitigation_status::vulnerable,
+           "Vulnerable must parse as vulnerable");
+    expect(scomm::parse_vulnerability_status("Disabled") == mitigation_status::disabled,
+           "Disabled must parse as disabled");
+    expect(scomm::parse_vulnerability_status("Mitigation: Disabled") == mitigation_status::disabled,
+           "Mitigation: Disabled must parse as disabled");
+    expect(scomm::parse_vulnerability_status("KVM: not affected") == mitigation_status::not_affected,
+           "KVM: not affected must parse correctly");
+    expect(scomm::parse_vulnerability_status("KVM: Mitigation: Split lock detect") == mitigation_status::mitigated,
+           "KVM: Mitigation must parse as mitigated");
+    expect(scomm::parse_vulnerability_status("KVM: Vulnerable") == mitigation_status::vulnerable,
+           "KVM: Vulnerable must parse as vulnerable");
+    expect(scomm::parse_vulnerability_status("") == mitigation_status::unknown,
+           "Empty string must parse as unknown");
+    expect(scomm::parse_vulnerability_status("Unknown status") == mitigation_status::unknown,
+           "Unknown string must parse as unknown");
+}
+
+void test_synthetic_hex_u64_parser() {
+    namespace scomm = syscape::detail::security_common;
+
+    const auto zero = scomm::parse_hex_u64("0000000000000000");
+    expect(zero.has_value() && *zero == 0U, "Zero hex string must parse to 0");
+
+    const auto with_prefix = scomm::parse_hex_u64("0x1f");
+    expect(with_prefix.has_value() && *with_prefix == 0x1fU, "0x1f must parse to 31");
+
+    const auto bnd = scomm::parse_hex_u64("000001ffffffffff");
+    expect(bnd.has_value() && *bnd == 0x1FFFFFFFFFFULL, "CapBnd hex string must parse accurately");
+
+    const auto wake = scomm::parse_hex_u64("0000000800000000");
+    expect(wake.has_value() && *wake == (1ULL << 35U), "CapInh bit 35 must parse accurately");
+
+    expect(!scomm::parse_hex_u64(""), "Empty string must fail");
+    expect(!scomm::parse_hex_u64("0x"), "0x with no digits must fail");
+    expect(!scomm::parse_hex_u64("0000000g"), "Non-hex char must fail");
+}
+
+void test_synthetic_capability_decoder() {
+    namespace scomm = syscape::detail::security_common;
+
+    const auto empty_caps = scomm::decode_linux_capabilities(0U);
+    expect(empty_caps.empty(), "Zero mask must decode to empty vector");
+
+    const auto chown_cap = scomm::decode_linux_capabilities(1ULL << 0U);
+    expect(chown_cap.size() == 1U && chown_cap[0] == "cap_chown", "Bit 0 must decode to cap_chown");
+
+    const auto admin_cap = scomm::decode_linux_capabilities(1ULL << 21U);
+    expect(admin_cap.size() == 1U && admin_cap[0] == "cap_sys_admin", "Bit 21 must decode to cap_sys_admin");
+
+    const auto checkpoint_cap = scomm::decode_linux_capabilities(1ULL << 40U);
+    expect(checkpoint_cap.size() == 1U && checkpoint_cap[0] == "cap_checkpoint_restore", "Bit 40 must decode to cap_checkpoint_restore");
+
+    const auto future_cap = scomm::decode_linux_capabilities(1ULL << 45U);
+    expect(future_cap.size() == 1U && future_cap[0] == "cap_45", "Bit 45 must decode to cap_45");
+
+    const auto multi_caps = scomm::decode_linux_capabilities((1ULL << 0U) | (1ULL << 21U));
+    expect(multi_caps.size() == 2U && multi_caps[0] == "cap_chown" && multi_caps[1] == "cap_sys_admin",
+           "Multi-bit mask must decode in bit order");
+}
+
+void test_synthetic_dm_uuid_parser() {
+    namespace scomm = syscape::detail::security_common;
+    using syscape::security::encryption_state;
+    using syscape::security::encryption_type;
+
+    const auto luks2 = scomm::parse_dm_uuid_encryption("CRYPT-LUKS2-xxx");
+    expect(luks2.first == encryption_state::encrypted && luks2.second == encryption_type::luks,
+           "CRYPT-LUKS2 must parse as encrypted LUKS");
+
+    const auto luks1 = scomm::parse_dm_uuid_encryption("CRYPT-LUKS1-xxx");
+    expect(luks1.first == encryption_state::encrypted && luks1.second == encryption_type::luks,
+           "CRYPT-LUKS1 must parse as encrypted LUKS");
+
+    const auto plain = scomm::parse_dm_uuid_encryption("CRYPT-PLAIN-xxx");
+    expect(plain.first == encryption_state::encrypted && plain.second == encryption_type::dm_crypt,
+           "CRYPT-PLAIN must parse as encrypted dm_crypt");
+
+    const auto other = scomm::parse_dm_uuid_encryption("CRYPT-CUSTOM-xxx");
+    expect(other.first == encryption_state::encrypted && other.second == encryption_type::other,
+           "CRYPT-CUSTOM must parse as encrypted other");
+
+    const auto unenc = scomm::parse_dm_uuid_encryption("LVM-xxx");
+    expect(unenc.first == encryption_state::unknown && unenc.second == encryption_type::unknown,
+           "LVM UUID must parse as unknown encryption");
+
+    const auto empty = scomm::parse_dm_uuid_encryption("");
+    expect(empty.first == encryption_state::unknown && empty.second == encryption_type::unknown,
+           "Empty UUID must parse as unknown encryption");
+}
+
+void test_synthetic_capabilities_backend() {
+    namespace sbackend = syscape::detail::security_backend;
+
+    const auto fixture = make_fixture_path("status");
+    std::filesystem::create_directories(fixture);
+
+    const auto status_file = fixture / "status";
+    {
+        std::ofstream out(status_file);
+        out << "Name:\tmyprocess\n"
+            << "State:\tR (running)\n"
+            << "CapInh:\t0000000000000000\n"
+            << "CapPrm:\t0000000000200000\n"
+            << "CapEff:\t0000000000200000\n"
+            << "CapBnd:\t000001ffffffffff\n"
+            << "CapAmb:\t0000000000000000\n";
+    }
+
+    const auto caps_res = sbackend::capabilities_at(status_file.c_str());
+    expect(caps_res.has_value(), "capabilities_at must succeed on valid fixture");
+    if (caps_res) {
+        expect(caps_res->effective.size() == 1U && caps_res->effective[0] == "cap_sys_admin",
+               "Effective cap must be cap_sys_admin (bit 21)");
+        expect(caps_res->permitted.size() == 1U && caps_res->permitted[0] == "cap_sys_admin",
+               "Permitted cap must be cap_sys_admin (bit 21)");
+        expect(caps_res->bounding.size() == 41U,
+               "Bounding set must contain 41 capabilities");
+        expect(caps_res->inheritable.empty(),
+               "Inheritable set must be empty");
+        expect(caps_res->ambient.empty(),
+               "Ambient set must be empty");
+    }
+
+    // Missing status file
+    const auto missing = sbackend::capabilities_at((fixture / "nonexistent").c_str());
+    expect(!missing && missing.error() == syscape::errc::not_supported,
+           "Missing status file must return not_supported");
+
+    // Malformed status file (no Cap lines)
+    const auto bad_status = fixture / "bad_status";
+    {
+        std::ofstream out(bad_status);
+        out << "Name:\tbad\nPID:\t123\n";
+    }
+    const auto bad_res = sbackend::capabilities_at(bad_status.c_str());
+    expect(!bad_res && bad_res.error() == syscape::errc::malformed_data,
+           "Status file without Cap lines must fail with malformed_data");
+
+    std::filesystem::remove_all(fixture);
+}
+
+void test_synthetic_cpu_vulnerabilities_backend() {
+    namespace sbackend = syscape::detail::security_backend;
+    using syscape::security::mitigation_status;
+
+    const auto fixture = make_fixture_path("vuln");
+    std::filesystem::create_directories(fixture);
+
+    {
+        std::ofstream out(fixture / "meltdown");
+        out << "Not affected\n";
+    }
+    {
+        std::ofstream out(fixture / "spectre_v1");
+        out << "Mitigation: usercopy/swapgs barriers\n";
+    }
+    {
+        std::ofstream out(fixture / "retbleed");
+        out << "Vulnerable\n";
+    }
+
+    const auto list_res = sbackend::cpu_vulnerabilities_at(fixture.c_str());
+    expect(list_res.has_value(), "cpu_vulnerabilities_at must succeed on valid fixture");
+    if (list_res) {
+        expect(list_res->size() == 3U, "Must parse 3 vulnerability entries");
+        // Sorted alphabetically: meltdown, retbleed, spectre_v1
+        expect((*list_res)[0].name == "meltdown" && (*list_res)[0].status == mitigation_status::not_affected,
+               "meltdown must be not_affected");
+        expect((*list_res)[1].name == "retbleed" && (*list_res)[1].status == mitigation_status::vulnerable,
+               "retbleed must be vulnerable");
+        expect((*list_res)[2].name == "spectre_v1" && (*list_res)[2].status == mitigation_status::mitigated,
+               "spectre_v1 must be mitigated");
+    }
+
+    // Missing directory
+    const auto missing = sbackend::cpu_vulnerabilities_at((fixture / "nonexistent").c_str());
+    expect(!missing && missing.error() == syscape::errc::not_supported,
+           "Missing vulnerabilities dir must return not_supported");
+
+    std::filesystem::remove_all(fixture);
+}
+
+void test_synthetic_aslr_backend() {
+    namespace sbackend = syscape::detail::security_backend;
+    using syscape::security::aslr_mode;
+
+    const auto fixture = make_fixture_path("aslr");
+    std::filesystem::create_directories(fixture);
+
+    const auto aslr_file = fixture / "randomize_va_space";
+    {
+        std::ofstream out(aslr_file);
+        out << "2\n";
+    }
+
+    const auto res = sbackend::aslr_at(aslr_file.c_str());
+    expect(res.has_value() && *res == aslr_mode::full, "aslr_at must return full on 2");
+
+    const auto missing = sbackend::aslr_at((fixture / "nonexistent").c_str());
+    expect(!missing && missing.error() == syscape::errc::not_supported,
+           "Missing ASLR file must return not_supported");
+
+    std::filesystem::remove_all(fixture);
+}
+
+void test_synthetic_volume_encryption_backend() {
+    namespace sbackend = syscape::detail::security_backend;
+    using syscape::security::encryption_state;
+    using syscape::security::encryption_type;
+
+    const auto fixture = make_fixture_path("volenc");
+    const auto block_dir = fixture / "block";
+    const auto mounts_file = fixture / "mounts";
+    const auto crypt_target = fixture / "mnt" / "secret";
+    std::filesystem::create_directories(block_dir / "dm-0" / "dm");
+    std::filesystem::create_directories(crypt_target);
+
+    // Set up dm-0 with LUKS2 uuid
+    {
+        std::ofstream out(block_dir / "dm-0" / "dm" / "uuid");
+        out << "CRYPT-LUKS2-12345678-abcd\n";
+    }
+    {
+        std::ofstream out(block_dir / "dm-0" / "dm" / "name");
+        out << "cryptroot\n";
+    }
+
+    // Set up mounts
+    {
+        std::ofstream out(mounts_file);
+        out << "/dev/mapper/cryptroot " << crypt_target.string() << " ext4 rw,relatime 0 0\n"
+            << "/dev/sda1 / ext4 rw,relatime 0 0\n";
+    }
+
+    const auto enc_res = sbackend::volume_encryption_at(
+        crypt_target.string(), block_dir.c_str(), mounts_file.c_str());
+    expect(enc_res.has_value(), "volume_encryption_at must succeed on valid encrypted path");
+    if (enc_res) {
+        expect(enc_res->state == encryption_state::encrypted,
+               "Target must be classified as encrypted");
+        expect(enc_res->type == encryption_type::luks,
+               "Target must be classified as LUKS");
+    }
+
+    // Set up LVM on top of LUKS: dm-1 is LVM, slave is dm-0 (LUKS)
+    const auto lvm_target = fixture / "mnt" / "lvm_data\040dir";
+    std::filesystem::create_directories(block_dir / "dm-1" / "dm");
+    std::filesystem::create_directories(block_dir / "dm-1" / "slaves");
+    std::filesystem::create_directories(lvm_target);
+    {
+        std::ofstream out(block_dir / "dm-1" / "dm" / "uuid");
+        out << "LVM-abcdef123456\n";
+    }
+    {
+        std::ofstream out(block_dir / "dm-1" / "dm" / "name");
+        out << "vg-lv_data\n";
+    }
+    // Create slave link/dir dm-0 inside dm-1/slaves
+    std::filesystem::create_directories(block_dir / "dm-1" / "slaves" / "dm-0");
+    // Update mounts with octal escaped space \040
+    {
+        std::ofstream out(mounts_file);
+        out << "/dev/mapper/cryptroot " << crypt_target.string() << " ext4 rw,relatime 0 0\n"
+            << "/dev/mapper/vg-lv_data " << fixture.string() << "/mnt/lvm_data\\040dir ext4 rw,relatime 0 0\n"
+            << "/dev/sda1 / ext4 rw,relatime 0 0\n";
+    }
+
+    // Test LVM on LUKS with space in mount path
+    const auto lvm_res = sbackend::volume_encryption_at(
+        lvm_target.string(), block_dir.c_str(), mounts_file.c_str());
+    expect(lvm_res.has_value(), "volume_encryption_at must succeed on LVM-on-LUKS path");
+    if (lvm_res) {
+        expect(lvm_res->state == encryption_state::encrypted,
+               "LVM over LUKS must be classified as encrypted");
+        expect(lvm_res->type == encryption_type::luks,
+               "LVM over LUKS must be classified as LUKS");
+    }
+
+    // Test multi-slave: dm-2 has dm-0 (LUKS) and sdb1 (unencrypted raw) -> mixed
+    const auto mixed_target = fixture / "mnt" / "mixed_vol";
+    std::filesystem::create_directories(block_dir / "dm-2" / "dm");
+    std::filesystem::create_directories(block_dir / "dm-2" / "slaves" / "dm-0");
+    std::filesystem::create_directories(block_dir / "dm-2" / "slaves" / "sdb1");
+    std::filesystem::create_directories(block_dir / "sdb1");
+    std::filesystem::create_directories(mixed_target);
+    {
+        std::ofstream out(block_dir / "dm-2" / "dm" / "uuid");
+        out << "LVM-mixed123456\n";
+    }
+    {
+        std::ofstream out(block_dir / "dm-2" / "dm" / "name");
+        out << "vg-lv_mixed\n";
+    }
+    {
+        std::ofstream out(mounts_file, std::ios::app);
+        out << "/dev/mapper/vg-lv_mixed " << mixed_target.string() << " ext4 rw,relatime 0 0\n";
+    }
+
+    const auto mixed_res = sbackend::volume_encryption_at(
+        mixed_target.string(), block_dir.c_str(), mounts_file.c_str());
+    expect(mixed_res.has_value(), "volume_encryption_at must succeed on multi-slave layout");
+    if (mixed_res) {
+        expect(mixed_res->state == encryption_state::unknown,
+               "Multi-slave with encrypted and unknown members must report unknown state");
+    }
+
+    // Check encrypted_volumes_at
+    const auto list_res = sbackend::encrypted_volumes_at(
+        block_dir.c_str(), mounts_file.c_str());
+    expect(list_res.has_value(), "encrypted_volumes_at must succeed");
+    if (list_res) {
+        expect(!list_res->empty(), "Should enumerate encrypted volumes");
+    }
+
+    // Missing mounts must return not_supported
+    const auto missing_mounts = sbackend::volume_encryption_at(
+        crypt_target.string(), block_dir.c_str(), (fixture / "no_mounts").c_str());
+    expect(!missing_mounts && missing_mounts.error() == syscape::errc::not_supported,
+           "Missing mounts table must return not_supported");
+
+    // Missing block dir in encrypted_volumes must return not_supported
+    const auto missing_block = sbackend::encrypted_volumes_at(
+        (fixture / "no_block").c_str(), mounts_file.c_str());
+    expect(!missing_block && missing_block.error() == syscape::errc::not_supported,
+           "Missing block dir must return not_supported");
+
+    // Path validation
+    expect(!syscape::security::volume_encryption(""),
+           "Empty path must fail validation");
+    expect(!syscape::security::volume_encryption(std::string_view("abc\0def", 7)),
+           "Path with null char must fail validation");
+    const char invalid_utf8[] = {'/', static_cast<char>(0xFF), static_cast<char>(0xFE), '\0'};
+    expect(!syscape::security::volume_encryption(invalid_utf8),
+           "Invalid UTF-8 path must fail validation");
+    expect(!syscape::security::volume_encryption("/nonexistent_syscape_test_path_12345"),
+           "Nonexistent path must fail with not_found");
+
+    std::filesystem::remove_all(fixture);
+}
+
 void test_linux_live_queries() {
     using syscape::security::secure_boot_state;
     using syscape::security::lockdown_mode;
+    using syscape::security::aslr_mode;
 
     // Secure Boot live query
     const auto sb_res = syscape::security::secure_boot();
@@ -431,6 +808,75 @@ void test_linux_live_queries() {
     const auto sip_res = syscape::security::is_sip_enabled();
     expect(!sip_res && sip_res.error() == syscape::errc::not_supported,
            "SIP query on Linux must report not_supported");
+
+    // ASLR live query
+    const auto aslr_res = syscape::security::aslr();
+    if (aslr_res) {
+        expect(*aslr_res == aslr_mode::disabled ||
+               *aslr_res == aslr_mode::partial ||
+               *aslr_res == aslr_mode::full ||
+               *aslr_res == aslr_mode::unknown,
+               "aslr() must return a valid aslr_mode");
+    } else {
+        expect(static_cast<bool>(aslr_res.error()),
+               "A failed aslr query must carry an error");
+    }
+
+    // CPU vulnerabilities live query
+    const auto vuln_res = syscape::security::cpu_vulnerabilities();
+    if (vuln_res) {
+        expect(!vuln_res->empty(), "Linux sysfs cpu vulnerabilities should expose entries");
+        for (const auto& entry : *vuln_res) {
+            expect(!entry.name.empty(), "Vulnerability name must not be empty");
+            expect(!entry.raw_description.empty(), "Vulnerability description must not be empty");
+        }
+    } else {
+        expect(static_cast<bool>(vuln_res.error()),
+               "A failed cpu_vulnerabilities query must carry an error");
+    }
+
+    // Process capabilities live query
+    const auto caps_res = syscape::security::capabilities();
+    if (caps_res) {
+        // Capabilities can legitimately be empty in restricted or containerized environments.
+        for (const auto& cap : caps_res->effective) {
+            expect(!cap.empty(), "Capability name must not be empty");
+        }
+        for (const auto& cap : caps_res->permitted) {
+            expect(!cap.empty(), "Capability name must not be empty");
+        }
+    } else {
+        expect(static_cast<bool>(caps_res.error()),
+               "A failed capabilities query must carry an error");
+    }
+
+    // Process privileges live query
+    const auto privs_res = syscape::security::privileges();
+    if (privs_res) {
+        for (const auto& priv : *privs_res) {
+            expect(!priv.name.empty(), "Privilege name must not be empty");
+        }
+    } else {
+        expect(static_cast<bool>(privs_res.error()),
+               "A failed privileges query must carry an error");
+    }
+
+    // Volume encryption live query
+    const auto enc_res = syscape::security::volume_encryption("/");
+    if (enc_res) {
+        expect(enc_res->state == syscape::security::encryption_state::unencrypted ||
+               enc_res->state == syscape::security::encryption_state::encrypted ||
+               enc_res->state == syscape::security::encryption_state::unknown,
+               "volume_encryption(/) state must be valid enum");
+    }
+
+    // Encrypted volumes live query
+    const auto enc_vols = syscape::security::encrypted_volumes();
+    if (!enc_vols) {
+        expect(enc_vols.error() == syscape::errc::not_supported ||
+               static_cast<bool>(enc_vols.error()),
+               "Failed encrypted_volumes query must carry an error");
+    }
 }
 
 } // namespace
@@ -443,6 +889,15 @@ int main() {
     test_synthetic_lockdown_parser();
     test_synthetic_lsm_parser();
     test_synthetic_tpm_version_parser();
+    test_synthetic_aslr_parser();
+    test_synthetic_vulnerability_parser();
+    test_synthetic_hex_u64_parser();
+    test_synthetic_capability_decoder();
+    test_synthetic_dm_uuid_parser();
+    test_synthetic_capabilities_backend();
+    test_synthetic_cpu_vulnerabilities_backend();
+    test_synthetic_aslr_backend();
+    test_synthetic_volume_encryption_backend();
     test_linux_live_queries();
 
     return failures == 0 ? 0 : 1;

@@ -35,6 +35,33 @@ inline result<bool> is_sip_enabled() {
     return fail(errc::not_supported);
 }
 
+inline result<::syscape::security::aslr_mode> aslr() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<::syscape::security::cpu_vulnerability_entry>>
+cpu_vulnerabilities() {
+    return fail(errc::not_supported);
+}
+
+inline result<::syscape::security::process_capabilities> capabilities() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<::syscape::security::privilege_entry>> privileges() {
+    return fail(errc::not_supported);
+}
+
+inline result<::syscape::security::volume_encryption_info>
+volume_encryption(std::string_view /*path*/) {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<::syscape::security::volume_encryption_info>>
+encrypted_volumes() {
+    return fail(errc::not_supported);
+}
+
 } // namespace security_backend
 } // namespace detail
 } // namespace syscape

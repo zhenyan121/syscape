@@ -10,12 +10,14 @@
 #include <windows.h>
 #include <tbs.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <string>
 #include <system_error>
 #include <vector>
 
+#include <syscape/detail/utf8.hpp>
 #include <syscape/error.hpp>
 #include <syscape/result.hpp>
 
@@ -189,6 +191,173 @@ inline result<::syscape::security::lockdown_mode> lockdown() {
 
 /// macOS System Integrity Protection is not supported on Windows.
 inline result<bool> is_sip_enabled() {
+    return fail(errc::not_supported);
+}
+
+/// Queries the Address Space Layout Randomization (ASLR) mode of the calling process on Windows.
+inline result<::syscape::security::aslr_mode> aslr() {
+    PROCESS_MITIGATION_ASLR_POLICY policy{};
+    if (::GetProcessMitigationPolicy(
+            ::GetCurrentProcess(),
+            ProcessASLRPolicy,
+            &policy,
+            sizeof(policy))) {
+        if (policy.EnableBottomUpRandomization &&
+            policy.EnableForceRelocateImages &&
+            policy.EnableHighEntropy) {
+            return ::syscape::security::aslr_mode::full;
+        }
+        if (policy.EnableBottomUpRandomization ||
+            policy.EnableForceRelocateImages) {
+            return ::syscape::security::aslr_mode::partial;
+        }
+        if (policy.DisallowStrippedImages) {
+            return ::syscape::security::aslr_mode::disabled;
+        }
+        return ::syscape::security::aslr_mode::disabled;
+    }
+    const DWORD err = ::GetLastError();
+    if (err == ERROR_NOT_SUPPORTED || err == ERROR_INVALID_PARAMETER) {
+        return fail(errc::not_supported);
+    }
+    if (err == ERROR_ACCESS_DENIED) {
+        return fail(errc::permission_denied);
+    }
+    return fail(std::error_code(static_cast<int>(err), std::system_category()));
+}
+
+/// CPU hardware vulnerability table is not exposed via standard Win32 APIs.
+inline result<std::vector<::syscape::security::cpu_vulnerability_entry>>
+cpu_vulnerabilities() {
+    return fail(errc::not_supported);
+}
+
+/// POSIX process capabilities are not supported on Windows.
+inline result<::syscape::security::process_capabilities> capabilities() {
+    return fail(errc::not_supported);
+}
+
+/// Queries process token privileges on Windows.
+inline result<std::vector<::syscape::security::privilege_entry>> privileges() {
+    HANDLE token_handle = nullptr;
+    if (!::OpenProcessToken(::GetCurrentProcess(), TOKEN_QUERY, &token_handle)) {
+        const DWORD err = ::GetLastError();
+        if (err == ERROR_ACCESS_DENIED) {
+            return fail(errc::permission_denied);
+        }
+        return fail(std::error_code(static_cast<int>(err), std::system_category()));
+    }
+
+    struct token_closer {
+        HANDLE handle;
+        ~token_closer() {
+            if (handle != nullptr && handle != INVALID_HANDLE_VALUE) {
+                ::CloseHandle(handle);
+            }
+        }
+    } closer{token_handle};
+
+    DWORD length_needed = 0U;
+    if (!::GetTokenInformation(
+            token_handle, TokenPrivileges, nullptr, 0U, &length_needed)) {
+        const DWORD err = ::GetLastError();
+        if (err != ERROR_INSUFFICIENT_BUFFER) {
+            if (err == ERROR_ACCESS_DENIED) {
+                return fail(errc::permission_denied);
+            }
+            return fail(std::error_code(static_cast<int>(err), std::system_category()));
+        }
+    }
+    if (length_needed == 0U) {
+        return std::vector<::syscape::security::privilege_entry>();
+    }
+
+    std::vector<unsigned char> buffer(length_needed);
+    if (!::GetTokenInformation(
+            token_handle,
+            TokenPrivileges,
+            buffer.data(),
+            length_needed,
+            &length_needed)) {
+        const DWORD err = ::GetLastError();
+        if (err == ERROR_ACCESS_DENIED) {
+            return fail(errc::permission_denied);
+        }
+        return fail(std::error_code(static_cast<int>(err), std::system_category()));
+    }
+
+    const auto* privs =
+        reinterpret_cast<const TOKEN_PRIVILEGES*>(buffer.data());
+    std::vector<::syscape::security::privilege_entry> result;
+    result.reserve(privs->PrivilegeCount);
+
+    for (DWORD i = 0U; i < privs->PrivilegeCount; ++i) {
+        const auto& item = privs->Privileges[i];
+        DWORD name_len = 256U;
+        std::vector<wchar_t> name_buf(name_len);
+        LUID luid = item.Luid;
+        if (!::LookupPrivilegeNameW(nullptr, &luid, name_buf.data(), &name_len)) {
+            const DWORD err = ::GetLastError();
+            if (err == ERROR_INSUFFICIENT_BUFFER && name_len > 0U) {
+                name_buf.resize(name_len);
+                if (!::LookupPrivilegeNameW(nullptr, &luid, name_buf.data(), &name_len)) {
+                    const DWORD err2 = ::GetLastError();
+                    return fail(std::error_code(static_cast<int>(err2), std::system_category()));
+                }
+            } else {
+                return fail(std::error_code(static_cast<int>(err), std::system_category()));
+            }
+        }
+
+        // Convert UTF-16 to UTF-8 using WC_ERR_INVALID_CHARS to reject malformed surrogate pairs
+        const int utf8_len = ::WideCharToMultiByte(
+            CP_UTF8, WC_ERR_INVALID_CHARS, name_buf.data(), static_cast<int>(name_len),
+            nullptr, 0, nullptr, nullptr);
+        if (utf8_len <= 0) {
+            return fail(errc::invalid_encoding);
+        }
+        std::string name_utf8(static_cast<std::size_t>(utf8_len), '\0');
+        if (::WideCharToMultiByte(
+                CP_UTF8, WC_ERR_INVALID_CHARS, name_buf.data(), static_cast<int>(name_len),
+                name_utf8.data(), utf8_len, nullptr, nullptr) <= 0) {
+            return fail(errc::invalid_encoding);
+        }
+
+        ::syscape::security::privilege_entry entry;
+        entry.name = std::move(name_utf8);
+        entry.enabled = (item.Attributes & SE_PRIVILEGE_ENABLED) != 0;
+        entry.enabled_by_default =
+            (item.Attributes & SE_PRIVILEGE_ENABLED_BY_DEFAULT) != 0;
+        result.push_back(std::move(entry));
+    }
+
+    std::sort(result.begin(), result.end(),
+              [](const ::syscape::security::privilege_entry& a,
+                 const ::syscape::security::privilege_entry& b) noexcept {
+                  return a.name < b.name;
+              });
+
+    return result;
+}
+
+/// Volume encryption queries on Windows require BitLocker APIs/WMI which are currently not supported.
+inline result<::syscape::security::volume_encryption_info>
+volume_encryption(std::string_view path) {
+    if (path.empty()) {
+        return fail(errc::invalid_argument);
+    }
+    if (!is_valid_utf8(path)) {
+        return fail(errc::invalid_encoding);
+    }
+    if (path.find('\0') != std::string_view::npos) {
+        return fail(errc::invalid_argument);
+    }
+    return fail(errc::not_supported);
+}
+
+/// Volume encryption enumeration on Windows requires BitLocker APIs/WMI which are currently not supported.
+inline result<std::vector<::syscape::security::volume_encryption_info>>
+encrypted_volumes() {
     return fail(errc::not_supported);
 }
 

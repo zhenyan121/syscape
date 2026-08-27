@@ -324,11 +324,23 @@ bool other_security_backend_callable() {
     const auto lsm_res = syscape::security::security_modules();
     const auto lock_res = syscape::security::lockdown();
     const auto sip_res = syscape::security::is_sip_enabled();
+    const auto aslr_res = syscape::security::aslr();
+    const auto vuln_res = syscape::security::cpu_vulnerabilities();
+    const auto caps_res = syscape::security::capabilities();
+    const auto privs_res = syscape::security::privileges();
+    const auto enc_res = syscape::security::volume_encryption("/");
+    const auto enc_vols = syscape::security::encrypted_volumes();
     static_cast<void>(is_sb);
     static_cast<void>(tpm_res);
     static_cast<void>(lsm_res);
     static_cast<void>(lock_res);
     static_cast<void>(sip_res);
+    static_cast<void>(aslr_res);
+    static_cast<void>(vuln_res);
+    static_cast<void>(caps_res);
+    static_cast<void>(privs_res);
+    static_cast<void>(enc_res);
+    static_cast<void>(enc_vols);
     return sb.has_value() ||
            sb.error() == std::errc::operation_not_supported ||
            sb.error() == std::errc::permission_denied;
