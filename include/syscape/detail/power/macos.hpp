@@ -347,6 +347,113 @@ inline result<std::vector<power_source_facts>> collect_power_sources() {
     return collected;
 }
 
+/// Reads one CoreFoundation number as a 64-bit integer value.
+inline result<std::int64_t> copy_number_int(::CFNumberRef value) {
+    std::int64_t output = 0;
+    if (value == nullptr ||
+        !::CFNumberGetValue(value, ::kCFNumberSInt64Type, &output)) {
+        return fail(errc::io_error);
+    }
+    return output;
+}
+
+struct adapter_facts {
+    bool has_adapter = false;
+    std::string identifier;
+    bool has_watts = false;
+    std::uint32_t watts = 0U;
+};
+
+inline result<adapter_facts> collect_adapter_details() {
+    adapter_facts facts;
+    const cf_object details(::IOPSCopyExternalPowerAdapterDetails());
+    if (details.get() == nullptr) {
+        return facts;
+    }
+    const ::CFDictionaryRef dict =
+        static_cast<::CFDictionaryRef>(details.get());
+    facts.has_adapter = true;
+
+    const ::CFTypeRef serial =
+        ::CFDictionaryGetValue(dict, CFSTR(kIOPSPowerAdapterSerialNumberKey));
+    if (serial != nullptr) {
+        if (::CFGetTypeID(serial) == ::CFStringGetTypeID()) {
+            result<std::string> text =
+                copy_utf8_string(static_cast<::CFStringRef>(serial));
+            if (!text) { return fail(text.error()); }
+            facts.identifier = std::move(*text);
+        } else if (::CFGetTypeID(serial) == ::CFNumberGetTypeID()) {
+            result<std::int64_t> num =
+                copy_number_int(static_cast<::CFNumberRef>(serial));
+            if (!num) { return fail(num.error()); }
+            facts.identifier = std::to_string(*num);
+        }
+    } else {
+        const ::CFTypeRef adapter_id =
+            ::CFDictionaryGetValue(dict, CFSTR(kIOPSPowerAdapterIDKey));
+        if (adapter_id != nullptr &&
+            ::CFGetTypeID(adapter_id) == ::CFNumberGetTypeID()) {
+            result<std::int64_t> num =
+                copy_number_int(static_cast<::CFNumberRef>(adapter_id));
+            if (!num) { return fail(num.error()); }
+            facts.identifier = std::to_string(*num);
+        }
+    }
+
+    const ::CFNumberRef watts = static_cast<::CFNumberRef>(
+        ::CFDictionaryGetValue(dict, CFSTR(kIOPSPowerAdapterWattsKey)));
+    if (watts != nullptr) {
+        result<double> val = copy_number_double(watts);
+        if (!val) { return fail(val.error()); }
+        if (*val < 0.0 || *val > static_cast<double>(std::numeric_limits<std::uint32_t>::max() / 1000U)) {
+            return fail(errc::malformed_data);
+        }
+        facts.has_watts = true;
+        facts.watts = static_cast<std::uint32_t>(*val);
+    }
+    return facts;
+}
+
+inline result<std::vector<power_common::power_source_record>>
+interpret_power_sources(const std::vector<power_source_facts>& sources,
+                        const adapter_facts& adapter = adapter_facts{}) {
+    std::vector<power_common::power_source_record> records;
+    if (adapter.has_adapter) {
+        power_common::power_source_record record;
+        record.identifier = adapter.identifier;
+        record.type = power_common::power_source_type::mains;
+        record.has_online = true;
+        record.online = true;
+        if (adapter.has_watts) {
+            record.has_max_power_milliwatts = true;
+            record.max_power_milliwatts = adapter.watts * 1000U;
+        }
+        records.push_back(std::move(record));
+    }
+    for (const power_source_facts& facts : sources) {
+        if (is_internal_battery(facts)) { continue; }
+        power_common::power_source_record record;
+        if (facts.has_name) { record.identifier = facts.name; }
+
+        if (facts.type == ups_type) {
+            record.type = power_common::power_source_type::ups;
+        } else {
+            record.type = power_common::power_source_type::mains;
+        }
+        if (facts.has_state) {
+            record.has_online = true;
+            record.online = (facts.state == ac_power_state);
+        }
+        records.push_back(std::move(record));
+    }
+    std::sort(records.begin(), records.end(),
+              [](const power_common::power_source_record& left,
+                 const power_common::power_source_record& right) {
+                  return left.identifier < right.identifier;
+              });
+    return records;
+}
+
 inline result<std::vector<power_common::battery_record>> batteries() {
     const result<std::vector<power_source_facts>> sources =
         collect_power_sources();
@@ -354,7 +461,20 @@ inline result<std::vector<power_common::battery_record>> batteries() {
     return interpret_batteries(*sources);
 }
 
+inline result<std::vector<power_common::power_source_record>> power_sources() {
+    const result<std::vector<power_source_facts>> sources =
+        collect_power_sources();
+    if (!sources) { return fail(sources.error()); }
+    const result<adapter_facts> adapter = collect_adapter_details();
+    if (!adapter) { return fail(adapter.error()); }
+    return interpret_power_sources(*sources, *adapter);
+}
+
 inline result<power_common::external_presence> external_power_online() {
+    const result<adapter_facts> adapter = collect_adapter_details();
+    if (adapter && adapter->has_adapter) {
+        return power_common::external_presence::connected;
+    }
     const result<std::vector<power_source_facts>> sources =
         collect_power_sources();
     if (!sources) { return fail(sources.error()); }

@@ -14,6 +14,10 @@ inline result<std::vector<power_common::battery_record>> batteries() {
     return fail(errc::not_supported);
 }
 
+inline result<std::vector<power_common::power_source_record>> power_sources() {
+    return fail(errc::not_supported);
+}
+
 inline result<power_common::external_presence> external_power_online() {
     return fail(errc::not_supported);
 }

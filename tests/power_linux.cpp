@@ -185,6 +185,215 @@ void test_type_classifier() {
            "silently skipped");
 }
 
+void test_health_parser() {
+    namespace backend = syscape::detail::power_backend;
+    using health = syscape::detail::power_common::battery_health;
+
+    const auto good = backend::parse_health("Good\n");
+    expect(good && *good == health::good, "Good must map to good");
+
+    const auto overheat = backend::parse_health("Overheat");
+    expect(overheat && *overheat == health::overheat,
+           "Overheat must map to overheat");
+
+    const auto over_heat = backend::parse_health("Over heat\n");
+    expect(over_heat && *over_heat == health::overheat,
+           "Over heat must map to overheat");
+
+    const auto dead = backend::parse_health("Dead");
+    expect(dead && *dead == health::dead, "Dead must map to dead");
+
+    const auto over_voltage = backend::parse_health("Over voltage");
+    expect(over_voltage && *over_voltage == health::over_voltage,
+           "Over voltage must map to over_voltage");
+
+    const auto under_voltage = backend::parse_health("Under voltage");
+    expect(under_voltage && *under_voltage == health::under_voltage,
+           "Under voltage must map to under_voltage");
+
+    const auto blown_fuse = backend::parse_health("Blown fuse");
+    expect(blown_fuse && *blown_fuse == health::blown_fuse,
+           "Blown fuse must map to blown_fuse");
+
+    const auto cell_imbalance = backend::parse_health("Cell imbalance");
+    expect(cell_imbalance && *cell_imbalance == health::cell_imbalance,
+           "Cell imbalance must map to cell_imbalance");
+
+    const auto unspecified = backend::parse_health("Unspecified failure");
+    expect(unspecified && *unspecified == health::unspecified_failure,
+           "Unspecified failure must map to unspecified_failure");
+
+    const auto cold = backend::parse_health("Cold");
+    expect(cold && *cold == health::cold, "Cold must map to cold");
+
+    const auto warm = backend::parse_health("Warm");
+    expect(warm && *warm == health::warm, "Warm must map to warm");
+
+    const auto cool = backend::parse_health("Cool");
+    expect(cool && *cool == health::cool, "Cool must map to cool");
+
+    const auto hot = backend::parse_health("Hot");
+    expect(hot && *hot == health::hot, "Hot must map to hot");
+
+    const auto unknown = backend::parse_health("Unknown");
+    expect(unknown && *unknown == health::unknown, "Unknown must map to unknown");
+
+    const auto watchdog = backend::parse_health("Watchdog timer expire");
+    expect(watchdog && *watchdog == health::unspecified_failure,
+           "Watchdog timer expire must map to unspecified_failure");
+
+    const auto no_battery = backend::parse_health("No battery");
+    expect(no_battery && *no_battery == health::unknown,
+           "No battery must map to unknown");
+
+    const auto invalid = backend::parse_health("Strange");
+    expect(!invalid && invalid.error() == syscape::errc::malformed_data,
+           "Unrecognized health rendering must be malformed");
+}
+
+void test_technology_parser() {
+    namespace backend = syscape::detail::power_backend;
+    using tech = syscape::detail::power_common::battery_technology;
+
+    const auto lion = backend::parse_technology("Li-ion\n");
+    expect(lion && *lion == tech::lithium_ion, "Li-ion must map to lithium_ion");
+
+    const auto lipo = backend::parse_technology("Li-poly");
+    expect(lipo && *lipo == tech::lithium_polymer,
+           "Li-poly must map to lithium_polymer");
+
+    const auto nimh = backend::parse_technology("NiMH");
+    expect(nimh && *nimh == tech::nickel_metal_hydride,
+           "NiMH must map to nickel_metal_hydride");
+
+    const auto nicd = backend::parse_technology("NiCd");
+    expect(nicd && *nicd == tech::nickel_cadmium,
+           "NiCd must map to nickel_cadmium");
+
+    const auto lead = backend::parse_technology("Lead-acid");
+    expect(lead && *lead == tech::lead_acid, "Lead-acid must map to lead_acid");
+
+    const auto unknown = backend::parse_technology("Unknown");
+    expect(unknown && *unknown == tech::unknown,
+           "Unknown must map to unknown");
+
+    const auto other = backend::parse_technology("Custom-Chem");
+    expect(other && *other == tech::other,
+           "Uncommon chemistry strings must map to other");
+}
+
+void test_power_source_type_parser() {
+    namespace backend = syscape::detail::power_backend;
+    using pst = syscape::detail::power_common::power_source_type;
+
+    const auto mains = backend::parse_power_source_type("Mains\n");
+    expect(mains && *mains == pst::mains, "Mains must map to mains");
+
+    const auto usb = backend::parse_power_source_type("USB");
+    expect(usb && *usb == pst::usb, "USB must map to usb");
+
+    const auto wireless = backend::parse_power_source_type("Wireless");
+    expect(wireless && *wireless == pst::wireless,
+           "Wireless must map to wireless");
+
+    const auto ups = backend::parse_power_source_type("UPS");
+    expect(ups && *ups == pst::ups, "UPS must map to ups");
+
+    const auto other = backend::parse_power_source_type("Solar");
+    expect(other && *other == pst::other, "Solar must map to other");
+
+    const auto bat = backend::parse_power_source_type("Battery");
+    expect(!bat && bat.error() == syscape::errc::malformed_data,
+           "Battery is not an external power source type");
+
+    expect(backend::parse_usb_power_type("USB [PD] DCP") == pst::usb_pd,
+           "[PD] must map to usb_pd");
+    expect(backend::parse_usb_power_type("USB [PD_DRP]") == pst::usb_pd,
+           "[PD_DRP] must map to usb_pd");
+    expect(backend::parse_usb_power_type("PD\n") == pst::usb_pd,
+           "PD must map to usb_pd");
+    expect(backend::parse_usb_power_type("USB [DCP]") == pst::usb,
+           "[DCP] must map to usb");
+}
+
+void test_temperature_parser() {
+    namespace backend = syscape::detail::power_backend;
+
+    const auto tenths = backend::parse_temperature("295\n");
+    expect(tenths && *tenths > 29.4 && *tenths < 29.6,
+           "295 tenths must parse as 29.5 C");
+
+    const auto hot = backend::parse_temperature("1500");
+    expect(hot && *hot > 149.9 && *hot < 150.1,
+           "1500 tenths must parse as 150.0 C");
+
+    const auto zero = backend::parse_temperature("0");
+    expect(zero && *zero == 0.0, "0 must parse as 0.0 C");
+
+    const auto invalid = backend::parse_temperature("hot");
+    expect(!invalid && invalid.error() == syscape::errc::malformed_data,
+           "Nonnumeric temperature must be malformed");
+}
+
+void test_u64_parser() {
+    namespace backend = syscape::detail::power_backend;
+
+    const auto num = backend::parse_u64("80000000\n");
+    expect(num && *num == 80000000ULL, "80000000 must parse");
+
+    const auto overflow = backend::parse_u64("9999999999999999999999999999");
+    expect(!overflow && overflow.error() == syscape::errc::value_too_large,
+           "Overflow must report value_too_large");
+
+    const auto bad = backend::parse_u64("80M");
+    expect(!bad && bad.error() == syscape::errc::malformed_data,
+           "Trailing text must be malformed");
+}
+
+void test_i64_parser() {
+    namespace backend = syscape::detail::power_backend;
+
+    const auto pos = backend::parse_i64("15000000\n");
+    expect(pos && *pos == 15000000, "15000000 must parse");
+
+    const auto neg = backend::parse_i64("-15000000\n");
+    expect(neg && *neg == -15000000, "-15000000 must parse");
+
+    const auto zero = backend::parse_i64("0");
+    expect(zero && *zero == 0, "0 must parse");
+
+    const auto bad = backend::parse_i64("-15M");
+    expect(!bad && bad.error() == syscape::errc::malformed_data,
+           "Trailing text must be malformed");
+}
+
+void test_aggregate_compatibility() {
+    // Tests that existing aggregate initialization with 1, 3, or 7 fields remains valid.
+    const syscape::power::battery_entry single{"BAT0"};
+    expect(single.identifier == "BAT0" && single.present &&
+               single.state == syscape::power::battery_state::unknown &&
+               !single.has_charge_percent,
+           "Aggregate initialization with 1 field must succeed");
+
+    const syscape::power::battery_entry triple{
+        "BAT0", true, syscape::power::battery_state::charging
+    };
+    expect(triple.identifier == "BAT0" && triple.present &&
+               triple.state == syscape::power::battery_state::charging &&
+               !triple.has_charge_percent,
+           "Aggregate initialization with 3 fields must succeed");
+
+    const syscape::power::battery_entry legacy{
+        "BAT0", true, syscape::power::battery_state::charging,
+        true, 80U, false, 0U
+    };
+    expect(legacy.identifier == "BAT0" && legacy.present &&
+               legacy.state == syscape::power::battery_state::charging &&
+               legacy.has_charge_percent && legacy.charge_percent == 80U &&
+               !legacy.has_cycle_count && legacy.cycle_count == 0U,
+           "Aggregate initialization with legacy 7-field order must succeed");
+}
+
 void test_boundary_validation() {
     namespace common = syscape::detail::power_common;
 
@@ -199,6 +408,17 @@ void test_boundary_validation() {
                encoding_checked.error() == syscape::errc::invalid_encoding,
            "Battery identifiers must be well-formed UTF-8");
 
+    syscape::result<std::vector<common::battery_record>> invalid_mfg(
+        std::vector<common::battery_record>{});
+    invalid_mfg->push_back(common::battery_record{});
+    invalid_mfg->back().identifier = "BAT0";
+    invalid_mfg->back().manufacturer = "\xff\xfe";
+    const auto mfg_checked =
+        common::validate_battery_records(std::move(invalid_mfg));
+    expect(!mfg_checked &&
+               mfg_checked.error() == syscape::errc::invalid_encoding,
+           "Battery manufacturer must be well-formed UTF-8");
+
     syscape::result<std::vector<common::battery_record>> impossible(
         std::vector<common::battery_record>{});
     impossible->push_back(common::battery_record{});
@@ -211,6 +431,16 @@ void test_boundary_validation() {
                range_checked.error() == syscape::errc::malformed_data,
            "A charge estimate beyond one hundred must be rejected at the "
            "public boundary");
+
+    syscape::result<std::vector<common::power_source_record>> invalid_ps_enc(
+        std::vector<common::power_source_record>{});
+    invalid_ps_enc->push_back(common::power_source_record{});
+    invalid_ps_enc->back().identifier = "\xff\xfe";
+    const auto ps_checked =
+        common::validate_power_source_records(std::move(invalid_ps_enc));
+    expect(!ps_checked &&
+               ps_checked.error() == syscape::errc::invalid_encoding,
+           "Power source identifiers must be well-formed UTF-8");
 }
 
 /// Reads one sysfs attribute independently of the backend's reader.
@@ -232,6 +462,20 @@ void test_live_queries() {
     expect(!runtime && runtime.error() == errc::not_supported,
            "Linux documents no time-to-empty source, so the query must "
            "report not_supported");
+
+    const syscape::result<std::vector<syscape::power::power_source_entry>>
+        sources = syscape::power::power_sources();
+    expect(sources.has_value(), "Power source enumeration must succeed");
+    if (sources) {
+        std::string prev_id;
+        for (const auto& src : *sources) {
+            expect(!src.identifier.empty(),
+                   "Power source identifier must not be empty");
+            expect(prev_id <= src.identifier,
+                   "Power sources must be sorted by identifier");
+            prev_id = src.identifier;
+        }
+    }
 
     const syscape::result<std::vector<syscape::power::battery_entry>>
         listed = syscape::power::batteries();
@@ -257,6 +501,18 @@ void test_live_queries() {
                    "Linux records zero cycles only when tracking is absent, "
                    "which must surface as no count");
         }
+
+        if (battery.has_voltage_millivolts) {
+            expect(battery.voltage_millivolts > 0U,
+                   "Battery voltage must be positive");
+        }
+
+        if (battery.has_energy_design_mwh && battery.has_energy_full_mwh) {
+            expect(battery.has_health_percent,
+                   "Health percent must be computed when energy design and "
+                   "full are available");
+        }
+
         std::string recorded;
         if (independent_attribute(battery.identifier, "capacity",
                                   recorded)) {
@@ -280,6 +536,20 @@ void test_live_queries() {
                    "Every reported condition must originate from a "
                    "documented status rendering");
         }
+
+        std::string health_str;
+        if (independent_attribute(battery.identifier, "health", health_str)) {
+            expect(battery.health != syscape::power::battery_health::unknown ||
+                       health_str == "Unknown" || health_str == "No battery",
+                   "Reported health should reflect sysfs health attribute");
+        }
+
+        std::string tech_str;
+        if (independent_attribute(battery.identifier, "technology", tech_str)) {
+            expect(battery.technology != syscape::power::battery_technology::unknown ||
+                       tech_str == "Unknown",
+                   "Reported technology should reflect sysfs technology attribute");
+        }
     }
 
     const syscape::result<bool> powered =
@@ -292,7 +562,14 @@ void test_live_queries() {
 } // namespace
 
 int main() {
+    test_aggregate_compatibility();
     test_status_parser();
+    test_health_parser();
+    test_technology_parser();
+    test_power_source_type_parser();
+    test_temperature_parser();
+    test_u64_parser();
+    test_i64_parser();
     test_capacity_parser();
     test_flag_parser();
     test_online_parser();

@@ -23,6 +23,7 @@ bool honest(const Query& query) {
 
 int main() {
     return honest(syscape::power::batteries) &&
+                   honest(syscape::power::power_sources) &&
                    honest(syscape::power::external_power_online) &&
                    honest(syscape::power::seconds_until_empty)
                ? 0

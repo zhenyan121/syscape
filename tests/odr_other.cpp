@@ -180,8 +180,11 @@ bool other_resource_backend_callable() {
 bool other_power_backend_callable() {
     const syscape::result<std::vector<syscape::power::battery_entry>>
         listed = syscape::power::batteries();
+    const syscape::result<std::vector<syscape::power::power_source_entry>>
+        sources = syscape::power::power_sources();
     const syscape::result<bool> powered =
         syscape::power::external_power_online();
+    static_cast<void>(sources);
     static_cast<void>(powered);
     return listed.has_value() ||
            listed.error() == std::errc::operation_not_supported ||

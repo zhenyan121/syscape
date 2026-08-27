@@ -121,6 +121,15 @@ void test_presence_and_runtime_interpretation() {
            "than a fabricated duration");
 }
 
+void test_power_sources_interpretation() {
+    namespace backend = syscape::detail::power_backend;
+
+    const auto sources = backend::power_sources();
+    expect(!sources && sources.error() == syscape::errc::not_supported,
+           "Windows documents no power source enumeration through "
+           "GetSystemPowerStatus, so it must return not_supported");
+}
+
 void test_live_queries() {
     const auto powered = syscape::power::external_power_online();
     expect(powered.has_value(),
@@ -129,6 +138,10 @@ void test_live_queries() {
     const auto runtime = syscape::power::seconds_until_empty();
     expect(runtime || runtime.error() == syscape::errc::not_found,
            "Runtime estimates must answer or report their absence");
+
+    const auto sources = syscape::power::power_sources();
+    expect(!sources && sources.error() == syscape::errc::not_supported,
+           "Power source enumeration must report not_supported on Windows");
 
     const auto listed = syscape::power::batteries();
     expect(listed || listed.error() == syscape::errc::not_found,
@@ -154,6 +167,7 @@ void test_live_queries() {
 int main() {
     test_battery_interpretation();
     test_presence_and_runtime_interpretation();
+    test_power_sources_interpretation();
     test_live_queries();
     return failures == 0 ? 0 : 1;
 }

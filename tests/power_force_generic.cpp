@@ -10,6 +10,7 @@ bool unsupported(const syscape::result<T>& value) {
 
 int main() {
     return unsupported(syscape::power::batteries()) &&
+                   unsupported(syscape::power::power_sources()) &&
                    unsupported(syscape::power::external_power_online()) &&
                    unsupported(syscape::power::seconds_until_empty())
                ? 0

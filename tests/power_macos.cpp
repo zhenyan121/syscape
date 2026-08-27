@@ -245,11 +245,51 @@ void test_runtime_estimates() {
            "UPS estimates bound the system runtime too");
 }
 
+void test_power_sources_interpretation() {
+    namespace backend = syscape::detail::power_backend;
+    using power_type = syscape::detail::power_common::power_source_type;
+
+    std::vector<backend::power_source_facts> sources;
+    backend::power_source_facts ups;
+    ups.type = backend::ups_type;
+    ups.has_name = true;
+    ups.name = "Smart-UPS 1500";
+    ups.has_state = true;
+    ups.state = backend::ac_power_state;
+    sources.push_back(std::move(ups));
+
+    backend::power_source_facts bat = make_battery("InternalBattery-0");
+    sources.push_back(std::move(bat));
+
+    backend::adapter_facts adapter;
+    adapter.has_adapter = true;
+    adapter.identifier = "C04439300VNJ6P2AY";
+    adapter.has_watts = true;
+    adapter.watts = 96U;
+
+    const auto parsed = backend::interpret_power_sources(sources, adapter);
+    expect(parsed && parsed->size() == 2U,
+           "Power sources must enumerate external power adapter and UPS supplies");
+    if (parsed && parsed->size() == 2U) {
+        expect((*parsed)[0].identifier == "C04439300VNJ6P2AY" &&
+                   (*parsed)[0].type == power_type::mains &&
+                   (*parsed)[0].has_online && (*parsed)[0].online &&
+                   (*parsed)[0].has_max_power_milliwatts &&
+                   (*parsed)[0].max_power_milliwatts == 96000U,
+               "External AC adapter properties and wattage must match");
+        expect((*parsed)[1].identifier == "Smart-UPS 1500" &&
+                   (*parsed)[1].type == power_type::ups &&
+                   (*parsed)[1].has_online && (*parsed)[1].online,
+               "UPS properties must match");
+    }
+}
+
 } // namespace
 
 int main() {
     test_battery_interpretation();
     test_presence_and_runtime_interpretation();
     test_runtime_estimates();
+    test_power_sources_interpretation();
     return failures == 0 ? 0 : 1;
 }

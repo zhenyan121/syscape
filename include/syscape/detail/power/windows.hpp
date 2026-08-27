@@ -121,6 +121,10 @@ inline result<power_status_snapshot> query_power_status() {
     return snapshot;
 }
 
+inline result<std::vector<power_common::power_source_record>> power_sources() {
+    return fail(errc::not_supported);
+}
+
 inline result<std::vector<power_common::battery_record>> batteries() {
     const result<power_status_snapshot> snapshot = query_power_status();
     if (!snapshot) { return fail(snapshot.error()); }
