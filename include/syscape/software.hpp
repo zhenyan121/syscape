@@ -2,7 +2,7 @@
 #define SYSCAPE_SOFTWARE_HPP
 
 /// @file
-/// @brief Hosted system software, service, kernel driver, and package inventory queries.
+/// @brief Hosted system software, service, driver, update, package, and runtime queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note This module exposes:
 /// - Enumeration of system services and daemons (services()).
@@ -11,13 +11,17 @@
 /// - Lookup of a specific loaded kernel driver by name (find_driver(name)).
 /// - Enumeration of installed software packages and applications (installed_packages()).
 /// - Lookup of an installed software package by name (find_package(name)).
+/// - Enumeration of observable system update state (system_updates()).
+/// - Enumeration of installed execution and development runtimes (installed_runtimes()).
 /// @note Linux parses systemd unit files, /proc/modules, pacman/dpkg/apk databases,
 /// and freedesktop application entries in-process without spawning subprocesses.
 /// @note Windows queries the Service Control Manager (SCM), Psapi driver APIs,
-/// and Uninstall registry catalogs (requires linking Advapi32.lib and Psapi.lib).
+/// Uninstall and runtime registry catalogs, and CBS update state
+/// (requires linking Advapi32.lib and Psapi.lib).
 /// @note macOS parses LaunchDaemons, LaunchAgents, and .app bundles using CoreFoundation
-/// (requires linking -framework CoreFoundation). loaded_drivers() returns not_supported
-/// on macOS as Darwin provides no unprivileged in-process public API for loaded kernel modules.
+/// together with update metadata and runtime installation files
+/// (requires linking -framework CoreFoundation). loaded_drivers() returns not_supported on
+/// macOS as Darwin provides no unprivileged in-process public API for loaded kernel modules.
 /// @note Software and service states change dynamically. Queries query on demand without caching.
 
 #include <syscape/detail/config.hpp>
@@ -34,6 +38,7 @@
 #include <vector>
 
 #include <syscape/detail/software/common.hpp>
+#include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) && \
@@ -65,6 +70,15 @@ using driver_state = detail::software_common::driver_state;
 
 /// Packaging or distribution format of an installed software package or application.
 using package_format = detail::software_common::package_format;
+
+/// Classification of a system software update.
+using update_classification = detail::software_common::update_classification;
+
+/// Assessed severity level of a system software or security update.
+using update_severity = detail::software_common::update_severity;
+
+/// Classification of a discovered runtime or language toolchain.
+using runtime_kind = detail::software_common::runtime_kind;
 
 /// Observable metadata describing an OS service or background daemon.
 struct service_entry {
@@ -132,6 +146,48 @@ struct package_entry {
     std::optional<std::string> description;
 };
 
+/// Observable metadata describing an OS-level software or security update.
+struct update_entry {
+    /// Unique update identifier (e.g., "KB5034441", "linux-6.10.3", "system-reboot-required").
+    std::string identifier;
+
+    /// Human-readable update title or package name.
+    std::string title;
+
+    /// Target or available version string.
+    std::optional<std::string> version;
+
+    /// Functional classification of the update (security, bugfix, feature, definition, etc.).
+    update_classification classification = update_classification::unknown;
+
+    /// Assessed severity level of the update.
+    update_severity severity = update_severity::unknown;
+
+    /// Whether applying this update is flagged by the OS as requiring a reboot.
+    bool requires_reboot = false;
+
+    /// Extended description or bulletin summary.
+    std::optional<std::string> description;
+};
+
+/// Observable metadata describing an installed development or execution runtime.
+struct runtime_entry {
+    /// Runtime kind classification (.NET, Java, Python, Node, Rust, Go, etc.).
+    runtime_kind kind = runtime_kind::unknown;
+
+    /// Runtime display name (e.g. ".NET Runtime", "OpenJDK", "Python", "Go").
+    std::string name;
+
+    /// Version identifier (e.g. "8.0.7", "21.0.12.1", "3.12").
+    std::string version;
+
+    /// Installation root directory or primary binary path.
+    std::string installation_path;
+
+    /// Target architecture if exposed (e.g. "x86_64", "arm64").
+    std::optional<std::string> architecture;
+};
+
 } // namespace software
 
 namespace detail {
@@ -168,6 +224,40 @@ inline software::package_entry make_public_package(software_common::package_reco
     entry.architecture = std::move(rec.architecture);
     entry.format = rec.format;
     entry.description = std::move(rec.description);
+    return entry;
+}
+
+inline result<software::update_entry> make_public_update(software_common::update_record&& rec) {
+    if (!detail::is_valid_utf8(rec.identifier) ||
+        !detail::is_valid_utf8(rec.title) ||
+        (rec.version && !detail::is_valid_utf8(*rec.version)) ||
+        (rec.description && !detail::is_valid_utf8(*rec.description))) {
+        return fail(errc::invalid_encoding);
+    }
+    software::update_entry entry;
+    entry.identifier = std::move(rec.identifier);
+    entry.title = std::move(rec.title);
+    entry.version = std::move(rec.version);
+    entry.classification = rec.classification;
+    entry.severity = rec.severity;
+    entry.requires_reboot = rec.requires_reboot;
+    entry.description = std::move(rec.description);
+    return entry;
+}
+
+inline result<software::runtime_entry> make_public_runtime(software_common::runtime_record&& rec) {
+    if (!detail::is_valid_utf8(rec.name) ||
+        !detail::is_valid_utf8(rec.version) ||
+        !detail::is_valid_utf8(rec.installation_path) ||
+        (rec.architecture && !detail::is_valid_utf8(*rec.architecture))) {
+        return fail(errc::invalid_encoding);
+    }
+    software::runtime_entry entry;
+    entry.kind = rec.kind;
+    entry.name = std::move(rec.name);
+    entry.version = std::move(rec.version);
+    entry.installation_path = std::move(rec.installation_path);
+    entry.architecture = std::move(rec.architecture);
     return entry;
 }
 
@@ -252,6 +342,55 @@ inline result<package_entry> find_package(std::string_view name) {
         return fail(rec.error());
     }
     return detail::software_public::make_public_package(std::move(*rec));
+}
+
+/// Queries observable system software update state.
+///
+/// Results may include updates pending application and already-applied packages
+/// for which the platform reports that a reboot is still required. The returned
+/// state can change while the process is running. Platform backends return
+/// `errc::not_supported` when no documented in-process source is available and
+/// preserve permission, malformed-data, encoding, and native system errors.
+/// @return Observable update entries, or an error if the query cannot be completed.
+inline result<std::vector<update_entry>> system_updates() {
+    auto records = detail::software_backend::system_updates();
+    if (!records) {
+        return fail(records.error());
+    }
+    std::vector<update_entry> result_list;
+    result_list.reserve(records->size());
+    for (auto& rec : *records) {
+        auto entry = detail::software_public::make_public_update(std::move(rec));
+        if (!entry) {
+            return fail(entry.error());
+        }
+        result_list.push_back(std::move(*entry));
+    }
+    return result_list;
+}
+
+/// Queries installed language and execution runtimes (e.g. .NET, Java, Python, Node, Rust, Go).
+///
+/// The inventory is collected on demand and can change while the process is
+/// running. A backend may report only runtimes exposed by documented system or
+/// installation metadata. Permission, malformed-data, encoding, and native
+/// system failures are returned rather than converted to a partial inventory.
+/// @return Installed runtime entries, or an error if the query cannot be completed.
+inline result<std::vector<runtime_entry>> installed_runtimes() {
+    auto records = detail::software_backend::installed_runtimes();
+    if (!records) {
+        return fail(records.error());
+    }
+    std::vector<runtime_entry> result_list;
+    result_list.reserve(records->size());
+    for (auto& rec : *records) {
+        auto entry = detail::software_public::make_public_runtime(std::move(rec));
+        if (!entry) {
+            return fail(entry.error());
+        }
+        result_list.push_back(std::move(*entry));
+    }
+    return result_list;
 }
 
 } // namespace software

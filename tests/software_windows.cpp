@@ -18,6 +18,11 @@ void test_windows_software_backend() {
     using namespace syscape::software;
     using namespace syscape::detail::software_backend::windows_impl;
 
+    expect(!is_install_pending_cbs_state(0x05), "CBS uninstall-pending state must not be install-pending");
+    expect(!is_install_pending_cbs_state(0x30), "CBS staging state must not be pending");
+    expect(!is_install_pending_cbs_state(0x40), "CBS staged state must not be pending");
+    expect(is_install_pending_cbs_state(0x60), "CBS install-pending state must be pending");
+
     expect(map_service_state(SERVICE_RUNNING) == service_state::running, "SERVICE_RUNNING state mapping");
     expect(map_service_state(SERVICE_STOPPED) == service_state::stopped, "SERVICE_STOPPED state mapping");
     expect(map_service_state(SERVICE_PAUSED) == service_state::paused, "SERVICE_PAUSED state mapping");
@@ -52,6 +57,20 @@ void test_windows_software_backend() {
     if (pkgs) {
         for (std::size_t i = 1; i < pkgs->size(); ++i) {
             expect((*pkgs)[i - 1].name <= (*pkgs)[i].name, "packages must be sorted");
+        }
+    }
+
+    const auto upds = system_updates();
+    if (upds) {
+        for (std::size_t i = 1; i < upds->size(); ++i) {
+            expect((*upds)[i - 1].identifier <= (*upds)[i].identifier, "updates must be sorted");
+        }
+    }
+
+    const auto runtimes = installed_runtimes();
+    if (runtimes) {
+        for (std::size_t i = 1; i < runtimes->size(); ++i) {
+            expect(static_cast<int>((*runtimes)[i - 1].kind) <= static_cast<int>((*runtimes)[i].kind), "runtimes must be sorted");
         }
     }
 #endif

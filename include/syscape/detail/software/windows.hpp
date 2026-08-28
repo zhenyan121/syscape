@@ -70,6 +70,7 @@ public:
         }
     }
     HKEY get() const noexcept { return key_; }
+    HKEY* put() noexcept { return &key_; }
     explicit operator bool() const noexcept { return key_ != nullptr; }
 
 private:
@@ -109,6 +110,10 @@ inline software_common::service_startup map_service_startup(DWORD start_type) no
     default:
         return software_common::service_startup::unknown;
     }
+}
+
+inline bool is_install_pending_cbs_state(DWORD state) noexcept {
+    return state == 0x60;
 }
 
 inline result<std::wstring> expand_environment_string(std::wstring_view value) {
@@ -153,7 +158,7 @@ inline result<std::optional<std::wstring>> read_registry_string(HKEY key, const 
         return fail(errc::malformed_data);
     }
     if (bytes == 0) {
-        return std::optional<std::wstring>{std::wstring{}};
+        return fail(errc::malformed_data);
     }
 
     std::vector<wchar_t> buffer;
@@ -170,6 +175,9 @@ inline result<std::optional<std::wstring>> read_registry_string(HKEY key, const 
                 return fail(errc::malformed_data);
             }
             std::size_t char_count = read_bytes / sizeof(wchar_t);
+            if (char_count == 0 || buffer[char_count - 1] != L'\0') {
+                return fail(errc::malformed_data);
+            }
             while (char_count > 0 && buffer[char_count - 1] == L'\0') {
                 --char_count;
             }
@@ -762,6 +770,354 @@ inline result<software_common::package_record> find_package(std::string_view nam
         }
     }
     return fail(errc::not_found);
+}
+
+inline result<std::vector<software_common::update_record>> system_updates() {
+    std::vector<software_common::update_record> updates;
+    std::unordered_set<std::string> seen;
+    bool any_source_found = false;
+    std::error_code last_error;
+
+    auto add_update = [&](software_common::update_record&& rec) {
+        if (rec.identifier.empty()) {
+            return;
+        }
+        if (seen.insert(rec.identifier).second) {
+            updates.push_back(std::move(rec));
+        }
+    };
+
+    // 1. Check reboot pending indicators
+    const wchar_t* reboot_keys[] = {
+        L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\RebootPending",
+        L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\RebootRequired"
+    };
+    for (const wchar_t* key_path : reboot_keys) {
+        windows_impl::reg_handle key;
+        const LSTATUS status = ::RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_path, 0, KEY_READ, key.put());
+        if (status == ERROR_SUCCESS) {
+            any_source_found = true;
+            software_common::update_record rec;
+            rec.identifier = "windows-update-reboot-required";
+            rec.title = "System reboot required to complete updates";
+            rec.requires_reboot = true;
+            add_update(std::move(rec));
+            break;
+        } else if (status != ERROR_FILE_NOT_FOUND && status != ERROR_PATH_NOT_FOUND) {
+            last_error = std::error_code(static_cast<int>(status), std::system_category());
+        }
+    }
+
+    // 2. Enumerate Component Based Servicing Packages in the install-pending state
+    windows_impl::reg_handle cbs_key;
+    const LSTATUS cbs_status = ::RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\Packages", 0, KEY_READ, cbs_key.put());
+    if (cbs_status == ERROR_SUCCESS) {
+        any_source_found = true;
+        DWORD subkey_count = 0;
+        DWORD max_subkey_len = 0;
+        const LSTATUS info_status = ::RegQueryInfoKeyW(cbs_key.get(), nullptr, nullptr, nullptr, &subkey_count, &max_subkey_len, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+        if (info_status == ERROR_SUCCESS) {
+            std::vector<wchar_t> name_buf(max_subkey_len + 1);
+            for (DWORD i = 0; i < subkey_count; ++i) {
+                DWORD len = static_cast<DWORD>(name_buf.size());
+                const LSTATUS enum_status = ::RegEnumKeyExW(cbs_key.get(), i, name_buf.data(), &len, nullptr, nullptr, nullptr, nullptr);
+                if (enum_status == ERROR_NO_MORE_ITEMS) {
+                    break;
+                }
+                if (enum_status != ERROR_SUCCESS) {
+                    last_error = std::error_code(static_cast<int>(enum_status), std::system_category());
+                    break;
+                }
+                {
+                    const std::wstring_view pkg_name(name_buf.data(), len);
+                    {
+                        windows_impl::reg_handle item_key;
+                        const LSTATUS item_status = ::RegOpenKeyExW(cbs_key.get(), name_buf.data(), 0, KEY_READ, item_key.put());
+                        if (item_status == ERROR_SUCCESS) {
+                            DWORD state = 0;
+                            DWORD state_size = sizeof(DWORD);
+                            DWORD type = 0;
+                            const LSTATUS state_status = ::RegQueryValueExW(item_key.get(), L"CurrentState", nullptr, &type, reinterpret_cast<LPBYTE>(&state), &state_size);
+                            if (state_status == ERROR_SUCCESS) {
+                                if (type != REG_DWORD || state_size != sizeof(DWORD)) {
+                                    last_error = make_error_code(errc::malformed_data);
+                                    continue;
+                                }
+                                // CBS CurrentState values:
+                                // 0x00: Absent, 0x05: Uninstall Pending, 0x10: Resolving, 0x20: Resolved
+                                // 0x30: Staging, 0x40: Staged, 0x50: Superseded, 0x60: Install Pending
+                                // 0x70: Partially Installed, 0x80: Installed, 0x90: Permanent
+                                if (windows_impl::is_install_pending_cbs_state(state)) {
+                                    const auto name_utf8 = windows_impl::wide_to_utf8(std::wstring(pkg_name));
+                                    if (name_utf8) {
+                                        software_common::update_record rec;
+                                        rec.identifier = *name_utf8;
+                                        rec.title = *name_utf8;
+                                        add_update(std::move(rec));
+                                    } else {
+                                        last_error = name_utf8.error();
+                                    }
+                                }
+                            } else if (state_status != ERROR_FILE_NOT_FOUND) {
+                                last_error = std::error_code(static_cast<int>(state_status), std::system_category());
+                            }
+                        } else if (item_status != ERROR_FILE_NOT_FOUND && item_status != ERROR_PATH_NOT_FOUND) {
+                            last_error = std::error_code(static_cast<int>(item_status), std::system_category());
+                        }
+                    }
+                }
+            }
+        } else {
+            last_error = std::error_code(static_cast<int>(info_status), std::system_category());
+        }
+    } else if (cbs_status != ERROR_FILE_NOT_FOUND && cbs_status != ERROR_PATH_NOT_FOUND) {
+        last_error = std::error_code(static_cast<int>(cbs_status), std::system_category());
+    }
+
+    if (last_error) {
+        return fail(last_error);
+    }
+
+    if (!any_source_found && updates.empty()) {
+        return fail(errc::not_supported);
+    }
+
+    std::sort(updates.begin(), updates.end(), software_common::compare_updates);
+    return updates;
+}
+
+inline result<std::vector<software_common::runtime_record>> installed_runtimes() {
+    std::vector<software_common::runtime_record> runtimes;
+    std::unordered_set<std::string> seen;
+    std::error_code last_error;
+
+    auto add_runtime = [&](software_common::runtime_record&& rec) {
+        if (rec.version.empty() || rec.installation_path.empty()) {
+            return;
+        }
+        const std::string key = software_common::make_runtime_dedup_key(rec);
+        if (seen.insert(key).second) {
+            runtimes.push_back(std::move(rec));
+        }
+    };
+
+    // 1. .NET Core & .NET in %ProgramFiles%\dotnet\shared\Microsoft.NETCore.App
+    const wchar_t* env_vars[] = { L"%ProgramFiles%", L"%ProgramFiles(x86)%" };
+    for (const wchar_t* env_var : env_vars) {
+        const auto expanded = windows_impl::expand_environment_string(env_var);
+        if (expanded && !expanded->empty()) {
+            const std::wstring dotnet_shared = *expanded + L"\\dotnet\\shared\\Microsoft.NETCore.App";
+            WIN32_FIND_DATAW find_data;
+            HANDLE hFind = ::FindFirstFileW((dotnet_shared + L"\\*").c_str(), &find_data);
+            if (hFind != INVALID_HANDLE_VALUE) {
+                for (;;) {
+                    if ((find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+                        find_data.cFileName[0] != L'.') {
+                        const auto ver_utf8 = windows_impl::wide_to_utf8(find_data.cFileName);
+                        const auto path_utf8 = windows_impl::wide_to_utf8(dotnet_shared + L"\\" + find_data.cFileName);
+                        if (ver_utf8 && path_utf8) {
+                            software_common::runtime_record rec;
+                            rec.kind = software_common::runtime_kind::dotnet;
+                            rec.name = ".NET Runtime";
+                            rec.version = *ver_utf8;
+                            rec.installation_path = *path_utf8;
+                            add_runtime(std::move(rec));
+                        } else if (!ver_utf8) {
+                            last_error = ver_utf8.error();
+                        } else if (!path_utf8) {
+                            last_error = path_utf8.error();
+                        }
+                    }
+                    if (!::FindNextFileW(hFind, &find_data)) {
+                        const DWORD find_err = ::GetLastError();
+                        if (find_err != ERROR_NO_MORE_FILES) {
+                            last_error = std::error_code(static_cast<int>(find_err), std::system_category());
+                        }
+                        break;
+                    }
+                }
+                ::FindClose(hFind);
+            } else {
+                const DWORD find_err = ::GetLastError();
+                if (find_err != ERROR_FILE_NOT_FOUND && find_err != ERROR_PATH_NOT_FOUND) {
+                    last_error = std::error_code(static_cast<int>(find_err), std::system_category());
+                }
+            }
+        } else if (!expanded) {
+            last_error = expanded.error();
+        }
+    }
+
+    // 2. Python in Registry HKCU/HKLM\SOFTWARE\Python\PythonCore
+    const HKEY hkeys[] = {HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+    const REGSAM registry_views[] = {KEY_WOW64_64KEY, KEY_WOW64_32KEY};
+    for (HKEY root : hkeys) {
+        for (REGSAM view : registry_views) {
+            windows_impl::reg_handle py_key;
+            const LSTATUS py_status = ::RegOpenKeyExW(root, L"SOFTWARE\\Python\\PythonCore", 0, KEY_READ | view, py_key.put());
+            if (py_status == ERROR_SUCCESS) {
+                DWORD subkey_count = 0;
+                DWORD max_subkey_len = 0;
+                const LSTATUS info_status = ::RegQueryInfoKeyW(py_key.get(), nullptr, nullptr, nullptr, &subkey_count, &max_subkey_len, nullptr, nullptr,
+                                                               nullptr, nullptr, nullptr, nullptr);
+                if (info_status == ERROR_SUCCESS) {
+                    std::vector<wchar_t> name_buf(max_subkey_len + 1);
+                    for (DWORD i = 0; i < subkey_count; ++i) {
+                        DWORD len = static_cast<DWORD>(name_buf.size());
+                        const LSTATUS enum_status = ::RegEnumKeyExW(py_key.get(), i, name_buf.data(), &len, nullptr, nullptr, nullptr, nullptr);
+                        if (enum_status == ERROR_NO_MORE_ITEMS) {
+                            break;
+                        }
+                        if (enum_status != ERROR_SUCCESS) {
+                            last_error = std::error_code(static_cast<int>(enum_status), std::system_category());
+                            break;
+                        }
+                        {
+                            const std::wstring ver_name(name_buf.data(), len);
+                            const std::wstring install_key_path = ver_name + L"\\InstallPath";
+                            windows_impl::reg_handle inst_key;
+                            const LSTATUS inst_status = ::RegOpenKeyExW(py_key.get(), install_key_path.c_str(), 0, KEY_READ | view, inst_key.put());
+                            if (inst_status == ERROR_SUCCESS) {
+                                const auto path_opt = windows_impl::read_registry_string(inst_key.get(), nullptr);
+                                if (path_opt && *path_opt && !(**path_opt).empty()) {
+                                    const auto ver_utf8 = windows_impl::wide_to_utf8(ver_name);
+                                    const auto path_utf8 = windows_impl::wide_to_utf8(**path_opt);
+                                    if (ver_utf8 && path_utf8) {
+                                        software_common::runtime_record rec;
+                                        rec.kind = software_common::runtime_kind::python;
+                                        rec.name = "Python";
+                                        rec.version = *ver_utf8;
+                                        rec.installation_path = *path_utf8;
+                                        add_runtime(std::move(rec));
+                                    } else if (!ver_utf8) {
+                                        last_error = ver_utf8.error();
+                                    } else if (!path_utf8) {
+                                        last_error = path_utf8.error();
+                                    }
+                                } else if (!path_opt) {
+                                    last_error = path_opt.error();
+                                }
+                            } else if (inst_status != ERROR_FILE_NOT_FOUND && inst_status != ERROR_PATH_NOT_FOUND) {
+                                last_error = std::error_code(static_cast<int>(inst_status), std::system_category());
+                            }
+                        }
+                    }
+                } else {
+                    last_error = std::error_code(static_cast<int>(info_status), std::system_category());
+                }
+            } else if (py_status != ERROR_FILE_NOT_FOUND && py_status != ERROR_PATH_NOT_FOUND) {
+                last_error = std::error_code(static_cast<int>(py_status), std::system_category());
+            }
+        }
+    }
+
+    // 3. Java in Registry HKLM\SOFTWARE\JavaSoft\JDK and
+    // HKLM\SOFTWARE\JavaSoft\Java Runtime Environment
+    const wchar_t* java_paths[] = {L"SOFTWARE\\JavaSoft\\JDK", L"SOFTWARE\\JavaSoft\\Java Runtime Environment", L"SOFTWARE\\Eclipse Adoptium\\JDK"};
+    for (const wchar_t* jpath : java_paths) {
+        for (REGSAM view : registry_views) {
+            windows_impl::reg_handle jkey;
+            const LSTATUS j_status = ::RegOpenKeyExW(HKEY_LOCAL_MACHINE, jpath, 0, KEY_READ | view, jkey.put());
+            if (j_status == ERROR_SUCCESS) {
+                DWORD subkey_count = 0;
+                DWORD max_subkey_len = 0;
+                const LSTATUS info_status = ::RegQueryInfoKeyW(jkey.get(), nullptr, nullptr, nullptr, &subkey_count, &max_subkey_len, nullptr, nullptr, nullptr,
+                                                               nullptr, nullptr, nullptr);
+                if (info_status == ERROR_SUCCESS) {
+                    std::vector<wchar_t> name_buf(max_subkey_len + 1);
+                    for (DWORD i = 0; i < subkey_count; ++i) {
+                        DWORD len = static_cast<DWORD>(name_buf.size());
+                        const LSTATUS enum_status = ::RegEnumKeyExW(jkey.get(), i, name_buf.data(), &len, nullptr, nullptr, nullptr, nullptr);
+                        if (enum_status == ERROR_NO_MORE_ITEMS) {
+                            break;
+                        }
+                        if (enum_status != ERROR_SUCCESS) {
+                            last_error = std::error_code(static_cast<int>(enum_status), std::system_category());
+                            break;
+                        }
+                        {
+                            const std::wstring ver_name(name_buf.data(), len);
+                            windows_impl::reg_handle vkey;
+                            const LSTATUS version_status = ::RegOpenKeyExW(jkey.get(), ver_name.c_str(), 0, KEY_READ | view, vkey.put());
+                            if (version_status == ERROR_SUCCESS) {
+                                const auto home_opt = windows_impl::read_registry_string(vkey.get(), L"JavaHome");
+                                if (home_opt && *home_opt && !(**home_opt).empty()) {
+                                    const auto ver_utf8 = windows_impl::wide_to_utf8(ver_name);
+                                    const auto path_utf8 = windows_impl::wide_to_utf8(**home_opt);
+                                    if (ver_utf8 && path_utf8) {
+                                        software_common::runtime_record rec;
+                                        rec.kind = software_common::runtime_kind::java;
+                                        rec.name = "Java";
+                                        rec.version = *ver_utf8;
+                                        rec.installation_path = *path_utf8;
+                                        add_runtime(std::move(rec));
+                                    } else if (!ver_utf8) {
+                                        last_error = ver_utf8.error();
+                                    } else if (!path_utf8) {
+                                        last_error = path_utf8.error();
+                                    }
+                                } else if (!home_opt) {
+                                    last_error = home_opt.error();
+                                }
+                            } else if (version_status != ERROR_FILE_NOT_FOUND && version_status != ERROR_PATH_NOT_FOUND) {
+                                last_error = std::error_code(static_cast<int>(version_status), std::system_category());
+                            }
+                        }
+                    }
+                } else {
+                    last_error = std::error_code(static_cast<int>(info_status), std::system_category());
+                }
+            } else if (j_status != ERROR_FILE_NOT_FOUND && j_status != ERROR_PATH_NOT_FOUND) {
+                last_error = std::error_code(static_cast<int>(j_status), std::system_category());
+            }
+        }
+    }
+
+    // 4. Node.js in Registry HKLM\SOFTWARE\Node.js
+    for (REGSAM view : registry_views) {
+        windows_impl::reg_handle node_key;
+        const LSTATUS node_status = ::RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Node.js", 0, KEY_READ | view, node_key.put());
+        if (node_status == ERROR_SUCCESS) {
+            const auto ver_opt = windows_impl::read_registry_string(node_key.get(), L"Version");
+            const auto path_opt = windows_impl::read_registry_string(node_key.get(), L"InstallPath");
+            if (ver_opt && *ver_opt && !(**ver_opt).empty() && path_opt && *path_opt && !(**path_opt).empty()) {
+                const auto ver_utf8 = windows_impl::wide_to_utf8(**ver_opt);
+                const auto path_utf8 = windows_impl::wide_to_utf8(**path_opt);
+                if (ver_utf8 && path_utf8) {
+                    software_common::runtime_record rec;
+                    rec.kind = software_common::runtime_kind::nodejs;
+                    rec.name = "Node.js";
+                    rec.version = *ver_utf8;
+                    if (!rec.version.empty() && rec.version.front() == 'v') {
+                        rec.version.erase(0, 1);
+                    }
+                    rec.installation_path = *path_utf8;
+                    add_runtime(std::move(rec));
+                } else if (!ver_utf8) {
+                    last_error = ver_utf8.error();
+                } else if (!path_utf8) {
+                    last_error = path_utf8.error();
+                }
+            } else {
+                if (!ver_opt) {
+                    last_error = ver_opt.error();
+                }
+                if (!path_opt) {
+                    last_error = path_opt.error();
+                }
+            }
+        } else if (node_status != ERROR_FILE_NOT_FOUND && node_status != ERROR_PATH_NOT_FOUND) {
+            last_error = std::error_code(static_cast<int>(node_status), std::system_category());
+        }
+    }
+
+    if (last_error) {
+      return fail(last_error);
+    }
+
+    std::sort(runtimes.begin(), runtimes.end(),
+              software_common::compare_runtimes);
+    return runtimes;
 }
 
 } // namespace software_backend

@@ -12,9 +12,11 @@
 #include <string_view>
 #include <system_error>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <dirent.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -541,6 +543,252 @@ inline result<std::optional<std::string>> get_user_home_dir() {
     return fail(errc::value_too_large);
 }
 
+inline bool has_executable_file(
+    const char* const* paths,
+    std::size_t path_count,
+    std::error_code& out_error) {
+    std::error_code candidate_error;
+    for (std::size_t i = 0; i < path_count; ++i) {
+        struct stat info;
+        if (::stat(paths[i], &info) != 0) {
+            const int err = errno;
+            if (err != ENOENT && err != ENOTDIR) {
+                candidate_error = std::error_code(err, std::generic_category());
+            }
+            continue;
+        }
+        if (!S_ISREG(info.st_mode)) {
+            continue;
+        }
+        if (::access(paths[i], X_OK) == 0) {
+            return true;
+        }
+        const int err = errno;
+        if (err != ENOENT && err != ENOTDIR) {
+            candidate_error = std::error_code(err, std::generic_category());
+        }
+    }
+    if (candidate_error) {
+        out_error = candidate_error;
+    }
+    return false;
+}
+
+inline bool has_directory(const char* path, std::error_code& out_error) {
+    struct stat info;
+    if (::stat(path, &info) == 0) {
+        return S_ISDIR(info.st_mode);
+    }
+    const int err = errno;
+    if (err != ENOENT && err != ENOTDIR) {
+        out_error = std::error_code(err, std::generic_category());
+    }
+    return false;
+}
+
+inline void list_numeric_version_directories(
+    const char* root,
+    std::vector<std::string>& out,
+    std::error_code& out_error) {
+    linux_platform::directory_handle dir(root);
+    if (!dir.valid()) {
+        if (dir.error() != ENOENT) {
+            out_error = std::error_code(dir.error(), std::generic_category());
+        }
+        return;
+    }
+    for (;;) {
+        errno = 0;
+        struct dirent* entry = ::readdir(dir.get());
+        if (entry == nullptr) {
+            if (errno != 0) {
+                out_error = std::error_code(errno, std::generic_category());
+            }
+            return;
+        }
+        const std::string version(entry->d_name);
+        if (version.empty() ||
+            !std::isdigit(static_cast<unsigned char>(version.front()))) {
+            continue;
+        }
+        const std::string full_path = std::string(root) + "/" + version;
+        if (has_directory(full_path.c_str(), out_error)) {
+            out.push_back(version);
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// System Updates Parsing
+// ----------------------------------------------------------------------------
+
+inline bool parse_reboot_required_pkgs(
+    std::string_view content,
+    std::vector<software_common::update_record>& out) {
+    std::size_t pos = 0;
+    while (pos < content.size()) {
+        const std::size_t next_line = content.find('\n', pos);
+        const std::size_t len = (next_line == std::string_view::npos) ? content.size() - pos : next_line - pos;
+        const std::string_view line = trim_whitespace_view(content.substr(pos, len));
+        pos = (next_line == std::string_view::npos) ? content.size() : next_line + 1;
+
+        if (line.empty() || line.front() == '#') {
+            continue;
+        }
+
+        software_common::update_record rec;
+        rec.identifier = std::string(line);
+        rec.title = std::string(line);
+        rec.requires_reboot = true;
+        out.push_back(std::move(rec));
+    }
+    return !out.empty();
+}
+
+inline bool parse_rust_channel_manifest(
+    std::string_view content,
+    std::string& out_version) {
+    const std::size_t rustc_pos = content.find("[pkg.rustc]");
+    if (rustc_pos == std::string_view::npos) {
+        return false;
+    }
+    const std::size_t ver_pos = content.find("version = \"", rustc_pos);
+    if (ver_pos == std::string_view::npos) {
+        return false;
+    }
+    const std::size_t val_start = ver_pos + 11; // length of 'version = "'
+    const std::size_t val_end = content.find('"', val_start);
+    if (val_end == std::string_view::npos || val_end <= val_start) {
+        return false;
+    }
+    const std::string_view raw_ver = content.substr(val_start, val_end - val_start);
+    const std::size_t space_pos = raw_ver.find(' ');
+    const std::string_view clean_ver = (space_pos == std::string_view::npos) ? raw_ver : raw_ver.substr(0, space_pos);
+    if (!clean_ver.empty() && std::isdigit(static_cast<unsigned char>(clean_ver.front()))) {
+        out_version = std::string(clean_ver);
+        return true;
+    }
+    return false;
+}
+
+inline bool parse_rust_toolchain_version(
+    std::string_view toolchain_name,
+    std::string_view manifest_or_version_content,
+    std::string& out_version) {
+    if (!manifest_or_version_content.empty()) {
+        if (parse_rust_channel_manifest(manifest_or_version_content, out_version)) {
+            return true;
+        }
+        const std::string_view trimmed = trim_whitespace_view(manifest_or_version_content);
+        const std::size_t space_pos = trimmed.find(' ');
+        const std::string_view first_tok = (space_pos == std::string_view::npos) ? trimmed : trimmed.substr(0, space_pos);
+        if (!first_tok.empty() && std::isdigit(static_cast<unsigned char>(first_tok.front()))) {
+            out_version = std::string(first_tok);
+            return true;
+        }
+    }
+    if (!toolchain_name.empty() && std::isdigit(static_cast<unsigned char>(toolchain_name.front()))) {
+        const std::size_t dash_pos = toolchain_name.find('-');
+        if (dash_pos != std::string_view::npos) {
+            out_version = std::string(toolchain_name.substr(0, dash_pos));
+            return true;
+        }
+    }
+    if (toolchain_name.rfind("nightly", 0) == 0 && toolchain_name.size() >= 18 &&
+        toolchain_name[7] == '-' && toolchain_name[12] == '-' && toolchain_name[15] == '-') {
+        out_version = std::string(toolchain_name.substr(0, 18));
+        return true;
+    }
+    return false;
+}
+
+// ----------------------------------------------------------------------------
+// Runtime Parsing Helpers
+// ----------------------------------------------------------------------------
+
+inline bool parse_java_release_file(
+    std::string_view content,
+    std::string& out_version,
+    std::string& out_implementor,
+    std::string& out_arch) {
+    std::size_t pos = 0;
+    bool found_version = false;
+    while (pos < content.size()) {
+        const std::size_t next_line = content.find('\n', pos);
+        const std::size_t len = (next_line == std::string_view::npos) ? content.size() - pos : next_line - pos;
+        const std::string_view line = trim_whitespace_view(content.substr(pos, len));
+        pos = (next_line == std::string_view::npos) ? content.size() : next_line + 1;
+
+        if (line.empty() || line.front() == '#') {
+            continue;
+        }
+
+        const std::size_t eq_pos = line.find('=');
+        if (eq_pos == std::string_view::npos) {
+            continue;
+        }
+
+        const std::string_view key = trim_whitespace_view(line.substr(0, eq_pos));
+        std::string_view val = trim_whitespace_view(line.substr(eq_pos + 1));
+        if (val.size() >= 2 && val.front() == '"' && val.back() == '"') {
+            val = val.substr(1, val.size() - 2);
+        }
+
+        if (key == "JAVA_VERSION" || (key == "JAVA_RUNTIME_VERSION" && !found_version)) {
+            out_version = std::string(val);
+            found_version = true;
+        } else if (key == "IMPLEMENTOR") {
+            out_implementor = std::string(val);
+        } else if (key == "OS_ARCH") {
+            out_arch = std::string(val);
+        }
+    }
+    return found_version;
+}
+
+inline bool parse_go_version_file(
+    std::string_view content,
+    std::string& out_version) {
+    const std::size_t line_end = content.find_first_of("\r\n");
+    const std::string_view first_line = content.substr(0, line_end);
+    const std::string_view trimmed = trim_whitespace_view(first_line);
+    if (trimmed.empty()) {
+        return false;
+    }
+    if (trimmed.rfind("go", 0) == 0) {
+        out_version = std::string(trimmed.substr(2));
+    } else {
+        out_version = std::string(trimmed);
+    }
+    return !out_version.empty();
+}
+
+inline bool parse_node_version_header(
+    std::string_view content,
+    std::string& out_version) {
+    std::size_t pos = 0;
+    std::string major, minor, patch;
+    while (pos < content.size()) {
+        const std::size_t next_line = content.find('\n', pos);
+        const std::size_t len = (next_line == std::string_view::npos) ? content.size() - pos : next_line - pos;
+        const std::string_view line = trim_whitespace_view(content.substr(pos, len));
+        pos = (next_line == std::string_view::npos) ? content.size() : next_line + 1;
+
+        if (line.rfind("#define NODE_MAJOR_VERSION", 0) == 0) {
+            major = std::string(trim_whitespace_view(line.substr(26)));
+        } else if (line.rfind("#define NODE_MINOR_VERSION", 0) == 0) {
+            minor = std::string(trim_whitespace_view(line.substr(26)));
+        } else if (line.rfind("#define NODE_PATCH_VERSION", 0) == 0) {
+            patch = std::string(trim_whitespace_view(line.substr(26)));
+        }
+    }
+    if (!major.empty() && !minor.empty() && !patch.empty()) {
+        out_version = major + "." + minor + "." + patch;
+        return true;
+    }
+    return false;
+}
+
 } // namespace linux_impl
 
 // ----------------------------------------------------------------------------
@@ -888,6 +1136,481 @@ inline result<software_common::package_record> find_package(std::string_view nam
         }
     }
     return fail(errc::not_found);
+}
+
+inline result<std::vector<software_common::update_record>> system_updates() {
+    std::vector<software_common::update_record> updates;
+    std::unordered_set<std::string> seen;
+    bool any_source_found = false;
+    std::error_code last_error;
+
+    auto add_update = [&](software_common::update_record&& rec) {
+        if (rec.identifier.empty()) {
+            return;
+        }
+        if (seen.insert(rec.identifier).second) {
+            updates.push_back(std::move(rec));
+        }
+    };
+
+    // 1. Check reboot-required package list files (contains actual updated package names pending reboot)
+    const char* reboot_pkg_paths[] = {
+        "/run/reboot-required.pkgs",
+        "/var/run/reboot-required.pkgs"
+    };
+    for (const char* path : reboot_pkg_paths) {
+        const auto content = linux_platform::read_text_file(path, 128U * 1024U);
+        if (content) {
+            any_source_found = true;
+            if (!content->empty()) {
+                std::vector<software_common::update_record> parsed;
+                if (linux_impl::parse_reboot_required_pkgs(*content, parsed)) {
+                    for (auto& item : parsed) {
+                        add_update(std::move(item));
+                    }
+                }
+            }
+        } else if (content.error() != std::errc::no_such_file_or_directory) {
+            last_error = content.error();
+        }
+    }
+
+    // 2. Check general reboot-required indicator
+    if (updates.empty()) {
+        const char* reboot_indicators[] = {
+            "/run/reboot-required",
+            "/var/run/reboot-required"
+        };
+        for (const char* path : reboot_indicators) {
+            if (::access(path, F_OK) == 0) {
+                any_source_found = true;
+                software_common::update_record rec;
+                rec.identifier = "system-reboot-required";
+                rec.title = "System reboot required after update";
+                rec.requires_reboot = true;
+                add_update(std::move(rec));
+                break;
+            } else if (errno != ENOENT && errno != 0) {
+                last_error = std::error_code(errno, std::generic_category());
+            }
+        }
+    }
+
+    if (last_error) {
+        return fail(last_error);
+    }
+
+    if (!any_source_found && updates.empty()) {
+        return fail(errc::not_supported);
+    }
+
+    std::sort(updates.begin(), updates.end(), software_common::compare_updates);
+    return updates;
+}
+
+inline result<std::vector<software_common::runtime_record>> installed_runtimes() {
+    std::vector<software_common::runtime_record> runtimes;
+    std::unordered_set<std::string> seen;
+    std::error_code last_error;
+
+    auto add_runtime = [&](software_common::runtime_record&& rec) {
+        if (rec.version.empty() || rec.installation_path.empty()) {
+            return;
+        }
+        const std::string key = software_common::make_runtime_dedup_key(rec);
+        if (seen.insert(key).second) {
+            runtimes.push_back(std::move(rec));
+        }
+    };
+
+    // 1. Java / JVM in /usr/lib/jvm and /usr/lib64/jvm
+    const char* jvm_dirs[] = { "/usr/lib/jvm", "/usr/lib64/jvm", "/usr/local/lib/jvm" };
+    for (const char* jvm_dir_path : jvm_dirs) {
+        linux_platform::directory_handle dir(jvm_dir_path);
+        if (!dir.valid()) {
+            if (dir.error() != ENOENT) {
+                last_error = std::error_code(dir.error(), std::generic_category());
+            }
+            continue;
+        }
+        for (;;) {
+            errno = 0;
+            struct dirent* entry = ::readdir(dir.get());
+            if (entry == nullptr) {
+                if (errno != 0) {
+                    last_error = std::error_code(errno, std::generic_category());
+                }
+                break;
+            }
+            if (entry->d_name[0] == '.') {
+                continue;
+            }
+            const std::string dir_name(entry->d_name);
+            const std::string full_path = std::string(jvm_dir_path) + "/" + dir_name;
+            const std::string java_bin = full_path + "/bin/java";
+            const char* java_bins[] = { java_bin.c_str() };
+            if (!linux_impl::has_executable_file(java_bins, 1, last_error)) {
+                continue;
+            }
+            const std::string release_file = full_path + "/release";
+            const auto content = linux_platform::read_text_file(release_file.c_str(), 16U * 1024U);
+            if (content && !content->empty()) {
+                std::string version, implementor, arch;
+                if (linux_impl::parse_java_release_file(*content, version, implementor, arch)) {
+                    software_common::runtime_record rec;
+                    rec.kind = software_common::runtime_kind::java;
+                    rec.name = implementor.empty() ? "Java (OpenJDK)" : ("Java (" + implementor + ")");
+                    rec.version = version;
+                    rec.installation_path = full_path;
+                    if (!arch.empty()) {
+                        rec.architecture = arch;
+                    }
+                    add_runtime(std::move(rec));
+                }
+            } else if (!content && content.error() != std::errc::no_such_file_or_directory) {
+                last_error = content.error();
+            }
+        }
+    }
+
+    // 2. .NET Core / .NET in /usr/share/dotnet and /usr/local/share/dotnet and ~/.dotnet
+    std::vector<std::string> dotnet_roots = { "/usr/share/dotnet", "/usr/local/share/dotnet" };
+    const auto home_res = linux_impl::get_user_home_dir();
+    if (home_res && *home_res) {
+        dotnet_roots.push_back(**home_res + "/.dotnet");
+    } else if (!home_res) {
+        last_error = home_res.error();
+    }
+    for (const auto& dotnet_root : dotnet_roots) {
+        const std::string dotnet_bin = dotnet_root + "/dotnet";
+        const char* dotnet_bins[] = { dotnet_bin.c_str() };
+        if (!linux_impl::has_executable_file(dotnet_bins, 1, last_error)) {
+            continue;
+        }
+        // Shared runtimes
+        const std::string shared_path = dotnet_root + "/shared/Microsoft.NETCore.App";
+        linux_platform::directory_handle shared_dir(shared_path.c_str());
+        if (shared_dir.valid()) {
+            for (;;) {
+                errno = 0;
+                struct dirent* entry = ::readdir(shared_dir.get());
+                if (entry == nullptr) {
+                    if (errno != 0) {
+                        last_error = std::error_code(errno, std::generic_category());
+                    }
+                    break;
+                }
+                if (entry->d_name[0] == '.') {
+                    continue;
+                }
+                const std::string ver(entry->d_name);
+                const std::string version_path = shared_path + "/" + ver;
+                if (!linux_impl::has_directory(version_path.c_str(), last_error)) {
+                    continue;
+                }
+                software_common::runtime_record rec;
+                rec.kind = software_common::runtime_kind::dotnet;
+                rec.name = ".NET Runtime";
+                rec.version = ver;
+                rec.installation_path = version_path;
+                add_runtime(std::move(rec));
+            }
+        } else if (shared_dir.error() != ENOENT) {
+            last_error = std::error_code(shared_dir.error(), std::generic_category());
+        }
+        // SDKs
+        const std::string sdk_path = dotnet_root + "/sdk";
+        linux_platform::directory_handle sdk_dir(sdk_path.c_str());
+        if (sdk_dir.valid()) {
+            for (;;) {
+                errno = 0;
+                struct dirent* entry = ::readdir(sdk_dir.get());
+                if (entry == nullptr) {
+                    if (errno != 0) {
+                        last_error = std::error_code(errno, std::generic_category());
+                    }
+                    break;
+                }
+                if (entry->d_name[0] == '.') {
+                    continue;
+                }
+                const std::string ver(entry->d_name);
+                const std::string version_path = sdk_path + "/" + ver;
+                if (!linux_impl::has_directory(version_path.c_str(), last_error)) {
+                    continue;
+                }
+                software_common::runtime_record rec;
+                rec.kind = software_common::runtime_kind::dotnet;
+                rec.name = ".NET SDK";
+                rec.version = ver;
+                rec.installation_path = version_path;
+                add_runtime(std::move(rec));
+            }
+        } else if (sdk_dir.error() != ENOENT) {
+            last_error = std::error_code(sdk_dir.error(), std::generic_category());
+        }
+    }
+
+    // 3. Python in /usr/lib and /usr/local/lib
+    const char* py_lib_dirs[] = { "/usr/lib", "/usr/local/lib" };
+    for (const char* py_dir_path : py_lib_dirs) {
+        linux_platform::directory_handle dir(py_dir_path);
+        if (!dir.valid()) {
+            if (dir.error() != ENOENT) {
+                last_error = std::error_code(dir.error(), std::generic_category());
+            }
+            continue;
+        }
+        for (;;) {
+            errno = 0;
+            struct dirent* entry = ::readdir(dir.get());
+            if (entry == nullptr) {
+                if (errno != 0) {
+                    last_error = std::error_code(errno, std::generic_category());
+                }
+                break;
+            }
+            if (entry->d_name[0] == '.') {
+                continue;
+            }
+            const std::string name(entry->d_name);
+            if (name.rfind("python3.", 0) == 0 || name.rfind("python2.", 0) == 0) {
+                const std::string full_path = std::string(py_dir_path) + "/" + name;
+                const std::string bin1 = "/usr/bin/" + name;
+                const std::string bin2 = "/usr/local/bin/" + name;
+                const std::string bin3 = full_path + "/bin/python";
+                const std::string bin4 = full_path + "/bin/python3";
+                const char* python_bins[] = {
+                    bin1.c_str(), bin2.c_str(), bin3.c_str(), bin4.c_str()
+                };
+                const bool has_bin = linux_impl::has_executable_file(
+                    python_bins, sizeof(python_bins) / sizeof(python_bins[0]), last_error);
+                if (has_bin) {
+                    software_common::runtime_record rec;
+                    rec.kind = software_common::runtime_kind::python;
+                    rec.name = "Python";
+                    rec.version = name.substr(6);
+                    rec.installation_path = full_path;
+                    add_runtime(std::move(rec));
+                }
+            }
+        }
+    }
+
+    // 4. Node.js (~/.nvm/versions/node/ and /usr/include/node/node_version.h)
+    if (home_res && *home_res) {
+        const std::string nvm_path = **home_res + "/.nvm/versions/node";
+        linux_platform::directory_handle nvm_dir(nvm_path.c_str());
+        if (nvm_dir.valid()) {
+            for (;;) {
+                errno = 0;
+                struct dirent* entry = ::readdir(nvm_dir.get());
+                if (entry == nullptr) {
+                    if (errno != 0) {
+                        last_error = std::error_code(errno, std::generic_category());
+                    }
+                    break;
+                }
+                if (entry->d_name[0] == '.') {
+                    continue;
+                }
+                std::string ver(entry->d_name);
+                const std::string full_path = nvm_path + "/" + ver;
+                const std::string node_bin = full_path + "/bin/node";
+                const char* node_bins[] = { node_bin.c_str() };
+                if (!linux_impl::has_executable_file(node_bins, 1, last_error)) {
+                    continue;
+                }
+                if (!ver.empty() && ver.front() == 'v') {
+                    ver.erase(0, 1);
+                }
+                software_common::runtime_record rec;
+                rec.kind = software_common::runtime_kind::nodejs;
+                rec.name = "Node.js";
+                rec.version = ver;
+                rec.installation_path = full_path;
+                add_runtime(std::move(rec));
+            }
+        } else if (nvm_dir.error() != ENOENT) {
+            last_error = std::error_code(nvm_dir.error(), std::generic_category());
+        }
+    }
+    const char* system_node_bins[] = { "/usr/bin/node", "/usr/local/bin/node" };
+    const bool sys_node_exists = linux_impl::has_executable_file(
+        system_node_bins,
+        sizeof(system_node_bins) / sizeof(system_node_bins[0]),
+        last_error);
+    if (sys_node_exists) {
+        const char* node_headers[] = { "/usr/include/node/node_version.h", "/usr/local/include/node/node_version.h" };
+        for (const char* header_path : node_headers) {
+            const auto content = linux_platform::read_text_file(header_path, 16U * 1024U);
+            if (content && !content->empty()) {
+                std::string ver;
+                if (linux_impl::parse_node_version_header(*content, ver)) {
+                    software_common::runtime_record rec;
+                    rec.kind = software_common::runtime_kind::nodejs;
+                    rec.name = "Node.js";
+                    rec.version = ver;
+                    rec.installation_path = "/usr";
+                    add_runtime(std::move(rec));
+                }
+            } else if (!content && content.error() != std::errc::no_such_file_or_directory) {
+                last_error = content.error();
+            }
+        }
+    }
+
+    // 5. Rust in ~/.rustup/toolchains
+    if (home_res && *home_res) {
+        const std::string rustup_path = **home_res + "/.rustup/toolchains";
+        linux_platform::directory_handle rust_dir(rustup_path.c_str());
+        if (rust_dir.valid()) {
+            for (;;) {
+                errno = 0;
+                struct dirent* entry = ::readdir(rust_dir.get());
+                if (entry == nullptr) {
+                    if (errno != 0) {
+                        last_error = std::error_code(errno, std::generic_category());
+                    }
+                    break;
+                }
+                if (entry->d_name[0] == '.') {
+                    continue;
+                }
+                const std::string toolchain(entry->d_name);
+                const std::string full_path = rustup_path + "/" + toolchain;
+                const std::string rustc_bin = full_path + "/bin/rustc";
+                const char* rustc_bins[] = { rustc_bin.c_str() };
+                if (!linux_impl::has_executable_file(rustc_bins, 1, last_error)) {
+                    continue;
+                }
+                const std::string manifest_file = full_path + "/lib/rustlib/multirust-channel-manifest.toml";
+                const auto manifest_content = linux_platform::read_text_file(manifest_file.c_str(), 1024U * 1024U);
+                if (!manifest_content && manifest_content.error() != std::errc::no_such_file_or_directory) {
+                    last_error = manifest_content.error();
+                }
+                std::string parsed_version;
+                const std::string_view mview = manifest_content ? std::string_view(*manifest_content) : std::string_view{};
+                if (!linux_impl::parse_rust_toolchain_version(toolchain, mview, parsed_version)) {
+                    const std::string ver_file = full_path + "/version";
+                    const auto ver_content = linux_platform::read_text_file(ver_file.c_str(), 4U * 1024U);
+                    if (!ver_content && ver_content.error() != std::errc::no_such_file_or_directory) {
+                        last_error = ver_content.error();
+                    }
+                    const std::string_view vview = ver_content ? std::string_view(*ver_content) : std::string_view{};
+                    linux_impl::parse_rust_toolchain_version(toolchain, vview, parsed_version);
+                }
+                if (!parsed_version.empty()) {
+                    software_common::runtime_record rec;
+                    rec.kind = software_common::runtime_kind::rust;
+                    rec.name = "Rust (" + toolchain + ")";
+                    rec.version = parsed_version;
+                    rec.installation_path = full_path;
+                    add_runtime(std::move(rec));
+                }
+            }
+        } else if (rust_dir.error() != ENOENT) {
+            last_error = std::error_code(rust_dir.error(), std::generic_category());
+        }
+    }
+
+    // 6. Go in /usr/lib/go, /usr/local/go
+    const char* go_roots[] = { "/usr/lib/go", "/usr/local/go" };
+    for (const char* go_root : go_roots) {
+        const std::string go_bin = std::string(go_root) + "/bin/go";
+        const char* go_bins[] = { go_bin.c_str() };
+        if (!linux_impl::has_executable_file(go_bins, 1, last_error)) {
+            continue;
+        }
+        const std::string ver_file = std::string(go_root) + "/VERSION";
+        const auto content = linux_platform::read_text_file(ver_file.c_str(), 4U * 1024U);
+        if (content && !content->empty()) {
+            std::string ver;
+            if (linux_impl::parse_go_version_file(*content, ver)) {
+                software_common::runtime_record rec;
+                rec.kind = software_common::runtime_kind::golang;
+                rec.name = "Go";
+                rec.version = ver;
+                rec.installation_path = go_root;
+                add_runtime(std::move(rec));
+            }
+        } else if (!content && content.error() != std::errc::no_such_file_or_directory) {
+            last_error = content.error();
+        }
+    }
+
+    // 7. Ruby in /usr/lib/ruby and /usr/local/lib/ruby
+    const char* ruby_dirs[] = { "/usr/lib/ruby", "/usr/local/lib/ruby" };
+    std::vector<std::pair<std::string, std::string>> ruby_versions;
+    for (const char* ruby_dir_path : ruby_dirs) {
+        std::vector<std::string> versions;
+        linux_impl::list_numeric_version_directories(ruby_dir_path, versions, last_error);
+        for (const auto& ver : versions) {
+            ruby_versions.emplace_back(ruby_dir_path, ver);
+        }
+    }
+    for (const auto& candidate : ruby_versions) {
+        const std::string& ruby_dir_path = candidate.first;
+        const std::string& ver = candidate.second;
+        const std::string full_path = ruby_dir_path + "/" + ver;
+        const std::size_t first_dot = ver.find('.');
+        const std::size_t second_dot = first_dot == std::string::npos
+            ? std::string::npos
+            : ver.find('.', first_dot + 1);
+        const std::string short_ver = second_dot == std::string::npos
+            ? ver
+            : ver.substr(0, second_dot);
+        const std::string versioned_ruby = "/usr/bin/ruby" + ver;
+        const std::string short_versioned_ruby = "/usr/bin/ruby" + short_ver;
+        const std::string local_versioned_ruby = "/usr/local/bin/ruby" + ver;
+        const std::string local_short_versioned_ruby = "/usr/local/bin/ruby" + short_ver;
+        const char* ruby_bins[] = {
+            versioned_ruby.c_str(), short_versioned_ruby.c_str(),
+            local_versioned_ruby.c_str(), local_short_versioned_ruby.c_str(),
+            "/usr/bin/ruby", "/usr/local/bin/ruby"
+        };
+        const std::size_t ruby_bin_count = ruby_versions.size() == 1 ? 6U : 4U;
+        if (linux_impl::has_executable_file(ruby_bins, ruby_bin_count, last_error)) {
+            software_common::runtime_record rec;
+            rec.kind = software_common::runtime_kind::ruby;
+            rec.name = "Ruby";
+            rec.version = ver;
+            rec.installation_path = full_path;
+            add_runtime(std::move(rec));
+        }
+    }
+
+    // 8. PHP in /etc/php
+    const char* php_dirs[] = { "/etc/php" };
+    for (const char* php_dir_path : php_dirs) {
+        std::vector<std::string> versions;
+        linux_impl::list_numeric_version_directories(php_dir_path, versions, last_error);
+        for (const auto& ver : versions) {
+            const std::string full_path = std::string(php_dir_path) + "/" + ver;
+            const std::string versioned_php = "/usr/bin/php" + ver;
+            const std::string local_versioned_php = "/usr/local/bin/php" + ver;
+            const char* php_bins[] = {
+                versioned_php.c_str(), local_versioned_php.c_str(),
+                "/usr/bin/php", "/usr/local/bin/php"
+            };
+            const std::size_t php_bin_count = versions.size() == 1 ? 4U : 2U;
+            if (linux_impl::has_executable_file(php_bins, php_bin_count, last_error)) {
+                software_common::runtime_record rec;
+                rec.kind = software_common::runtime_kind::php;
+                rec.name = "PHP";
+                rec.version = ver;
+                rec.installation_path = full_path;
+                add_runtime(std::move(rec));
+            }
+        }
+    }
+
+    if (last_error) {
+        return fail(last_error);
+    }
+
+    std::sort(runtimes.begin(), runtimes.end(), software_common::compare_runtimes);
+    return runtimes;
 }
 
 } // namespace software_backend

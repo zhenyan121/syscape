@@ -3,7 +3,12 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
+
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <syscape/detail/software/linux.hpp>
 #include <syscape/software.hpp>
@@ -275,6 +280,179 @@ void test_live_packages() {
     assert(missing.error() == syscape::errc::not_found);
 }
 
+void test_reboot_required_parsing() {
+    const std::string sample =
+        "linux-image-6.8.0-40-generic\n"
+        "linux-base\n"
+        "# Comment\n"
+        "dbus\n"
+        "\n";
+
+    std::vector<syscape::detail::software_common::update_record> records;
+    assert(syscape::detail::software_backend::linux_impl::parse_reboot_required_pkgs(sample, records));
+    assert(records.size() == 3);
+    assert(records[0].identifier == "linux-image-6.8.0-40-generic");
+    assert(records[0].requires_reboot == true);
+    assert(records[0].classification == syscape::detail::software_common::update_classification::unknown);
+    assert(records[0].severity == syscape::detail::software_common::update_severity::unknown);
+    assert(records[1].identifier == "linux-base");
+    assert(records[2].identifier == "dbus");
+}
+
+void test_executable_file_detection() {
+    std::error_code error;
+    const char* executable_paths[] = { "/bin/sh" };
+    assert(syscape::detail::software_backend::linux_impl::has_executable_file(
+        executable_paths, 1, error));
+    assert(!error);
+
+    const char* missing_paths[] = { "/syscape-test-path-that-does-not-exist" };
+    assert(!syscape::detail::software_backend::linux_impl::has_executable_file(
+        missing_paths, 1, error));
+    assert(!error);
+
+    const char* directory_paths[] = { "/" };
+    assert(!syscape::detail::software_backend::linux_impl::has_executable_file(
+        directory_paths, 1, error));
+    assert(!error);
+
+    char inaccessible_path[] = "/tmp/syscape-software-test-XXXXXX";
+    const int fd = ::mkstemp(inaccessible_path);
+    assert(fd >= 0);
+    assert(::close(fd) == 0);
+    assert(::chmod(inaccessible_path, 0) == 0);
+    error.clear();
+    const char* inaccessible_paths[] = { inaccessible_path };
+    const bool inaccessible_is_executable =
+        syscape::detail::software_backend::linux_impl::has_executable_file(
+            inaccessible_paths, 1, error);
+    const int unlink_status = ::unlink(inaccessible_path);
+    assert(unlink_status == 0);
+    assert(!inaccessible_is_executable);
+    assert(error == std::errc::permission_denied);
+
+    error.clear();
+    assert(syscape::detail::software_backend::linux_impl::has_directory("/", error));
+    assert(!error);
+    assert(!syscape::detail::software_backend::linux_impl::has_directory("/bin/sh", error));
+    assert(!error);
+}
+
+void test_rust_manifest_parsing() {
+    const std::string manifest_sample =
+        "manifest-version = \"2\"\n"
+        "date = \"2024-08-06\"\n"
+        "\n"
+        "[pkg.cargo]\n"
+        "version = \"0.81.0 (7e71089 2024-08-01)\"\n"
+        "\n"
+        "[pkg.rustc]\n"
+        "version = \"1.80.1 (3f5370e35 2024-08-06)\"\n"
+        "\n"
+        "[pkg.rustc.target.x86_64-unknown-linux-gnu]\n"
+        "available = true\n";
+
+    std::string ver;
+    assert(syscape::detail::software_backend::linux_impl::parse_rust_channel_manifest(manifest_sample, ver));
+    assert(ver == "1.80.1");
+}
+
+void test_rust_toolchain_parsing() {
+    const std::string manifest_sample =
+        "[pkg.rustc]\nversion = \"1.97.1 (8bab26f4f 2026-07-14)\"\n";
+
+    std::string ver;
+    assert(syscape::detail::software_backend::linux_impl::parse_rust_toolchain_version(
+        "stable-x86_64-unknown-linux-gnu", manifest_sample, ver));
+    assert(ver == "1.97.1");
+
+    std::string ver2;
+    assert(syscape::detail::software_backend::linux_impl::parse_rust_toolchain_version(
+        "1.79.0-x86_64-unknown-linux-gnu", "", ver2));
+    assert(ver2 == "1.79.0");
+
+    std::string ver3;
+    assert(syscape::detail::software_backend::linux_impl::parse_rust_toolchain_version(
+        "nightly-2024-05-01-x86_64-unknown-linux-gnu", "", ver3));
+    assert(ver3 == "nightly-2024-05-01");
+
+    // Must NOT fall back to fake "stable" or "beta"
+    std::string ver4;
+    assert(!syscape::detail::software_backend::linux_impl::parse_rust_toolchain_version(
+        "stable-x86_64-unknown-linux-gnu", "", ver4));
+    assert(ver4.empty());
+}
+
+void test_java_release_parsing() {
+    const std::string sample =
+        "IMPLEMENTOR=\"Arch Linux\"\n"
+        "JAVA_RUNTIME_VERSION=\"21.0.12.1+1\"\n"
+        "JAVA_VERSION=\"21.0.12.1\"\n"
+        "OS_ARCH=\"x86_64\"\n"
+        "OS_NAME=\"Linux\"\n";
+
+    std::string ver, impl, arch;
+    assert(syscape::detail::software_backend::linux_impl::parse_java_release_file(sample, ver, impl, arch));
+    assert(ver == "21.0.12.1");
+    assert(impl == "Arch Linux");
+    assert(arch == "x86_64");
+}
+
+void test_go_version_parsing() {
+    std::string ver;
+    assert(syscape::detail::software_backend::linux_impl::parse_go_version_file("go1.22.5\n", ver));
+    assert(ver == "1.22.5");
+
+    std::string ver2;
+    assert(syscape::detail::software_backend::linux_impl::parse_go_version_file("1.21.0", ver2));
+    assert(ver2 == "1.21.0");
+
+    std::string ver3;
+    assert(syscape::detail::software_backend::linux_impl::parse_go_version_file(
+        "go1.27.0\ntime 2026-08-18T21:24:23Z\n", ver3));
+    assert(ver3 == "1.27.0");
+}
+
+void test_node_version_parsing() {
+    const std::string sample =
+        "#define NODE_MAJOR_VERSION 20\n"
+        "#define NODE_MINOR_VERSION 11\n"
+        "#define NODE_PATCH_VERSION 0\n";
+
+    std::string ver;
+    assert(syscape::detail::software_backend::linux_impl::parse_node_version_header(sample, ver));
+    assert(ver == "20.11.0");
+}
+
+void test_live_system_updates() {
+    const auto upds = syscape::software::system_updates();
+    if (upds) {
+        for (std::size_t i = 1; i < upds->size(); ++i) {
+            assert((*upds)[i - 1].identifier <= (*upds)[i].identifier);
+        }
+    } else {
+        assert(upds.error() == syscape::errc::not_supported ||
+               upds.error() == syscape::errc::permission_denied);
+    }
+}
+
+void test_live_installed_runtimes() {
+    const auto runtimes = syscape::software::installed_runtimes();
+    assert(runtimes);
+    for (const auto& rt : *runtimes) {
+        assert(!rt.name.empty());
+        assert(!rt.version.empty());
+        assert(!rt.installation_path.empty());
+        assert(rt.version.find('\n') == std::string::npos);
+        assert(syscape::detail::is_valid_utf8(rt.name));
+        assert(syscape::detail::is_valid_utf8(rt.version));
+        assert(syscape::detail::is_valid_utf8(rt.installation_path));
+    }
+    for (std::size_t i = 1; i < runtimes->size(); ++i) {
+        assert(static_cast<int>((*runtimes)[i - 1].kind) <= static_cast<int>((*runtimes)[i].kind));
+    }
+}
+
 } // namespace
 
 int main() {
@@ -284,10 +462,19 @@ int main() {
     test_dpkg_status_parsing();
     test_apk_installed_parsing();
     test_desktop_entry_parsing();
+    test_reboot_required_parsing();
+    test_executable_file_detection();
+    test_rust_manifest_parsing();
+    test_java_release_parsing();
+    test_go_version_parsing();
+    test_node_version_parsing();
+    test_rust_toolchain_parsing();
 
     test_live_drivers();
     test_live_services();
     test_live_packages();
+    test_live_system_updates();
+    test_live_installed_runtimes();
 
     std::cout << "All software Linux tests passed.\n";
     return 0;

@@ -36,6 +36,14 @@ inline result<software_common::package_record> find_package(std::string_view /*n
     return fail(errc::not_supported);
 }
 
+inline result<std::vector<software_common::update_record>> system_updates() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<software_common::runtime_record>> installed_runtimes() {
+    return fail(errc::not_supported);
+}
+
 } // namespace software_backend
 } // namespace detail
 } // namespace syscape

@@ -481,11 +481,15 @@ bool other_software_backend_callable() {
     const auto svcs = syscape::software::services();
     const auto drvs = syscape::software::loaded_drivers();
     const auto pkgs = syscape::software::installed_packages();
+    const auto upds = syscape::software::system_updates();
+    const auto rts = syscape::software::installed_runtimes();
     const auto svc = syscape::software::find_service("test");
     const auto drv = syscape::software::find_driver("test");
     const auto pkg = syscape::software::find_package("test");
     static_cast<void>(drvs);
     static_cast<void>(pkgs);
+    static_cast<void>(upds);
+    static_cast<void>(rts);
     static_cast<void>(svc);
     static_cast<void>(drv);
     static_cast<void>(pkg);
