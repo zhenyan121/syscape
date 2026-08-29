@@ -355,7 +355,7 @@ void test_collection() {
         }
     }
     set_number(::kDADiskDescriptionMediaSizeKey, size);
-    set_number(CFSTR(kIOMediaBaseKey), base);
+    set_number(CFSTR("Base"), base);
     set_string(::kDADiskDescriptionMediaContentKey, content);
     ::CFDictionarySetValue(
         dictionary, ::kDADiskDescriptionMediaWritableKey,
