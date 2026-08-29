@@ -34,9 +34,14 @@ jobs:
 
       - name: Run Examples
         run: |
-          ./build/examples/example_system_overview
-          ./build/examples/example_hardware_inventory
-          ./build/examples/example_network_overview
+          ./build/examples/example_system_overview >/dev/null
+          ./build/examples/example_hardware_inventory >/dev/null
+          ./build/examples/example_network_overview >/dev/null
+          ./build/examples/example_filesystem_storage >/dev/null
+          ./build/examples/example_security_virtualization >/dev/null
+          ./build/examples/example_peripherals_multimedia >/dev/null
+          ./build/examples/example_process_monitor >/dev/null
+          ./build/examples/example_software_inventory >/dev/null
 
   linux-clang-sanitizers:
     runs-on: ubuntu-latest
@@ -64,6 +69,17 @@ jobs:
       - name: Run Tests with Sanitizers
         run: ctest --test-dir build-asan --output-on-failure
 
+      - name: Run Examples with Sanitizers
+        run: |
+          ./build-asan/examples/example_system_overview >/dev/null
+          ./build-asan/examples/example_hardware_inventory >/dev/null
+          ./build-asan/examples/example_network_overview >/dev/null
+          ./build-asan/examples/example_filesystem_storage >/dev/null
+          ./build-asan/examples/example_security_virtualization >/dev/null
+          ./build-asan/examples/example_peripherals_multimedia >/dev/null
+          ./build-asan/examples/example_process_monitor >/dev/null
+          ./build-asan/examples/example_software_inventory >/dev/null
+
   windows-msvc:
     runs-on: windows-latest
     defaults:
@@ -87,9 +103,14 @@ jobs:
 
       - name: Run Examples
         run: |
-          ./build/examples/Release/example_system_overview.exe
-          ./build/examples/Release/example_hardware_inventory.exe
-          ./build/examples/Release/example_network_overview.exe
+          ./build/examples/Release/example_system_overview.exe >/dev/null
+          ./build/examples/Release/example_hardware_inventory.exe >/dev/null
+          ./build/examples/Release/example_network_overview.exe >/dev/null
+          ./build/examples/Release/example_filesystem_storage.exe >/dev/null
+          ./build/examples/Release/example_security_virtualization.exe >/dev/null
+          ./build/examples/Release/example_peripherals_multimedia.exe >/dev/null
+          ./build/examples/Release/example_process_monitor.exe >/dev/null
+          ./build/examples/Release/example_software_inventory.exe >/dev/null
 
   macos-apple-clang:
     runs-on: macos-latest
@@ -111,6 +132,11 @@ jobs:
 
       - name: Run Examples
         run: |
-          ./build/examples/example_system_overview
-          ./build/examples/example_hardware_inventory
-          ./build/examples/example_network_overview
+          ./build/examples/example_system_overview >/dev/null
+          ./build/examples/example_hardware_inventory >/dev/null
+          ./build/examples/example_network_overview >/dev/null
+          ./build/examples/example_filesystem_storage >/dev/null
+          ./build/examples/example_security_virtualization >/dev/null
+          ./build/examples/example_peripherals_multimedia >/dev/null
+          ./build/examples/example_process_monitor >/dev/null
+          ./build/examples/example_software_inventory >/dev/null

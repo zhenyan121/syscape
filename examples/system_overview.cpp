@@ -7,24 +7,40 @@
 #include <syscape/architecture.hpp>
 #include <syscape/cpu.hpp>
 #include <syscape/environment.hpp>
+#include <syscape/execution_environment.hpp>
+#include <syscape/locale.hpp>
 #include <syscape/memory.hpp>
 #include <syscape/os.hpp>
 #include <syscape/process.hpp>
+#include <syscape/toolchain.hpp>
 #include <syscape/user.hpp>
 
 int main() {
     std::cout << "=== Syscape System Overview Example ===" << std::endl;
 
-    // Architecture & Target Facts (Freestanding C++11 Foundation)
-    std::cout << "\n[Target Architecture]" << std::endl;
+    // Compilation Target Facts (Freestanding C++11 Foundation)
+    std::cout << "\n[Compilation Target & Toolchain]" << std::endl;
     std::cout << "  Architecture:  "
               << syscape::architecture_name(syscape::target_architecture())
               << std::endl;
-    std::cout << "  Pointer Width: "
-              << syscape::target_data_model_info().pointer_bits
-              << " bits" << std::endl;
+    std::cout << "  Data Model:    "
+              << syscape::data_model_name(syscape::target_data_model())
+              << " (" << syscape::target_data_model_info().pointer_bits
+              << "-bit pointers)" << std::endl;
     std::cout << "  Byte Order:    "
               << syscape::byte_order_name(syscape::target_byte_order())
+              << std::endl;
+
+    const auto compiler_ver = syscape::target_compiler_version();
+    std::cout << "  Compiler:      "
+              << syscape::compiler_name(syscape::target_compiler()) << " "
+              << compiler_ver.major << "." << compiler_ver.minor << "."
+              << compiler_ver.patch << std::endl;
+    std::cout << "  C++ Standard:  "
+              << syscape::standard_library_name(syscape::target_standard_library())
+              << std::endl;
+    std::cout << "  Environment:   "
+              << syscape::execution_environment_name(syscape::target_execution_environment())
               << std::endl;
 
     // Operating System (Hosted Full C++17)
@@ -48,6 +64,28 @@ int main() {
     if (const auto uptime = syscape::os::uptime()) {
         std::cout << "  Uptime:        " << (uptime->count() / 1000) << " seconds"
                   << std::endl;
+    }
+
+    // Locale & Timezone
+    std::cout << "\n[Locale & Time Zone]" << std::endl;
+    if (const auto loc = syscape::locale::current_locale()) {
+        std::cout << "  Locale:        " << *loc << std::endl;
+    }
+    if (const auto enc = syscape::locale::text_encoding()) {
+        std::cout << "  Text Encoding: " << *enc << std::endl;
+    }
+    if (const auto tz = syscape::locale::time_zone_identifier()) {
+        std::cout << "  Time Zone ID:  " << *tz << std::endl;
+    }
+    if (const auto offset = syscape::locale::utc_offset_seconds()) {
+        const int hours = *offset / 3600;
+        const int mins = std::abs((*offset % 3600) / 60);
+        std::cout << "  UTC Offset:    " << (hours >= 0 ? "+" : "") << hours
+                  << ":" << std::setw(2) << std::setfill('0') << mins
+                  << " (" << *offset << " seconds)" << std::endl;
+    }
+    if (const auto country = syscape::locale::country_region_code()) {
+        std::cout << "  Country Code:  " << *country << std::endl;
     }
 
     // CPU Information

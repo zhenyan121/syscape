@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
@@ -7,6 +8,7 @@
 #include <syscape/display.hpp>
 #include <syscape/gpu.hpp>
 #include <syscape/hardware.hpp>
+#include <syscape/numa.hpp>
 #include <syscape/power.hpp>
 #include <syscape/storage.hpp>
 
@@ -63,6 +65,45 @@ int main() {
     if (const auto bios = syscape::hardware::firmware_version()) {
         std::cout << "  BIOS/Firmware: " << *bios << std::endl;
     }
+    if (const auto uuid = syscape::hardware::hardware_uuid()) {
+        std::cout << "  Hardware UUID: " << *uuid << std::endl;
+    }
+
+    // Physical Memory Devices (SMBIOS Type 17)
+    std::cout << "\n[Physical Memory Slots / Modules]" << std::endl;
+    if (const auto mem_devs = syscape::hardware::memory_devices()) {
+        for (const auto& dev : *mem_devs) {
+            std::cout << "  Slot [" << dev.locator << "]: ";
+            if (dev.state == syscape::hardware::memory_device_state::installed && dev.size_bytes) {
+                std::cout << (*dev.size_bytes / (1024ULL * 1024ULL * 1024ULL))
+                          << " GiB "
+                          << (dev.manufacturer ? *dev.manufacturer + " " : "")
+                          << (dev.part_number ? *dev.part_number + " " : "");
+                if (dev.configured_speed) {
+                    std::cout << "@ " << dev.configured_speed->value << " MT/s";
+                }
+                std::cout << std::endl;
+            } else {
+                std::cout << "(Empty Slot)" << std::endl;
+            }
+        }
+    }
+
+    // NUMA Topology
+    std::cout << "\n[NUMA Topology]" << std::endl;
+    if (const auto numa_avail = syscape::numa::is_numa_available()) {
+        std::cout << "  Multi-Node:    " << (*numa_avail ? "Yes" : "No (Single node / UMA)") << std::endl;
+    }
+    if (const auto nodes = syscape::numa::nodes()) {
+        for (const auto& n : *nodes) {
+            std::cout << "  Node " << n.id << ": "
+                      << n.logical_processors.size() << " logical processors";
+            if (n.total_memory_bytes) {
+                std::cout << ", " << (*n.total_memory_bytes / (1024ULL * 1024ULL * 1024ULL)) << " GiB total";
+            }
+            std::cout << std::endl;
+        }
+    }
 
     // Storage Drives
     std::cout << "\n[Storage Drives]" << std::endl;
@@ -82,9 +123,40 @@ int main() {
                               : "Unknown rotation")
                       << ")" << std::endl;
         }
-    } else {
-        std::cout << "  (Unable to query drives: "
-                  << drives.error().message() << ")" << std::endl;
+    }
+
+    // PCI Devices Summary
+    std::cout << "\n[PCI / PCIe Device Census]" << std::endl;
+    if (const auto pcis = syscape::hardware::pci_devices()) {
+        std::cout << "  Total Detected: " << pcis->size() << " devices" << std::endl;
+        for (std::size_t i = 0; i < std::min<std::size_t>(pcis->size(), 6); ++i) {
+            const auto& dev = (*pcis)[i];
+            std::cout << "    [PCI 0x" << std::hex << std::setw(4) << std::setfill('0') << dev.vendor_id
+                      << ":0x" << std::setw(4) << std::setfill('0') << dev.device_id << std::dec << "] ";
+            if (dev.driver) {
+                std::cout << "(Driver: " << *dev.driver << ")";
+            }
+            std::cout << std::endl;
+        }
+        if (pcis->size() > 6) {
+            std::cout << "    ... and " << (pcis->size() - 6) << " more PCI devices." << std::endl;
+        }
+    }
+
+    // USB Devices Summary
+    std::cout << "\n[USB Device Census]" << std::endl;
+    if (const auto usbs = syscape::hardware::usb_devices()) {
+        std::cout << "  Total Detected: " << usbs->size() << " devices" << std::endl;
+        for (std::size_t i = 0; i < std::min<std::size_t>(usbs->size(), 5); ++i) {
+            const auto& dev = (*usbs)[i];
+            std::cout << "    "
+                      << (dev.product ? *dev.product : "(USB Device)")
+                      << " by " << (dev.manufacturer ? *dev.manufacturer : "Vendor 0x" + std::to_string(dev.vendor_id))
+                      << std::endl;
+        }
+        if (usbs->size() > 5) {
+            std::cout << "    ... and " << (usbs->size() - 5) << " more USB devices." << std::endl;
+        }
     }
 
     // GPUs
@@ -103,9 +175,6 @@ int main() {
                 std::cout << "    Driver: " << *gpu.driver << std::endl;
             }
         }
-    } else {
-        std::cout << "  (Unable to query GPUs: "
-                  << gpus.error().message() << ")" << std::endl;
     }
 
     // Displays
@@ -128,9 +197,6 @@ int main() {
                           << *disp.physical_height_mm << " mm" << std::endl;
             }
         }
-    } else {
-        std::cout << "  (Unable to query displays: "
-                  << displays.error().message() << ")" << std::endl;
     }
 
     // Power & Batteries

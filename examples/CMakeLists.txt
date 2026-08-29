@@ -37,7 +37,8 @@ function(syscape_add_example target source)
                 wlanapi
                 winspool
                 ole32
-                uuid)
+                uuid
+                ws2_32)
     endif()
 
     if(APPLE)
@@ -57,3 +58,8 @@ endfunction()
 syscape_add_example(example_system_overview system_overview.cpp)
 syscape_add_example(example_hardware_inventory hardware_inventory.cpp)
 syscape_add_example(example_network_overview network_overview.cpp)
+syscape_add_example(example_filesystem_storage filesystem_storage.cpp)
+syscape_add_example(example_security_virtualization security_virtualization.cpp)
+syscape_add_example(example_peripherals_multimedia peripherals_multimedia.cpp)
+syscape_add_example(example_process_monitor process_monitor.cpp)
+syscape_add_example(example_software_inventory software_inventory.cpp)
