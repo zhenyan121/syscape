@@ -13,6 +13,7 @@
 #include <propsys.h>
 #include <propvarutil.h>
 #include <functiondiscoverykeys_devpkey.h>
+#include <mmreg.h>
 
 #include <cstddef>
 #include <cstdint>

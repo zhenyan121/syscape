@@ -382,6 +382,10 @@ if(APPLE)
     target_link_libraries(
         software_macos PRIVATE "-framework CoreFoundation")
     target_link_libraries(
+        header_virtualization PRIVATE "-framework IOKit" "-framework CoreFoundation")
+    target_link_libraries(
+        virtualization_macos PRIVATE "-framework IOKit" "-framework CoreFoundation")
+    target_link_libraries(
         header_bluetooth PRIVATE "-framework IOKit" "-framework CoreFoundation")
     target_link_libraries(
         bluetooth_macos PRIVATE "-framework IOKit" "-framework CoreFoundation")

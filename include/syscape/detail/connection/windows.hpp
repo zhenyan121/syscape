@@ -4,10 +4,13 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 
-#include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <windows.h>
 #include <iphlpapi.h>
 
 #include <cstddef>
@@ -31,7 +34,7 @@ inline connection_common::tcp_state map_windows_tcp_state(DWORD st) noexcept {
     case MIB_TCP_STATE_CLOSED: return connection_common::tcp_state::closed;
     case MIB_TCP_STATE_LISTEN: return connection_common::tcp_state::listen;
     case MIB_TCP_STATE_SYN_SENT: return connection_common::tcp_state::syn_sent;
-    case MIB_TCP_STATE_SYN_RCV: return connection_common::tcp_state::syn_recv;
+    case MIB_TCP_STATE_SYN_RCVD: return connection_common::tcp_state::syn_recv;
     case MIB_TCP_STATE_ESTAB: return connection_common::tcp_state::established;
     case MIB_TCP_STATE_FIN_WAIT1: return connection_common::tcp_state::fin_wait1;
     case MIB_TCP_STATE_FIN_WAIT2: return connection_common::tcp_state::fin_wait2;
