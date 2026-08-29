@@ -508,6 +508,20 @@ struct native_drive_api {
         }
     }
 
+    /// Queries failure prediction from the storage stack.
+    static result<std::vector<char>> query_predict_failure(::HANDLE handle) {
+        std::vector<char> buffer(sizeof(::STORAGE_PREDICT_FAILURE));
+        ::DWORD returned = 0U;
+        if (::DeviceIoControl(handle, IOCTL_STORAGE_PREDICT_FAILURE,
+                              nullptr, 0U, buffer.data(),
+                              static_cast<::DWORD>(buffer.size()),
+                              &returned, nullptr) == FALSE) {
+            return fail(last_error());
+        }
+        buffer.resize(returned);
+        return buffer;
+    }
+
     /// Queries logical volume extents, mount points, and filesystem types.
     static result<std::vector<volume_extent_record>> volume_extents();
 };
@@ -1084,6 +1098,113 @@ inline result<std::vector<storage_common::drive_record>> drives() {
 
 inline result<std::vector<storage_common::partition_record>> partitions() {
     return enumerate_partitions(native_drive_api{});
+}
+
+/// Converts one STORAGE_PREDICT_FAILURE buffer into its boolean failure prediction result.
+inline result<bool> convert_predict_failure(const std::vector<char>& buffer) {
+    if (buffer.size() < sizeof(::STORAGE_PREDICT_FAILURE)) {
+        return fail(errc::malformed_data);
+    }
+    ::STORAGE_PREDICT_FAILURE predict;
+    std::memcpy(&predict, buffer.data(), sizeof(predict));
+    return predict.PredictFailure != 0;
+}
+
+/// Collects health and failure prediction facts for one PhysicalDrive index using the given API.
+template <typename Api>
+result<storage_common::health_record> collect_drive_health(
+    const Api& api, unsigned int index) {
+    const result<::HANDLE> opened = api.open_drive(index);
+    if (!opened) {
+        return fail(opened.error());
+    }
+    const api_device_handle<Api> owned(api, *opened);
+
+    storage_common::health_record record;
+    record.identifier = "PhysicalDrive" + std::to_string(index);
+    record.status = storage_common::health_status_classification::unknown;
+    record.has_failure_predicted = false;
+
+    const result<std::vector<char>> predict_buffer =
+        api.query_predict_failure(*opened);
+    if (predict_buffer) {
+        const result<bool> predicted = convert_predict_failure(*predict_buffer);
+        if (!predicted) { return fail(predicted.error()); }
+        record.has_failure_predicted = true;
+        record.failure_predicted = *predicted;
+        if (*predicted) {
+            record.status =
+                storage_common::health_status_classification::warning;
+        } else {
+            record.status =
+                storage_common::health_status_classification::healthy;
+        }
+    } else {
+        const std::error_code err = predict_buffer.error();
+        if (err == std::error_code(ERROR_NOT_SUPPORTED, std::system_category()) ||
+            err == std::error_code(ERROR_INVALID_FUNCTION, std::system_category()) ||
+            err == std::error_code(ERROR_CALL_NOT_IMPLEMENTED, std::system_category())) {
+            // Not supported by the device or driver; leave status as unknown.
+        } else {
+            return fail(err);
+        }
+    }
+
+    return record;
+}
+
+/// Enumerates health records across all physical drives using the given API.
+template <typename Api>
+result<std::vector<storage_common::health_record>> enumerate_all_drive_health(
+    const Api& api) {
+    std::vector<storage_common::health_record> records;
+    const result<std::vector<unsigned int>> indices = api.drive_indices();
+    if (!indices) { return fail(indices.error()); }
+    for (const unsigned int index : *indices) {
+        const result<storage_common::health_record> h =
+            collect_drive_health(api, index);
+        if (!h) {
+            if (is_drive_population_race(h.error())) { continue; }
+            return fail(h.error());
+        }
+        records.push_back(*h);
+    }
+    std::sort(records.begin(), records.end(),
+              [](const storage_common::health_record& left,
+                 const storage_common::health_record& right) {
+                  return left.identifier < right.identifier;
+              });
+    return records;
+}
+
+inline result<storage_common::health_record> health(
+    std::string_view disk_identifier) {
+    if (!storage_common::is_valid_disk_identifier(disk_identifier)) {
+        return fail(errc::invalid_argument);
+    }
+
+    std::string_view num_str = disk_identifier;
+    std::string_view prefix = "PhysicalDrive";
+    if (num_str.rfind(prefix, 0) == 0) {
+        num_str.remove_prefix(prefix.size());
+    }
+    if (num_str.empty()) { return fail(errc::invalid_argument); }
+
+    unsigned int index = 0U;
+    constexpr unsigned int max_val = std::numeric_limits<unsigned int>::max();
+    for (char c : num_str) {
+        if (c < '0' || c > '9') { return fail(errc::invalid_argument); }
+        const unsigned int digit = static_cast<unsigned int>(c - '0');
+        if (index > (max_val - digit) / 10U) {
+            return fail(errc::value_too_large);
+        }
+        index = index * 10U + digit;
+    }
+    return collect_drive_health(native_drive_api{}, index);
+}
+
+inline result<std::vector<storage_common::health_record>> all_drive_health() {
+    return enumerate_all_drive_health(native_drive_api{});
 }
 
 } // namespace storage_backend

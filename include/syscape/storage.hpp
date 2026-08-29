@@ -2,23 +2,26 @@
 #define SYSCAPE_STORAGE_HPP
 
 /// @file
-/// @brief Hosted physical-drive and partition enumeration queries.
+/// @brief Hosted physical-drive, partition, and drive health / SMART queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note This storage module enumerates whole-disk block devices with
 /// their identity strings, transport classification, capacity, block sizes,
-/// rotation, and removability, as well as partition tables and partition
-/// layout information.
+/// rotation, removability, partition layout information, and hardware health /
+/// SMART diagnostics.
 /// @note Linux implements drive and partition queries through the kernel's
-/// documented sysfs block interface under /sys/block and /proc/mounts.
+/// documented sysfs block interface under /sys/block and /proc/mounts, and
+/// health diagnostics through NVMe Admin ioctls, SCSI/ATA pass-through ioctls,
+/// and hwmon temperature sensors.
 /// Windows implements queries through the storage stack: \\.\PhysicalDriveN
 /// device names, SetupAPI disk-device-interface enumeration,
 /// IOCTL_STORAGE_GET_DEVICE_NUMBER, IOCTL_STORAGE_QUERY_PROPERTY,
-/// IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, IOCTL_DISK_GET_DRIVE_LAYOUT_EX,
-/// volume enumeration, and volume disk extents.
+/// IOCTL_STORAGE_PREDICT_FAILURE, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX,
+/// IOCTL_DISK_GET_DRIVE_LAYOUT_EX, volume enumeration, and volume disk extents.
 /// macOS implements queries through the DiskArbitration framework and
 /// IOKit media registry entries, resolving partition media to qualifying
-/// non-virtual whole disks. Other targets use the not-supported fallback.
-/// @note Windows callers that use drives() or partitions() must link Setupapi.lib.
+/// non-virtual whole disks, and reading SMART Status and IORegistry statistics.
+/// Other targets use the not-supported fallback.
+/// @note Windows callers that use drives(), partitions(), or health queries must link Setupapi.lib.
 
 #include <syscape/detail/config.hpp>
 
@@ -95,6 +98,18 @@ enum class partition_scheme : std::uint8_t {
     apple,
     /// Unpartitioned raw whole-disk format.
     raw
+};
+
+/// Recorded health classification of a physical storage drive.
+enum class drive_health_status : std::uint8_t {
+    /// Health status is unknown or not reported by the platform.
+    unknown,
+    /// Drive reports normal, healthy operating condition (SMART passed / no failure predicted).
+    healthy,
+    /// Drive reports degraded condition or pre-fail warning threshold exceeded.
+    warning,
+    /// Drive reports critical failure or severe unrecoverable condition.
+    critical
 };
 
 } // namespace storage
@@ -223,6 +238,54 @@ struct partition_entry {
     std::string mount_point;
 };
 
+/// One physical storage drive health and SMART diagnostics snapshot reported by the platform.
+struct drive_health {
+    /// Verbatim platform disk identifier (e.g. "nvme0n1", "sda", "PhysicalDrive0", "disk0").
+    std::string identifier;
+    /// Overall health status classification.
+    drive_health_status status = drive_health_status::unknown;
+    /// Whether failure prediction / SMART threshold trip status was recorded.
+    bool has_failure_predicted = false;
+    /// Whether impending drive failure is predicted by firmware.
+    bool failure_predicted = false;
+    /// Whether current operating temperature is recorded.
+    bool has_temperature_celsius = false;
+    /// Current drive temperature in degrees Celsius (°C).
+    double temperature_celsius = 0.0;
+    /// Whether endurance / wear level indicator is recorded.
+    bool has_percent_used = false;
+    /// Estimate of drive life used as a whole percentage (0-100%, can exceed 100% for over-worn SSDs).
+    std::uint32_t percent_used = 0U;
+    /// Whether NVMe available spare capacity is recorded.
+    bool has_available_spare_percent = false;
+    /// Normalized remaining spare capacity percentage (0-100%).
+    std::uint32_t available_spare_percent = 0U;
+    /// Whether total power-on hours is recorded.
+    bool has_power_on_hours = false;
+    /// Cumulative power-on time in hours.
+    std::uint64_t power_on_hours = 0U;
+    /// Whether power cycle count is recorded.
+    bool has_power_cycles = false;
+    /// Cumulative power cycle count.
+    std::uint64_t power_cycles = 0U;
+    /// Whether unexpected / unsafe power loss count is recorded.
+    bool has_unsafe_shutdowns = false;
+    /// Cumulative unsafe shutdowns count.
+    std::uint64_t unsafe_shutdowns = 0U;
+    /// Whether uncorrectable media read/write errors are recorded.
+    bool has_media_errors = false;
+    /// Total unrecovered read/write error occurrences reported by drive.
+    std::uint64_t media_errors = 0U;
+    /// Whether cumulative data read total is recorded.
+    bool has_data_units_read_bytes = false;
+    /// Total data read from the device in bytes.
+    std::uint64_t data_units_read_bytes = 0U;
+    /// Whether cumulative data written total is recorded.
+    bool has_data_units_written_bytes = false;
+    /// Total data written to the device in bytes.
+    std::uint64_t data_units_written_bytes = 0U;
+};
+
 /// Returns one entry per whole-disk drive recorded by the platform.
 ///
 /// Entries are ordered by ascending identifier so an unchanged population
@@ -319,6 +382,12 @@ inline result<std::vector<partition_entry>> disk_partitions(
     if (!detail::is_valid_utf8(disk_identifier)) {
         return fail(errc::invalid_encoding);
     }
+    if (disk_identifier.find('\0') != std::string_view::npos ||
+        disk_identifier.find('/') != std::string_view::npos ||
+        disk_identifier.find('\\') != std::string_view::npos ||
+        disk_identifier == "." || disk_identifier == "..") {
+        return fail(errc::invalid_argument);
+    }
     const result<std::vector<partition_entry>> all = partitions();
     if (!all) { return fail(all.error()); }
     std::vector<partition_entry> matching;
@@ -328,6 +397,93 @@ inline result<std::vector<partition_entry>> disk_partitions(
         }
     }
     return matching;
+}
+
+/// Returns health and SMART diagnostics for the specified physical drive identifier.
+///
+/// \param disk_identifier Identifier of the target physical drive (e.g. "nvme0n1", "sda", "PhysicalDrive0", "disk0").
+/// \return A drive_health record, not_found if the drive does not exist, permission_denied if unprivileged,
+/// or another native/portable error.
+inline result<drive_health> health(std::string_view disk_identifier) {
+    if (disk_identifier.empty()) {
+        return fail(errc::invalid_argument);
+    }
+    if (!detail::is_valid_utf8(disk_identifier)) {
+        return fail(errc::invalid_encoding);
+    }
+    if (disk_identifier.find('\0') != std::string_view::npos ||
+        disk_identifier.find('/') != std::string_view::npos ||
+        disk_identifier.find('\\') != std::string_view::npos ||
+        disk_identifier == "." || disk_identifier == "..") {
+        return fail(errc::invalid_argument);
+    }
+    const result<detail::storage_common::health_record> record =
+        detail::storage_common::validate_health_record(
+            detail::storage_backend::health(disk_identifier));
+    if (!record) { return fail(record.error()); }
+    drive_health entry;
+    entry.identifier = record->identifier;
+    entry.status = record->status;
+    entry.has_failure_predicted = record->has_failure_predicted;
+    entry.failure_predicted = record->failure_predicted;
+    entry.has_temperature_celsius = record->has_temperature_celsius;
+    entry.temperature_celsius = record->temperature_celsius;
+    entry.has_percent_used = record->has_percent_used;
+    entry.percent_used = record->percent_used;
+    entry.has_available_spare_percent = record->has_available_spare_percent;
+    entry.available_spare_percent = record->available_spare_percent;
+    entry.has_power_on_hours = record->has_power_on_hours;
+    entry.power_on_hours = record->power_on_hours;
+    entry.has_power_cycles = record->has_power_cycles;
+    entry.power_cycles = record->power_cycles;
+    entry.has_unsafe_shutdowns = record->has_unsafe_shutdowns;
+    entry.unsafe_shutdowns = record->unsafe_shutdowns;
+    entry.has_media_errors = record->has_media_errors;
+    entry.media_errors = record->media_errors;
+    entry.has_data_units_read_bytes = record->has_data_units_read_bytes;
+    entry.data_units_read_bytes = record->data_units_read_bytes;
+    entry.has_data_units_written_bytes = record->has_data_units_written_bytes;
+    entry.data_units_written_bytes = record->data_units_written_bytes;
+    return entry;
+}
+
+/// Returns health and SMART diagnostics for all physical storage drives recorded by the platform.
+///
+/// \return Vector of drive_health entries sorted by ascending identifier, or an error.
+inline result<std::vector<drive_health>> all_drive_health() {
+    const result<std::vector<detail::storage_common::health_record>> records =
+        detail::storage_common::validate_health_records(
+            detail::storage_backend::all_drive_health());
+    if (!records) { return fail(records.error()); }
+    std::vector<drive_health> output;
+    output.reserve(records->size());
+    for (const detail::storage_common::health_record& record : *records) {
+        drive_health entry;
+        entry.identifier = record.identifier;
+        entry.status = record.status;
+        entry.has_failure_predicted = record.has_failure_predicted;
+        entry.failure_predicted = record.failure_predicted;
+        entry.has_temperature_celsius = record.has_temperature_celsius;
+        entry.temperature_celsius = record.temperature_celsius;
+        entry.has_percent_used = record.has_percent_used;
+        entry.percent_used = record.percent_used;
+        entry.has_available_spare_percent = record.has_available_spare_percent;
+        entry.available_spare_percent = record.available_spare_percent;
+        entry.has_power_on_hours = record.has_power_on_hours;
+        entry.power_on_hours = record.power_on_hours;
+        entry.has_power_cycles = record.has_power_cycles;
+        entry.power_cycles = record.power_cycles;
+        entry.has_unsafe_shutdowns = record.has_unsafe_shutdowns;
+        entry.unsafe_shutdowns = record.unsafe_shutdowns;
+        entry.has_media_errors = record.has_media_errors;
+        entry.media_errors = record.media_errors;
+        entry.has_data_units_read_bytes = record.has_data_units_read_bytes;
+        entry.data_units_read_bytes = record.data_units_read_bytes;
+        entry.has_data_units_written_bytes = record.has_data_units_written_bytes;
+        entry.data_units_written_bytes = record.data_units_written_bytes;
+        output.push_back(std::move(entry));
+    }
+    return output;
 }
 
 } // namespace storage

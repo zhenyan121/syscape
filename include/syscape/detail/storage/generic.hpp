@@ -18,6 +18,14 @@ inline result<std::vector<storage_common::partition_record>> partitions() {
     return fail(errc::not_supported);
 }
 
+inline result<storage_common::health_record> health(std::string_view) {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<storage_common::health_record>> all_drive_health() {
+    return fail(errc::not_supported);
+}
+
 } // namespace storage_backend
 } // namespace detail
 } // namespace syscape

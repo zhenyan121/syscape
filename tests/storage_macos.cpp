@@ -450,6 +450,157 @@ void test_partition_collection() {
     }
 }
 
+void test_smart_status_parsing() {
+    namespace backend = syscape::detail::storage_backend;
+    namespace common = syscape::detail::storage_common;
+
+    common::health_record verified;
+    const bool p1 = backend::parse_macos_smart_status("Verified", verified);
+    expect(p1 && verified.has_failure_predicted && !verified.failure_predicted &&
+               verified.status == common::health_status_classification::healthy,
+           "Verified status must convert to healthy");
+
+    common::health_record failing;
+    const bool p2 = backend::parse_macos_smart_status("Failing", failing);
+    expect(p2 && failing.has_failure_predicted && failing.failure_predicted &&
+               failing.status == common::health_status_classification::warning,
+           "Failing status must convert to warning");
+
+    common::health_record unknown;
+    const bool p3 = backend::parse_macos_smart_status("Other", unknown);
+    expect(!p3 && unknown.status == common::health_status_classification::unknown,
+           "Unrecognized status must map to unknown");
+}
+
+void test_macos_statistics_parsing() {
+    namespace backend = syscape::detail::storage_backend;
+    namespace common = syscape::detail::storage_common;
+
+    ::CFMutableDictionaryRef stats = ::CFDictionaryCreateMutable(
+        ::kCFAllocatorDefault, 0, &::kCFTypeDictionaryKeyCallBacks,
+        &::kCFTypeDictionaryValueCallBacks);
+    long long read_val = 10485760LL;
+    long long write_val = 5242880LL;
+    ::CFNumberRef n_read = ::CFNumberCreate(
+        ::kCFAllocatorDefault, ::kCFNumberLongLongType, &read_val);
+    ::CFNumberRef n_write = ::CFNumberCreate(
+        ::kCFAllocatorDefault, ::kCFNumberLongLongType, &write_val);
+    ::CFDictionarySetValue(stats, CFSTR("Bytes (Read)"), n_read);
+    ::CFDictionarySetValue(stats, CFSTR("Bytes (Written)"), n_write);
+    ::CFRelease(n_read);
+    ::CFRelease(n_write);
+
+    common::health_record record;
+    backend::parse_macos_statistics(stats, record);
+    ::CFRelease(stats);
+
+    expect(record.has_data_units_read_bytes &&
+               record.data_units_read_bytes == 10485760ULL,
+           "Bytes (Read) must be extracted correctly");
+    expect(record.has_data_units_written_bytes &&
+               record.data_units_written_bytes == 5242880ULL,
+           "Bytes (Written) must be extracted correctly");
+}
+
+struct synthetic_health_drive_api {
+    static syscape::result<::CFArrayRef> whole_media_facts() {
+        static std::vector<::CFDictionaryRef> entries;
+        if (entries.empty()) {
+            long long size0 = 1000204886016LL;
+            long long block_size = 512LL;
+            ::CFDictionaryRef d0 = make_media_dictionary(
+                "disk0", "NVMe", &size0, &block_size, true, false,
+                "APPLE SSD", "Apple", "1.0");
+            const ::CFStringRef smart0 = make_string("Verified");
+            ::CFDictionarySetValue(const_cast<::CFMutableDictionaryRef>(d0),
+                                   CFSTR("SMART Status"), smart0);
+            ::CFRelease(smart0);
+
+            ::CFMutableDictionaryRef stats0 = ::CFDictionaryCreateMutable(
+                ::kCFAllocatorDefault, 0, &::kCFTypeDictionaryKeyCallBacks,
+                &::kCFTypeDictionaryValueCallBacks);
+            long long r0 = 10485760LL;
+            long long w0 = 5242880LL;
+            ::CFNumberRef nr0 = make_number(r0);
+            ::CFNumberRef nw0 = make_number(w0);
+            ::CFDictionarySetValue(stats0, CFSTR("Bytes (Read)"), nr0);
+            ::CFDictionarySetValue(stats0, CFSTR("Bytes (Written)"), nw0);
+            ::CFRelease(nr0);
+            ::CFRelease(nw0);
+            ::CFDictionarySetValue(const_cast<::CFMutableDictionaryRef>(d0),
+                                   CFSTR("Statistics"), stats0);
+            ::CFRelease(stats0);
+
+            long long size1 = 500107862016LL;
+            ::CFDictionaryRef d1 = make_media_dictionary(
+                "disk1", "SATA", &size1, &block_size, false, false,
+                "Crucial SSD", "Crucial", "M3CR046");
+            const ::CFStringRef smart1 = make_string("Failing");
+            ::CFDictionarySetValue(const_cast<::CFMutableDictionaryRef>(d1),
+                                   CFSTR("SMART Status"), smart1);
+            ::CFRelease(smart1);
+
+            long long size2 = 64000000000LL;
+            ::CFDictionaryRef d2 = make_media_dictionary(
+                "disk2", "USB", &size2, &block_size, true, true,
+                "Flash Drive", "SanDisk", "1.0");
+
+            entries.push_back(d0);
+            entries.push_back(d1);
+            entries.push_back(d2);
+        }
+        return retain_all(entries);
+    }
+};
+
+void test_macos_health_collection() {
+    namespace backend = syscape::detail::storage_backend;
+    namespace common = syscape::detail::storage_common;
+
+    const auto all =
+        backend::collect_all_drive_health<synthetic_health_drive_api>();
+    expect(all.has_value() && all->size() == 3U,
+           "collect_all_drive_health must return 3 drives");
+    if (all && all->size() == 3U) {
+        const auto& h0 = (*all)[0];
+        expect(h0.identifier == "disk0", "First drive must be disk0");
+        expect(h0.has_failure_predicted && !h0.failure_predicted,
+               "disk0 must have failure_predicted == false");
+        expect(h0.status == common::health_status_classification::healthy,
+               "disk0 status must be healthy");
+        expect(h0.has_data_units_read_bytes &&
+                   h0.data_units_read_bytes == 10485760ULL,
+               "disk0 read bytes must match");
+        expect(h0.has_data_units_written_bytes &&
+                   h0.data_units_written_bytes == 5242880ULL,
+               "disk0 written bytes must match");
+
+        const auto& h1 = (*all)[1];
+        expect(h1.identifier == "disk1", "Second drive must be disk1");
+        expect(h1.has_failure_predicted && h1.failure_predicted,
+               "disk1 must have failure_predicted == true");
+        expect(h1.status == common::health_status_classification::warning,
+               "disk1 status must be warning");
+
+        const auto& h2 = (*all)[2];
+        expect(h2.identifier == "disk2", "Third drive must be disk2");
+        expect(!h2.has_failure_predicted,
+               "disk2 without SMART must have has_failure_predicted == false");
+        expect(h2.status == common::health_status_classification::unknown,
+               "disk2 without SMART must have status unknown");
+    }
+
+    const auto single0 =
+        backend::collect_drive_health<synthetic_health_drive_api>("disk0");
+    expect(single0.has_value() && single0->identifier == "disk0",
+           "collect_drive_health for disk0 must succeed");
+
+    const auto single_missing =
+        backend::collect_drive_health<synthetic_health_drive_api>("disk99");
+    expect(!single_missing && single_missing.error() == syscape::errc::not_found,
+           "collect_drive_health for nonexistent drive must return not_found");
+}
+
 } // namespace
 
 int main() {
@@ -457,5 +608,8 @@ int main() {
     test_media_conversion();
     test_collection();
     test_partition_collection();
+    test_smart_status_parsing();
+    test_macos_statistics_parsing();
+    test_macos_health_collection();
     return failures == 0 ? 0 : 1;
 }

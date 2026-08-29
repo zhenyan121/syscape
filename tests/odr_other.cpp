@@ -257,6 +257,14 @@ bool other_environment_backend_callable() {
 bool other_storage_backend_callable() {
     const syscape::result<std::vector<syscape::storage::drive_entry>>
         listed = syscape::storage::drives();
+    const auto parts = syscape::storage::partitions();
+    const auto disk_parts = syscape::storage::disk_partitions("disk0");
+    const auto single_health = syscape::storage::health("disk0");
+    const auto all_health = syscape::storage::all_drive_health();
+    static_cast<void>(parts);
+    static_cast<void>(disk_parts);
+    static_cast<void>(single_health);
+    static_cast<void>(all_health);
     return listed.has_value() ||
            listed.error() == std::errc::operation_not_supported;
 }

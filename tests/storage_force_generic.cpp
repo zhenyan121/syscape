@@ -25,5 +25,19 @@ int main() {
         return 1;
     }
 
+    const syscape::result<syscape::storage::drive_health> single_health =
+        syscape::storage::health("disk0");
+    if (single_health ||
+        single_health.error() != std::errc::operation_not_supported) {
+        return 1;
+    }
+
+    const syscape::result<std::vector<syscape::storage::drive_health>> all_health =
+        syscape::storage::all_drive_health();
+    if (all_health ||
+        all_health.error() != std::errc::operation_not_supported) {
+        return 1;
+    }
+
     return 0;
 }

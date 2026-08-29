@@ -1,6 +1,7 @@
 #ifndef SYSCAPE_DETAIL_STORAGE_COMMON_HPP
 #define SYSCAPE_DETAIL_STORAGE_COMMON_HPP
 
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -14,6 +15,55 @@ namespace storage_common {
 
 using bus_classification = ::syscape::storage::bus_type;
 using partition_scheme_classification = ::syscape::storage::partition_scheme;
+using health_status_classification = ::syscape::storage::drive_health_status;
+
+/// One recorded health and SMART diagnostics snapshot shared by the Hosted backends.
+struct health_record {
+    /// Verbatim platform label of the whole-disk device.
+    std::string identifier;
+    /// Overall health status classification.
+    health_status_classification status = health_status_classification::unknown;
+    /// Whether failure prediction / SMART threshold trip was recorded.
+    bool has_failure_predicted = false;
+    /// Whether failure is predicted by drive firmware.
+    bool failure_predicted = false;
+    /// Whether operating temperature is recorded.
+    bool has_temperature_celsius = false;
+    /// Current drive temperature in degrees Celsius.
+    double temperature_celsius = 0.0;
+    /// Whether endurance / wear level indicator is recorded.
+    bool has_percent_used = false;
+    /// Whole percentage of drive life used (0-100%, can exceed 100% for over-worn SSDs).
+    std::uint32_t percent_used = 0U;
+    /// Whether NVMe available spare capacity is recorded.
+    bool has_available_spare_percent = false;
+    /// Normalized remaining spare capacity percentage (0-100%).
+    std::uint32_t available_spare_percent = 0U;
+    /// Whether power-on hours is recorded.
+    bool has_power_on_hours = false;
+    /// Cumulative power-on hours.
+    std::uint64_t power_on_hours = 0U;
+    /// Whether power cycle count is recorded.
+    bool has_power_cycles = false;
+    /// Cumulative power cycles.
+    std::uint64_t power_cycles = 0U;
+    /// Whether unsafe shutdowns count is recorded.
+    bool has_unsafe_shutdowns = false;
+    /// Cumulative unsafe shutdowns.
+    std::uint64_t unsafe_shutdowns = 0U;
+    /// Whether media error count is recorded.
+    bool has_media_errors = false;
+    /// Total media read/write errors.
+    std::uint64_t media_errors = 0U;
+    /// Whether data units read total is recorded.
+    bool has_data_units_read_bytes = false;
+    /// Total bytes read from device.
+    std::uint64_t data_units_read_bytes = 0U;
+    /// Whether data units written total is recorded.
+    bool has_data_units_written_bytes = false;
+    /// Total bytes written to device.
+    std::uint64_t data_units_written_bytes = 0U;
+};
 
 /// One recorded whole-disk snapshot shared by the Hosted backends awaiting
 /// boundary conversion.
@@ -170,6 +220,66 @@ inline result<std::vector<partition_record>> validate_partition_records(
         }
     }
     return records;
+}
+
+/// Validates converted health entry at the public boundary.
+inline result<health_record> validate_health_record(
+    result<health_record> record) {
+    if (!record) { return fail(record.error()); }
+    if (record->identifier.empty() || !is_valid_utf8(record->identifier)) {
+        return fail(errc::invalid_encoding);
+    }
+    if (record->has_available_spare_percent &&
+        record->available_spare_percent > 100U) {
+        return fail(errc::malformed_data);
+    }
+    if (record->has_temperature_celsius) {
+        if (std::isnan(record->temperature_celsius) ||
+            std::isinf(record->temperature_celsius) ||
+            record->temperature_celsius < -273.15 ||
+            record->temperature_celsius > 1000.0) {
+            return fail(errc::malformed_data);
+        }
+    }
+    return record;
+}
+
+/// Validates converted health entries at the public boundary.
+inline result<std::vector<health_record>> validate_health_records(
+    result<std::vector<health_record>> records) {
+    if (!records) { return fail(records.error()); }
+    for (const health_record& record : *records) {
+        if (record.identifier.empty() || !is_valid_utf8(record.identifier)) {
+            return fail(errc::invalid_encoding);
+        }
+        if (record.has_available_spare_percent &&
+            record.available_spare_percent > 100U) {
+            return fail(errc::malformed_data);
+        }
+        if (record.has_temperature_celsius) {
+            if (std::isnan(record.temperature_celsius) ||
+                std::isinf(record.temperature_celsius) ||
+                record.temperature_celsius < -273.15 ||
+                record.temperature_celsius > 1000.0) {
+                return fail(errc::malformed_data);
+            }
+        }
+    }
+    return records;
+}
+
+/// Checks that a caller-supplied disk identifier is structurally valid
+/// (non-empty, valid UTF-8, no embedded NUL, no path traversal components).
+inline bool is_valid_disk_identifier(std::string_view identifier) noexcept {
+    if (identifier.empty()) { return false; }
+    if (!is_valid_utf8(identifier)) { return false; }
+    if (identifier.find('\0') != std::string_view::npos) { return false; }
+    if (identifier.find('/') != std::string_view::npos ||
+        identifier.find('\\') != std::string_view::npos) {
+        return false;
+    }
+    if (identifier == "." || identifier == "..") { return false; }
+    return true;
 }
 
 } // namespace storage_common

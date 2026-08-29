@@ -6,11 +6,14 @@
 #include <cstdint>
 #include <charconv>
 #include <dirent.h>
+#include <fcntl.h>
 #include <limits>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <unistd.h>
 #include <vector>
 
 #include <syscape/detail/linux/directory.hpp>
@@ -741,6 +744,516 @@ inline result<std::vector<storage_common::partition_record>> partitions() {
     std::sort(records.begin(), records.end(),
               [](const storage_common::partition_record& left,
                  const storage_common::partition_record& right) {
+                  return left.identifier < right.identifier;
+              });
+    return records;
+}
+
+/// Owns one open file descriptor for the duration of a query.
+class file_descriptor_guard {
+public:
+    explicit file_descriptor_guard(int fd) noexcept : fd_(fd) {}
+    file_descriptor_guard(const file_descriptor_guard&) = delete;
+    file_descriptor_guard& operator=(const file_descriptor_guard&) = delete;
+    ~file_descriptor_guard() {
+        if (fd_ >= 0) {
+            static_cast<void>(::close(fd_));
+        }
+    }
+    int get() const noexcept { return fd_; }
+    bool is_valid() const noexcept { return fd_ >= 0; }
+
+private:
+    int fd_;
+};
+
+/// NVMe Admin Command layout matching <linux/nvme_ioctl.h>.
+struct linux_nvme_admin_cmd {
+    std::uint8_t opcode;
+    std::uint8_t flags;
+    std::uint16_t rsvd1;
+    std::uint32_t nsid;
+    std::uint32_t cdw2;
+    std::uint32_t cdw3;
+    std::uint64_t metadata;
+    std::uint64_t addr;
+    std::uint32_t metadata_len;
+    std::uint32_t data_len;
+    std::uint32_t cdw10;
+    std::uint32_t cdw11;
+    std::uint32_t cdw12;
+    std::uint32_t cdw13;
+    std::uint32_t cdw14;
+    std::uint32_t cdw15;
+    std::uint32_t timeout_ms;
+    std::uint32_t result;
+};
+
+#ifndef SYSCAPE_NVME_IOCTL_ADMIN_CMD
+#define SYSCAPE_NVME_IOCTL_ADMIN_CMD _IOWR('N', 0x41, struct linux_nvme_admin_cmd)
+#endif
+
+/// SCSI Generic pass-through header matching <scsi/sg.h>.
+struct linux_sg_io_hdr {
+    int interface_id;
+    int dxfer_direction;
+    unsigned char cmd_len;
+    unsigned char mx_sb_len;
+    unsigned short iovec_count;
+    unsigned int dxfer_len;
+    void *dxferp;
+    unsigned char *cmdp;
+    unsigned char *sbp;
+    unsigned int timeout;
+    unsigned int flags;
+    int pack_id;
+    void *usr_ptr;
+    unsigned char status;
+    unsigned char masked_status;
+    unsigned char msg_status;
+    unsigned char sb_len_wr;
+    unsigned short host_status;
+    unsigned short driver_status;
+    int resid;
+    unsigned int duration;
+    unsigned int info;
+};
+
+#ifndef SYSCAPE_SG_IO
+#define SYSCAPE_SG_IO 0x2285
+#endif
+
+/// Parses a standard 512-byte NVMe SMART / Health Information Log buffer.
+inline result<void> parse_nvme_smart_log_buffer(
+    const std::uint8_t* buf, std::size_t size,
+    storage_common::health_record& record) noexcept {
+    if (buf == nullptr || size < 512U) {
+        return fail(errc::malformed_data);
+    }
+    const std::uint8_t critical_warning = buf[0];
+    const std::uint16_t temp_kelvin = static_cast<std::uint16_t>(
+        static_cast<std::uint32_t>(buf[1]) |
+        (static_cast<std::uint32_t>(buf[2]) << 8U));
+    const std::uint8_t avail_spare = buf[3];
+    const std::uint8_t avail_spare_thresh = buf[4];
+    const std::uint8_t percent_used = buf[5];
+
+    if (avail_spare > 100U || avail_spare_thresh > 100U) {
+        return fail(errc::malformed_data);
+    }
+
+    // Temperature conversion: Kelvin to Celsius (K - 273.15)
+    if (temp_kelvin > 0U && temp_kelvin < 1000U) {
+        const double celsius = static_cast<double>(temp_kelvin) - 273.15;
+        if (celsius >= -50.0 && celsius <= 150.0) {
+            record.has_temperature_celsius = true;
+            record.temperature_celsius = celsius;
+        }
+    }
+
+    record.has_available_spare_percent = true;
+    record.available_spare_percent = avail_spare;
+
+    record.has_percent_used = true;
+    record.percent_used = percent_used;
+
+    record.has_failure_predicted = true;
+    if (critical_warning != 0U) {
+        record.failure_predicted = true;
+        if ((critical_warning & 0x0CU) != 0U) {
+            record.status =
+                storage_common::health_status_classification::critical;
+        } else {
+            record.status =
+                storage_common::health_status_classification::warning;
+        }
+    } else if (avail_spare <= avail_spare_thresh || percent_used >= 100U) {
+        record.failure_predicted = (avail_spare <= avail_spare_thresh);
+        record.status = storage_common::health_status_classification::warning;
+    } else {
+        record.failure_predicted = false;
+        record.status = storage_common::health_status_classification::healthy;
+    }
+
+    const auto read_u128_le = [](const std::uint8_t* p,
+                                 std::uint64_t& low,
+                                 std::uint64_t& high) noexcept {
+        low = 0U;
+        for (std::size_t i = 0U; i < 8U; ++i) {
+            low |= (static_cast<std::uint64_t>(p[i]) << (i * 8U));
+        }
+        high = 0U;
+        for (std::size_t i = 0U; i < 8U; ++i) {
+            high |= (static_cast<std::uint64_t>(p[8U + i]) << (i * 8U));
+        }
+    };
+
+    // Data units read (bytes 32..47: 128-bit LE count in 1000 * 512 = 512,000 byte units)
+    std::uint64_t read_low = 0U;
+    std::uint64_t read_high = 0U;
+    read_u128_le(buf + 32, read_low, read_high);
+    constexpr std::uint64_t nvme_unit_multiplier = 512000U;
+    if (read_high != 0U ||
+        read_low > std::numeric_limits<std::uint64_t>::max() / nvme_unit_multiplier) {
+        return fail(errc::value_too_large);
+    }
+    record.has_data_units_read_bytes = true;
+    record.data_units_read_bytes = read_low * nvme_unit_multiplier;
+
+    // Data units written (bytes 48..63: 128-bit LE count in 512,000 byte units)
+    std::uint64_t write_low = 0U;
+    std::uint64_t write_high = 0U;
+    read_u128_le(buf + 48, write_low, write_high);
+    if (write_high != 0U ||
+        write_low > std::numeric_limits<std::uint64_t>::max() / nvme_unit_multiplier) {
+        return fail(errc::value_too_large);
+    }
+    record.has_data_units_written_bytes = true;
+    record.data_units_written_bytes = write_low * nvme_unit_multiplier;
+
+    // Power cycles (bytes 112..127)
+    std::uint64_t cycles_low = 0U;
+    std::uint64_t cycles_high = 0U;
+    read_u128_le(buf + 112, cycles_low, cycles_high);
+    if (cycles_high != 0U) {
+        return fail(errc::value_too_large);
+    }
+    record.has_power_cycles = true;
+    record.power_cycles = cycles_low;
+
+    // Power-on hours (bytes 128..143)
+    std::uint64_t hours_low = 0U;
+    std::uint64_t hours_high = 0U;
+    read_u128_le(buf + 128, hours_low, hours_high);
+    if (hours_high != 0U) {
+        return fail(errc::value_too_large);
+    }
+    record.has_power_on_hours = true;
+    record.power_on_hours = hours_low;
+
+    // Unsafe shutdowns (bytes 144..159)
+    std::uint64_t unsafe_low = 0U;
+    std::uint64_t unsafe_high = 0U;
+    read_u128_le(buf + 144, unsafe_low, unsafe_high);
+    if (unsafe_high != 0U) {
+        return fail(errc::value_too_large);
+    }
+    record.has_unsafe_shutdowns = true;
+    record.unsafe_shutdowns = unsafe_low;
+
+    // Media errors (bytes 160..175)
+    std::uint64_t errors_low = 0U;
+    std::uint64_t errors_high = 0U;
+    read_u128_le(buf + 160, errors_low, errors_high);
+    if (errors_high != 0U) {
+        return fail(errc::value_too_large);
+    }
+    record.has_media_errors = true;
+    record.media_errors = errors_low;
+
+    return {};
+}
+
+/// Parses ATA SMART status return registers.
+inline result<void> parse_ata_smart_status_values(
+    std::uint8_t lba_mid, std::uint8_t lba_high,
+    storage_common::health_record& record) noexcept {
+    if (lba_mid == 0x4FU && lba_high == 0xC2U) {
+        record.has_failure_predicted = true;
+        record.failure_predicted = false;
+        record.status = storage_common::health_status_classification::healthy;
+        return {};
+    }
+    if (lba_mid == 0xF4U && lba_high == 0x2CU) {
+        record.has_failure_predicted = true;
+        record.failure_predicted = true;
+        record.status = storage_common::health_status_classification::warning;
+        return {};
+    }
+    return fail(errc::malformed_data);
+}
+
+/// Reads temperature from Linux sysfs hwmon if exposed.
+inline void read_linux_hwmon_temperature(const std::string& block_name,
+                                         storage_common::health_record& record) {
+    const std::string hwmon_dir_path =
+        std::string(block_root) + block_name + "/device/hwmon";
+    linux_platform::directory_handle hwmon_dir(hwmon_dir_path.c_str());
+    if (hwmon_dir.valid()) {
+        for (;;) {
+            errno = 0;
+            const ::dirent* entry = ::readdir(hwmon_dir.get());
+            if (entry == nullptr) { break; }
+            if (entry->d_name[0] == '.') { continue; }
+            const std::string temp_file =
+                hwmon_dir_path + "/" + entry->d_name + "/temp1_input";
+            const result<std::string> content =
+                linux_platform::read_text_file(temp_file.c_str());
+            if (content) {
+                const result<std::int64_t> milli =
+                    parse_number<std::int64_t>(*content);
+                if (milli) {
+                    const double c = static_cast<double>(*milli) / 1000.0;
+                    if (c >= -50.0 && c <= 150.0) {
+                        record.has_temperature_celsius = true;
+                        record.temperature_celsius = c;
+                        return;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Translates the return code and errno of a Linux NVMe Admin ioctl execution into a result.
+inline result<void> classify_linux_nvme_ioctl_status(int rc, int system_errno) noexcept {
+    if (rc < 0) {
+        if (system_errno == EACCES || system_errno == EPERM) {
+            return fail(errc::permission_denied);
+        }
+        if (system_errno == ENOTTY || system_errno == EOPNOTSUPP || system_errno == ENOSYS) {
+            // Driver or device does not support the NVMe Admin ioctl interface.
+            return {};
+        }
+        if (system_errno == EIO) {
+            return fail(errc::io_error);
+        }
+        return fail(std::error_code(system_errno, std::generic_category()));
+    }
+    if (rc > 0) {
+        // NVMe command completed with controller error status code.
+        // Status code format in Linux: ((sct & 0x7) << 8) | (sc & 0xFF).
+        const int sct = (rc >> 8) & 0x07;
+        const int sc = rc & 0xFF;
+        if (sct == 0x00 && (sc == 0x01 || sc == 0x02)) {
+            // Generic: NVME_SC_INVALID_OPCODE (0x01) or NVME_SC_INVALID_FIELD (0x02)
+            return {};
+        }
+        if (sct == 0x01 && sc == 0x09) {
+            // Command Specific: NVME_SC_INVALID_LOG_PAGE (0x0109)
+            return {};
+        }
+        return fail(errc::io_error);
+    }
+    return {};
+}
+
+/// Translates the return code, errno, and SG_IO header status of a Linux SCSI SG_IO ioctl execution into a result.
+inline result<void> classify_linux_scsi_ioctl_status(
+    int rc, int system_errno, const linux_sg_io_hdr& hdr, bool ata_desc_found) noexcept {
+    if (rc < 0) {
+        if (system_errno == EACCES || system_errno == EPERM) {
+            return fail(errc::permission_denied);
+        }
+        if (system_errno == ENOTTY || system_errno == EOPNOTSUPP || system_errno == ENOSYS) {
+            // Driver or device does not support SG_IO ioctl.
+            return {};
+        }
+        if (system_errno == EIO) {
+            return fail(errc::io_error);
+        }
+        return fail(std::error_code(system_errno, std::generic_category()));
+    }
+
+    if (ata_desc_found) {
+        return {};
+    }
+
+    // No ATA Return Descriptor was found in sense data.
+    if (hdr.host_status != 0 || (hdr.driver_status != 0 && hdr.driver_status != 0x08)) {
+        return fail(errc::io_error);
+    }
+    // Device does not support ATA pass-through or did not return SMART descriptor.
+    return {};
+}
+
+/// Issues an NVMe Admin Get Log Page ioctl to retrieve SMART facts.
+inline result<void> query_linux_nvme_smart(const std::string& block_name,
+                                           storage_common::health_record& record) {
+    const std::string dev_path = "/dev/" + block_name;
+    const int fd = ::open(dev_path.c_str(), O_RDONLY | O_NONBLOCK);
+    if (fd < 0) {
+        const int err = errno;
+        if (err == ENOENT || err == ENODEV || err == ENXIO) {
+            // Device node is not present or unexposed in the current runtime environment.
+            return {};
+        }
+        if (err == EACCES || err == EPERM) {
+            return fail(errc::permission_denied);
+        }
+        return fail(std::error_code(err, std::generic_category()));
+    }
+    file_descriptor_guard guard(fd);
+
+    std::vector<std::uint8_t> buffer(512U, 0U);
+    linux_nvme_admin_cmd cmd{};
+    cmd.opcode = 0x02;
+    cmd.nsid = 0xFFFFFFFFU;
+    cmd.addr = reinterpret_cast<std::uint64_t>(buffer.data());
+    cmd.data_len = static_cast<std::uint32_t>(buffer.size());
+    cmd.cdw10 = 0x007F0002U;
+
+    const int rc = ::ioctl(fd, SYSCAPE_NVME_IOCTL_ADMIN_CMD, &cmd);
+    const int sys_errno = (rc < 0) ? errno : 0;
+
+    const result<void> classified =
+        classify_linux_nvme_ioctl_status(rc, sys_errno);
+    if (!classified) {
+        return fail(classified.error());
+    }
+    if (rc != 0) {
+        return {};
+    }
+    return parse_nvme_smart_log_buffer(buffer.data(), buffer.size(), record);
+}
+
+/// Issues an ATA PASS-THROUGH ioctl to retrieve ATA SMART return status.
+inline result<void> query_linux_scsi_smart(const std::string& block_name,
+                                           storage_common::health_record& record) {
+    const std::string dev_path = "/dev/" + block_name;
+    const int fd = ::open(dev_path.c_str(), O_RDONLY | O_NONBLOCK);
+    if (fd < 0) {
+        const int err = errno;
+        if (err == ENOENT || err == ENODEV || err == ENXIO) {
+            // Device node is not present or unexposed in the current runtime environment.
+            return {};
+        }
+        if (err == EACCES || err == EPERM) {
+            return fail(errc::permission_denied);
+        }
+        return fail(std::error_code(err, std::generic_category()));
+    }
+    file_descriptor_guard guard(fd);
+
+    unsigned char cdb[16]{};
+    unsigned char sense[64]{};
+    cdb[0] = 0x85;      // ATA PASS-THROUGH (16)
+    cdb[1] = (3 << 1);  // PROTOCOL: Non-data
+    cdb[2] = 0x20;      // CK_COND = 1 -> return Sense Data with ATA Return Descriptor
+    cdb[4] = 0xDA;      // FEATURES: SMART RETURN STATUS
+    cdb[6] = 0x00;      // SECTOR_COUNT
+    cdb[8] = 0x00;      // LBA_LOW
+    cdb[10] = 0x4F;     // LBA_MID
+    cdb[12] = 0xC2;     // LBA_HIGH
+    cdb[14] = 0xB0;     // COMMAND: SMART
+
+    linux_sg_io_hdr hdr{};
+    hdr.interface_id = 'S';
+    hdr.dxfer_direction = -1; // SG_DXFER_NONE
+    hdr.cmd_len = 16;
+    hdr.mx_sb_len = sizeof(sense);
+    hdr.cmdp = cdb;
+    hdr.sbp = sense;
+    hdr.timeout = 5000;
+
+    const int rc = ::ioctl(fd, SYSCAPE_SG_IO, &hdr);
+    const int sys_errno = (rc < 0) ? errno : 0;
+
+    bool ata_desc_found = false;
+    std::uint8_t lba_mid = 0U;
+    std::uint8_t lba_high = 0U;
+    if (rc == 0 && hdr.sb_len_wr >= 14 && (sense[0] == 0x72 || sense[0] == 0x73)) {
+        std::size_t offset = 8;
+        while (offset + 1 < static_cast<std::size_t>(hdr.sb_len_wr)) {
+            const unsigned char desc_type = sense[offset];
+            const unsigned char desc_len = sense[offset + 1];
+            if (desc_type == 0x09 && desc_len >= 12 &&
+                offset + 2 + desc_len <= static_cast<std::size_t>(hdr.sb_len_wr)) {
+                // ATA Return Descriptor (SAT-3 §12.2.2.3):
+                // LBA Mid is at offset+9, LBA High is at offset+11
+                lba_mid = sense[offset + 9];
+                lba_high = sense[offset + 11];
+                ata_desc_found = true;
+                break;
+            }
+            offset += 2 + desc_len;
+        }
+    }
+
+    const result<void> classified =
+        classify_linux_scsi_ioctl_status(rc, sys_errno, hdr, ata_desc_found);
+    if (!classified) {
+        return fail(classified.error());
+    }
+    if (ata_desc_found) {
+        return parse_ata_smart_status_values(lba_mid, lba_high, record);
+    }
+    return {};
+}
+
+/// Collects health and SMART diagnostics for one block-device name.
+inline result<storage_common::health_record> collect_drive_health(const char* name) {
+    const std::string entry(name);
+    const std::string block_path = std::string(block_root) + entry;
+    const std::string device_path = block_path + "/device";
+    struct stat backing;
+    if (::lstat(device_path.c_str(), &backing) != 0) {
+        const std::error_code error(errno, std::generic_category());
+        if (error == std::error_code(ENOENT, std::generic_category())) {
+            return fail(errc::not_found);
+        }
+        return fail(error);
+    }
+
+    // Partitions under block_root have a "partition" attribute; whole disks do not.
+    struct stat part_stat;
+    if (::lstat((block_path + "/partition").c_str(), &part_stat) == 0) {
+        return fail(errc::not_found);
+    }
+
+    storage_common::health_record record;
+    record.identifier = entry;
+    record.status = storage_common::health_status_classification::unknown;
+    record.has_failure_predicted = false;
+
+    bool subsystem_resolved = false;
+    const result<std::string> subsystem = read_link_basename(
+        device_path + "/subsystem", subsystem_resolved);
+
+    if (subsystem && subsystem_resolved) {
+        if (*subsystem == "nvme") {
+            const result<void> res = query_linux_nvme_smart(entry, record);
+            if (!res) { return fail(res.error()); }
+        } else if (*subsystem == "scsi") {
+            const result<void> res = query_linux_scsi_smart(entry, record);
+            if (!res) { return fail(res.error()); }
+        }
+    }
+
+    if (!record.has_temperature_celsius) {
+        read_linux_hwmon_temperature(entry, record);
+    }
+
+    return record;
+}
+
+/// Queries health and SMART diagnostics for the target disk identifier.
+inline result<storage_common::health_record> health(std::string_view disk_identifier) {
+    if (!storage_common::is_valid_disk_identifier(disk_identifier)) {
+        return fail(errc::invalid_argument);
+    }
+    const std::string name(disk_identifier);
+    return collect_drive_health(name.c_str());
+}
+
+/// Enumerates health records for all hardware-backed disks.
+inline result<std::vector<storage_common::health_record>> all_drive_health() {
+    std::vector<storage_common::health_record> records;
+    const result<void> walked = walk_block_devices(
+        [&records](const char* disk_name) -> result<void> {
+            const result<drive_snapshot> drive = collect_drive(disk_name);
+            if (!drive) { return fail(drive.error()); }
+            if (!drive->recorded) { return {}; }
+            const result<storage_common::health_record> h =
+                collect_drive_health(disk_name);
+            if (!h) { return fail(h.error()); }
+            records.push_back(*h);
+            return {};
+        });
+    if (!walked) { return fail(walked.error()); }
+    std::sort(records.begin(), records.end(),
+              [](const storage_common::health_record& left,
+                 const storage_common::health_record& right) {
                   return left.identifier < right.identifier;
               });
     return records;

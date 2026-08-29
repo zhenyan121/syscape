@@ -22,5 +22,9 @@ bool honest(const Query& query) {
 } // namespace
 
 int main() {
-    return honest(syscape::storage::drives) ? 0 : 1;
+    return (honest(syscape::storage::drives) &&
+            honest(syscape::storage::partitions) &&
+            honest(syscape::storage::all_drive_health))
+               ? 0
+               : 1;
 }

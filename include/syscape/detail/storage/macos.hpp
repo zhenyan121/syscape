@@ -485,11 +485,33 @@ inline void gather_backing_identity(::io_service_t media,
         record_first_string(current, CFSTR("Revision"), target,
                             CFSTR("Revision"));
 
+        const void* smart_status = ::IORegistryEntryCreateCFProperty(
+            current, CFSTR("SMART Status"), ::kCFAllocatorDefault, 0);
+        if (smart_status != nullptr) {
+            if (::CFGetTypeID(smart_status) == ::CFStringGetTypeID() &&
+                ::CFDictionaryGetValue(target, CFSTR("SMART Status")) == nullptr) {
+                ::CFDictionarySetValue(target, CFSTR("SMART Status"), smart_status);
+            }
+            ::CFRelease(smart_status);
+        }
+
+        const void* stats = ::IORegistryEntryCreateCFProperty(
+            current, CFSTR("Statistics"), ::kCFAllocatorDefault, 0);
+        if (stats != nullptr) {
+            if (::CFGetTypeID(stats) == ::CFDictionaryGetTypeID() &&
+                ::CFDictionaryGetValue(target, CFSTR("Statistics")) == nullptr) {
+                ::CFDictionarySetValue(target, CFSTR("Statistics"), stats);
+            }
+            ::CFRelease(stats);
+        }
+
         const bool all_found =
             ::CFDictionaryGetValue(target, CFSTR("Vendor")) != nullptr &&
             ::CFDictionaryGetValue(
                 target, ::kDADiskDescriptionDeviceModelKey) != nullptr &&
-            ::CFDictionaryGetValue(target, CFSTR("Revision")) != nullptr;
+            ::CFDictionaryGetValue(target, CFSTR("Revision")) != nullptr &&
+            ::CFDictionaryGetValue(target, CFSTR("SMART Status")) != nullptr &&
+            ::CFDictionaryGetValue(target, CFSTR("Statistics")) != nullptr;
         if (all_found) { return; }
 
         // Do not acquire a parent that no later iteration would own.
@@ -955,6 +977,148 @@ inline result<std::vector<storage_common::drive_record>> drives() {
 /// Returns one record per partition recorded by the platform.
 inline result<std::vector<storage_common::partition_record>> partitions() {
     return collect_partitions<native_drive_api>();
+}
+
+/// Parses a SMART Status string from IOKit.
+inline bool parse_macos_smart_status(
+    std::string_view status_str, storage_common::health_record& record) noexcept {
+    if (status_str == "Verified") {
+        record.has_failure_predicted = true;
+        record.failure_predicted = false;
+        record.status = storage_common::health_status_classification::healthy;
+        return true;
+    }
+    if (status_str == "Failing" || status_str == "Failure" ||
+        status_str == "Fatal") {
+        record.has_failure_predicted = true;
+        record.failure_predicted = true;
+        record.status = storage_common::health_status_classification::warning;
+        return true;
+    }
+    record.has_failure_predicted = false;
+    record.status = storage_common::health_status_classification::unknown;
+    return false;
+}
+
+/// Parses IOKit Statistics dictionary for bytes read and written.
+inline void parse_macos_statistics(
+    ::CFDictionaryRef stats, storage_common::health_record& record) {
+    if (stats == nullptr) { return; }
+    const void* read_bytes =
+        ::CFDictionaryGetValue(stats, CFSTR("Bytes (Read)"));
+    if (read_bytes != nullptr &&
+        ::CFGetTypeID(read_bytes) == ::CFNumberGetTypeID()) {
+        std::int64_t val = 0;
+        if (::CFNumberGetValue(static_cast<::CFNumberRef>(read_bytes),
+                               ::kCFNumberSInt64Type, &val) && val >= 0) {
+            record.has_data_units_read_bytes = true;
+            record.data_units_read_bytes = static_cast<std::uint64_t>(val);
+        }
+    }
+    const void* write_bytes =
+        ::CFDictionaryGetValue(stats, CFSTR("Bytes (Written)"));
+    if (write_bytes != nullptr &&
+        ::CFGetTypeID(write_bytes) == ::CFNumberGetTypeID()) {
+        std::int64_t val = 0;
+        if (::CFNumberGetValue(static_cast<::CFNumberRef>(write_bytes),
+                               ::kCFNumberSInt64Type, &val) && val >= 0) {
+            record.has_data_units_written_bytes = true;
+            record.data_units_written_bytes = static_cast<std::uint64_t>(val);
+        }
+    }
+}
+
+/// Converts one whole-media dictionary into a health record.
+inline result<bool> convert_health_entry(
+    ::CFDictionaryRef dictionary, storage_common::health_record& record) {
+    bool has_bsd_name = false;
+    std::string bsd_name;
+    const result<bool> copied_name = copy_optional_string(
+        dictionary, kDADiskDescriptionMediaBSDNameKey, has_bsd_name, bsd_name);
+    if (!copied_name) { return fail(copied_name.error()); }
+    if (!has_bsd_name || bsd_name.empty()) { return fail(errc::malformed_data); }
+
+    record.identifier = std::move(bsd_name);
+    record.status = storage_common::health_status_classification::unknown;
+    record.has_failure_predicted = false;
+
+    bool has_smart = false;
+    std::string smart_str;
+    const result<bool> copied_smart = copy_optional_string(
+        dictionary, CFSTR("SMART Status"), has_smart, smart_str);
+    if (!copied_smart) { return fail(copied_smart.error()); }
+    if (has_smart) {
+        parse_macos_smart_status(smart_str, record);
+    }
+
+    const void* stats = ::CFDictionaryGetValue(dictionary, CFSTR("Statistics"));
+    if (stats != nullptr && ::CFGetTypeID(stats) == ::CFDictionaryGetTypeID()) {
+        parse_macos_statistics(static_cast<::CFDictionaryRef>(stats), record);
+    }
+
+    return true;
+}
+
+/// Enumerates health records for all drives on macOS.
+template <typename DriveApi>
+inline result<std::vector<storage_common::health_record>>
+collect_all_drive_health() {
+    const result<::CFArrayRef> collected = DriveApi::whole_media_facts();
+    if (!collected) { return fail(collected.error()); }
+    const cf_object owned(*collected);
+    const ::CFArrayRef facts_array =
+        static_cast<::CFArrayRef>(owned.get());
+
+    std::vector<storage_common::health_record> records;
+    const ::CFIndex count = ::CFArrayGetCount(facts_array);
+    for (::CFIndex index = 0; index < count; ++index) {
+        const void* raw_dict = ::CFArrayGetValueAtIndex(facts_array, index);
+        if (raw_dict == nullptr ||
+            ::CFGetTypeID(raw_dict) != ::CFDictionaryGetTypeID()) {
+            return fail(errc::malformed_data);
+        }
+        const ::CFDictionaryRef dictionary =
+            static_cast<::CFDictionaryRef>(raw_dict);
+
+        storage_common::health_record record;
+        const result<bool> converted = convert_health_entry(dictionary, record);
+        if (!converted) { return fail(converted.error()); }
+        records.push_back(std::move(record));
+    }
+
+    std::sort(records.begin(), records.end(),
+              [](const storage_common::health_record& left,
+                 const storage_common::health_record& right) {
+                  return left.identifier < right.identifier;
+              });
+    return records;
+}
+
+/// Queries health facts for a single drive on macOS.
+template <typename DriveApi>
+inline result<storage_common::health_record> collect_drive_health(
+    std::string_view disk_identifier) {
+    const result<std::vector<storage_common::health_record>> all =
+        collect_all_drive_health<DriveApi>();
+    if (!all) { return fail(all.error()); }
+    for (const auto& r : *all) {
+        if (r.identifier == disk_identifier) {
+            return r;
+        }
+    }
+    return fail(errc::not_found);
+}
+
+inline result<storage_common::health_record> health(
+    std::string_view disk_identifier) {
+    if (!storage_common::is_valid_disk_identifier(disk_identifier)) {
+        return fail(errc::invalid_argument);
+    }
+    return collect_drive_health<native_drive_api>(disk_identifier);
+}
+
+inline result<std::vector<storage_common::health_record>> all_drive_health() {
+    return collect_all_drive_health<native_drive_api>();
 }
 
 } // namespace storage_backend

@@ -552,6 +552,362 @@ void test_live_partitions() {
            "disk_partitions with invalid UTF-8 must report invalid_encoding");
 }
 
+void test_nvme_smart_parser() {
+    namespace backend = syscape::detail::storage_backend;
+    namespace common = syscape::detail::storage_common;
+
+    std::vector<std::uint8_t> buffer(512U, 0U);
+    // Critical warning = 0
+    buffer[0] = 0U;
+    // Composite temperature: 315 Kelvin (41.85 C)
+    buffer[1] = static_cast<std::uint8_t>(315 & 0xFF);
+    buffer[2] = static_cast<std::uint8_t>((315 >> 8) & 0xFF);
+    // Available spare = 100%
+    buffer[3] = 100U;
+    // Available spare threshold = 10%
+    buffer[4] = 10U;
+    // Percentage used = 5%
+    buffer[5] = 5U;
+    // Data units read = 1000
+    buffer[32] = static_cast<std::uint8_t>(1000 & 0xFF);
+    buffer[33] = static_cast<std::uint8_t>((1000 >> 8) & 0xFF);
+    // Data units written = 500
+    buffer[48] = static_cast<std::uint8_t>(500 & 0xFF);
+    buffer[49] = static_cast<std::uint8_t>((500 >> 8) & 0xFF);
+    // Power cycles = 42
+    buffer[112] = 42U;
+    // Power on hours = 1234
+    buffer[128] = static_cast<std::uint8_t>(1234 & 0xFF);
+    buffer[129] = static_cast<std::uint8_t>((1234 >> 8) & 0xFF);
+    // Unsafe shutdowns = 3
+    buffer[144] = 3U;
+    // Media errors = 0
+    buffer[160] = 0U;
+
+    common::health_record record;
+    record.identifier = "nvme0n1";
+    const auto parsed = backend::parse_nvme_smart_log_buffer(
+        buffer.data(), buffer.size(), record);
+    expect(parsed.has_value(), "Valid 512-byte NVMe SMART buffer must parse successfully");
+    expect(record.has_temperature_celsius &&
+               record.temperature_celsius > 41.0 &&
+               record.temperature_celsius < 42.0,
+           "Temperature 315 K must convert to ~41.85 C");
+    expect(record.has_available_spare_percent &&
+               record.available_spare_percent == 100U,
+           "Available spare must be 100%");
+    expect(record.has_percent_used && record.percent_used == 5U,
+           "Percentage used must be 5%");
+    expect(record.has_failure_predicted && !record.failure_predicted,
+           "Healthy NVMe drive must report failure_predicted == false");
+    expect(record.status == common::health_status_classification::healthy,
+           "Healthy NVMe drive must have healthy status");
+    expect(record.has_data_units_read_bytes &&
+               record.data_units_read_bytes == 1000ULL * 512000ULL,
+           "Data units read must convert through 512,000 multiplier");
+    expect(record.has_data_units_written_bytes &&
+               record.data_units_written_bytes == 500ULL * 512000ULL,
+           "Data units written must convert through 512,000 multiplier");
+    expect(record.has_power_cycles && record.power_cycles == 42ULL,
+           "Power cycles must be 42");
+    expect(record.has_power_on_hours && record.power_on_hours == 1234ULL,
+           "Power-on hours must be 1234");
+    expect(record.has_unsafe_shutdowns && record.unsafe_shutdowns == 3ULL,
+           "Unsafe shutdowns must be 3");
+    expect(record.has_media_errors && record.media_errors == 0ULL,
+           "Media errors must be 0");
+
+    // Test critical warning bit 3 (read-only)
+    buffer[0] = 0x08U;
+    common::health_record critical_record;
+    critical_record.identifier = "nvme0n1";
+    expect(backend::parse_nvme_smart_log_buffer(
+               buffer.data(), buffer.size(), critical_record).has_value(),
+           "Critical warning buffer must parse successfully");
+    expect(critical_record.has_failure_predicted && critical_record.failure_predicted,
+           "Critical warning must set failure_predicted == true");
+    expect(critical_record.status == common::health_status_classification::critical,
+           "Critical warning bit 3 must set status == critical");
+
+    // Test warning condition (spare <= threshold)
+    buffer[0] = 0U;
+    buffer[3] = 5U; // spare = 5 <= thresh = 10
+    common::health_record warning_record;
+    warning_record.identifier = "nvme0n1";
+    expect(backend::parse_nvme_smart_log_buffer(
+               buffer.data(), buffer.size(), warning_record).has_value(),
+           "Warning condition buffer must parse successfully");
+    expect(warning_record.has_failure_predicted && warning_record.failure_predicted,
+           "Spare below threshold must set failure_predicted == true");
+    expect(warning_record.status == common::health_status_classification::warning,
+           "Spare below threshold must set status == warning");
+
+    // Test 128-bit overflow handling: non-zero high 64 bits must return value_too_large
+    std::vector<std::uint8_t> overflow_buffer = buffer;
+    overflow_buffer[40] = 1U; // High 64 bits of units_read non-zero
+
+    common::health_record overflow_record;
+    overflow_record.identifier = "nvme0n1";
+    const auto overflow_res = backend::parse_nvme_smart_log_buffer(
+        overflow_buffer.data(), overflow_buffer.size(), overflow_record);
+    expect(!overflow_res &&
+               overflow_res.error() == syscape::errc::value_too_large,
+           "128-bit integer overflow in NVMe SMART log must return value_too_large");
+
+    // Test available spare > 100% -> malformed_data
+    std::vector<std::uint8_t> bad_spare_buffer = buffer;
+    bad_spare_buffer[3] = 105U;
+    common::health_record bad_spare_record;
+    bad_spare_record.identifier = "nvme0n1";
+    const auto bad_spare_res = backend::parse_nvme_smart_log_buffer(
+        bad_spare_buffer.data(), bad_spare_buffer.size(), bad_spare_record);
+    expect(!bad_spare_res &&
+               bad_spare_res.error() == syscape::errc::malformed_data,
+           "Available spare > 100% must return malformed_data");
+
+    // Null or truncated buffer
+    expect(!backend::parse_nvme_smart_log_buffer(nullptr, 512U, record) &&
+               backend::parse_nvme_smart_log_buffer(nullptr, 512U, record).error() ==
+                   syscape::errc::malformed_data,
+           "Null buffer must fail with malformed_data");
+    expect(!backend::parse_nvme_smart_log_buffer(buffer.data(), 511U, record) &&
+               backend::parse_nvme_smart_log_buffer(buffer.data(), 511U, record).error() ==
+                   syscape::errc::malformed_data,
+           "Truncated buffer must fail with malformed_data");
+}
+
+void test_ata_smart_parser() {
+    namespace backend = syscape::detail::storage_backend;
+    namespace common = syscape::detail::storage_common;
+
+    common::health_record normal;
+    normal.identifier = "sda";
+    const auto parsed_normal =
+        backend::parse_ata_smart_status_values(0x4FU, 0xC2U, normal);
+    expect(parsed_normal.has_value() && normal.has_failure_predicted &&
+               !normal.failure_predicted &&
+               normal.status == common::health_status_classification::healthy,
+           "ATA normal registers (0x4F, 0xC2) must indicate healthy condition");
+
+    common::health_record failing;
+    failing.identifier = "sda";
+    const auto parsed_failing =
+        backend::parse_ata_smart_status_values(0xF4U, 0x2CU, failing);
+    expect(parsed_failing.has_value() && failing.has_failure_predicted &&
+               failing.failure_predicted &&
+               failing.status == common::health_status_classification::warning,
+           "ATA failing registers (0xF4, 0x2C) must indicate warning / threshold exceeded");
+
+    common::health_record unknown;
+    unknown.identifier = "sda";
+    const auto parsed_unknown =
+        backend::parse_ata_smart_status_values(0x00U, 0x00U, unknown);
+    expect(!parsed_unknown &&
+               parsed_unknown.error() == syscape::errc::malformed_data,
+           "Unrecognized register values must return malformed_data");
+}
+
+void test_health_boundary_validation() {
+    namespace common = syscape::detail::storage_common;
+
+    common::health_record record;
+    record.identifier = "nvme0n1";
+    record.status = common::health_status_classification::healthy;
+    const auto valid = common::validate_health_record(record);
+    expect(valid.has_value(), "Valid health record must pass validation");
+
+    common::health_record empty_id;
+    empty_id.status = common::health_status_classification::healthy;
+    const auto invalid_empty = common::validate_health_record(empty_id);
+    expect(!invalid_empty &&
+               invalid_empty.error() == syscape::errc::invalid_encoding,
+           "Empty identifier must fail validation with invalid_encoding");
+
+    common::health_record bad_utf8;
+    bad_utf8.identifier = "\xff\xfe";
+    const auto invalid_utf8 = common::validate_health_record(bad_utf8);
+    expect(!invalid_utf8 &&
+               invalid_utf8.error() == syscape::errc::invalid_encoding,
+           "Invalid UTF-8 identifier must fail validation with invalid_encoding");
+
+    common::health_record spare_overflow;
+    spare_overflow.identifier = "nvme0n1";
+    spare_overflow.has_available_spare_percent = true;
+    spare_overflow.available_spare_percent = 105U;
+    const auto invalid_spare = common::validate_health_record(spare_overflow);
+    expect(!invalid_spare &&
+               invalid_spare.error() == syscape::errc::malformed_data,
+           "available_spare_percent > 100 must fail with malformed_data");
+
+    common::health_record nan_temp;
+    nan_temp.identifier = "nvme0n1";
+    nan_temp.has_temperature_celsius = true;
+    nan_temp.temperature_celsius = std::numeric_limits<double>::quiet_NaN();
+    const auto invalid_temp = common::validate_health_record(nan_temp);
+    expect(!invalid_temp &&
+               invalid_temp.error() == syscape::errc::malformed_data,
+           "NaN temperature must fail with malformed_data");
+
+    expect(!common::is_valid_disk_identifier(""),
+           "Empty disk identifier must be invalid");
+    expect(!common::is_valid_disk_identifier("."),
+           "Dot disk identifier must be invalid");
+    expect(!common::is_valid_disk_identifier(".."),
+           "Dot-dot disk identifier must be invalid");
+    expect(!common::is_valid_disk_identifier("../sda"),
+           "Path traversal disk identifier must be invalid");
+    expect(!common::is_valid_disk_identifier("/dev/sda"),
+           "Slash-containing disk identifier must be invalid");
+    expect(!common::is_valid_disk_identifier(std::string_view("sda\0part", 8)),
+           "Embedded NUL disk identifier must be invalid");
+    expect(common::is_valid_disk_identifier("nvme0n1"),
+           "Valid disk name nvme0n1 must be valid");
+    expect(common::is_valid_disk_identifier("sda"),
+           "Valid disk name sda must be valid");
+}
+
+void test_live_drive_health() {
+    const auto all_health = syscape::storage::all_drive_health();
+    expect(all_health || all_health.error() == syscape::errc::not_supported ||
+               all_health.error() == syscape::errc::permission_denied,
+           "all_drive_health must succeed, report not_supported, or report permission_denied");
+    if (all_health) {
+        std::string prev_id;
+        for (const auto& h : *all_health) {
+            expect(!h.identifier.empty(), "Drive health identifier must not be empty");
+            expect(prev_id <= h.identifier,
+                   "all_drive_health records must be sorted by identifier");
+            prev_id = h.identifier;
+
+            if (h.has_temperature_celsius) {
+                expect(h.temperature_celsius >= -40.0 && h.temperature_celsius <= 120.0,
+                       "Operating temperature must be within physical limits");
+            }
+
+            // Test single-drive health query
+            const auto single = syscape::storage::health(h.identifier);
+            expect(single.has_value() ||
+                       single.error() == syscape::errc::permission_denied,
+                   "health(id) must succeed or report permission_denied for an enumerated drive");
+            if (single) {
+                expect(single->identifier == h.identifier,
+                       "health(id) must match target identifier");
+            }
+        }
+    }
+
+    const auto invalid_empty = syscape::storage::health("");
+    expect(!invalid_empty &&
+               invalid_empty.error() == syscape::errc::invalid_argument,
+           "health with empty identifier must report invalid_argument");
+
+    const auto invalid_traversal =
+        syscape::storage::health("../block/nvme0n1");
+    expect(!invalid_traversal &&
+               invalid_traversal.error() == syscape::errc::invalid_argument,
+           "health with path traversal must report invalid_argument");
+
+    const auto invalid_nul =
+        syscape::storage::health(std::string_view("nvme0n1\0suffix", 14));
+    expect(!invalid_nul &&
+               invalid_nul.error() == syscape::errc::invalid_argument,
+           "health with embedded NUL must report invalid_argument");
+
+    const auto invalid_utf8 = syscape::storage::health("\xff\xfe");
+    expect(!invalid_utf8 &&
+               invalid_utf8.error() == syscape::errc::invalid_encoding,
+           "health with invalid UTF-8 must report invalid_encoding");
+
+    const auto not_found = syscape::storage::health("nonexistent_drive_99999");
+    expect(!not_found && not_found.error() == syscape::errc::not_found,
+           "health for nonexistent drive must report not_found");
+}
+
+void test_ioctl_status_classifiers() {
+    namespace backend = syscape::detail::storage_backend;
+
+    // NVMe ioctl status classification:
+    // Success
+    expect(backend::classify_linux_nvme_ioctl_status(0, 0).has_value(),
+           "NVMe rc == 0 must classify as success");
+
+    // Negative syscall returns (interpreting errno)
+    const auto nvme_eacces = backend::classify_linux_nvme_ioctl_status(-1, EACCES);
+    expect(!nvme_eacces && nvme_eacces.error() == syscape::errc::permission_denied,
+           "NVMe EACCES must classify as permission_denied");
+
+    const auto nvme_eperm = backend::classify_linux_nvme_ioctl_status(-1, EPERM);
+    expect(!nvme_eperm && nvme_eperm.error() == syscape::errc::permission_denied,
+           "NVMe EPERM must classify as permission_denied");
+
+    const auto nvme_enotty = backend::classify_linux_nvme_ioctl_status(-1, ENOTTY);
+    expect(nvme_enotty.has_value(), "NVMe ENOTTY must classify as unsupported capability");
+
+    const auto nvme_eopnotsupp = backend::classify_linux_nvme_ioctl_status(-1, EOPNOTSUPP);
+    expect(nvme_eopnotsupp.has_value(), "NVMe EOPNOTSUPP must classify as unsupported capability");
+
+    const auto nvme_enosys = backend::classify_linux_nvme_ioctl_status(-1, ENOSYS);
+    expect(nvme_enosys.has_value(), "NVMe ENOSYS must classify as unsupported capability");
+
+    const auto nvme_einval = backend::classify_linux_nvme_ioctl_status(-1, EINVAL);
+    expect(!nvme_einval && nvme_einval.error() == std::error_code(EINVAL, std::generic_category()),
+           "NVMe EINVAL must preserve native invalid argument error");
+
+    const auto nvme_eio = backend::classify_linux_nvme_ioctl_status(-1, EIO);
+    expect(!nvme_eio && nvme_eio.error() == syscape::errc::io_error,
+           "NVMe EIO must classify as io_error");
+
+    // Positive controller status codes
+    // SCT 0, SC 0x01 (Invalid Opcode) -> unsupported capability
+    expect(backend::classify_linux_nvme_ioctl_status(0x0001, 0).has_value(),
+           "NVMe SC_INVALID_OPCODE must classify as unsupported capability");
+
+    // SCT 0, SC 0x02 (Invalid Field) -> unsupported capability
+    expect(backend::classify_linux_nvme_ioctl_status(0x0002, 0).has_value(),
+           "NVMe SC_INVALID_FIELD must classify as unsupported capability");
+
+    // SCT 1, SC 0x09 (Invalid Log Page, 0x0109) -> unsupported capability
+    expect(backend::classify_linux_nvme_ioctl_status(0x0109, 0).has_value(),
+           "NVMe SC_INVALID_LOG_PAGE must classify as unsupported capability");
+
+    // SCT 0, SC 0x03 (Command ID Conflict) -> io_error (NOT permission_denied)
+    const auto nvme_cmdid_conflict = backend::classify_linux_nvme_ioctl_status(0x0003, 0);
+    expect(!nvme_cmdid_conflict && nvme_cmdid_conflict.error() == syscape::errc::io_error,
+           "NVMe SC_CMDID_CONFLICT must classify as io_error");
+
+    // SCT 0, SC 0x06 (Internal Error) -> io_error
+    const auto nvme_internal_err = backend::classify_linux_nvme_ioctl_status(0x0006, 0);
+    expect(!nvme_internal_err && nvme_internal_err.error() == syscape::errc::io_error,
+           "NVMe SC_INTERNAL must classify as io_error");
+
+    // SCSI SG_IO status classification
+    backend::linux_sg_io_hdr hdr{};
+    hdr.host_status = 0;
+    hdr.driver_status = 0;
+
+    expect(backend::classify_linux_scsi_ioctl_status(0, 0, hdr, true).has_value(),
+           "SCSI with ATA descriptor found must classify as success");
+
+    // ATA descriptor found with driver_status == DRIVER_SENSE (0x08)
+    hdr.driver_status = 0x08;
+    expect(backend::classify_linux_scsi_ioctl_status(0, 0, hdr, true).has_value(),
+           "SCSI DRIVER_SENSE with ATA descriptor must classify as success");
+
+    // Negative syscall
+    const auto scsi_einval = backend::classify_linux_scsi_ioctl_status(-1, EINVAL, hdr, false);
+    expect(!scsi_einval && scsi_einval.error() == std::error_code(EINVAL, std::generic_category()),
+           "SCSI EINVAL must preserve native invalid argument error");
+
+    const auto scsi_enotty = backend::classify_linux_scsi_ioctl_status(-1, ENOTTY, hdr, false);
+    expect(scsi_enotty.has_value(), "SCSI ENOTTY must classify as unsupported capability");
+
+    // No ATA descriptor and host error
+    hdr.host_status = 1;
+    const auto scsi_host_err = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, false);
+    expect(!scsi_host_err && scsi_host_err.error() == syscape::errc::io_error,
+           "SCSI host error without ATA descriptor must classify as io_error");
+}
+
 } // namespace
 
 int main() {
@@ -566,5 +922,10 @@ int main() {
     test_mount_field_decoder();
     test_partition_boundary_validation();
     test_live_partitions();
+    test_nvme_smart_parser();
+    test_ata_smart_parser();
+    test_health_boundary_validation();
+    test_ioctl_status_classifiers();
+    test_live_drive_health();
     return failures == 0 ? 0 : 1;
 }

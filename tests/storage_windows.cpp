@@ -77,6 +77,16 @@ std::vector<char> make_geometry(long long bytes) {
     return buffer;
 }
 
+/// Builds one STORAGE_PREDICT_FAILURE byte record.
+inline std::vector<char> make_predict_failure(bool predict_failure) {
+    ::STORAGE_PREDICT_FAILURE header;
+    std::memset(&header, 0, sizeof(header));
+    header.PredictFailure = predict_failure ? 1 : 0;
+    std::vector<char> buffer(sizeof(header));
+    std::memcpy(buffer.data(), &header, sizeof(header));
+    return buffer;
+}
+
 /// One fabricated physical drive behind the synthetic API.
 struct synthetic_drive {
     std::vector<char> device_descriptor;
@@ -90,6 +100,10 @@ struct synthetic_drive {
     std::error_code layout_error =
         std::error_code(ERROR_NOT_SUPPORTED, std::system_category());
     std::vector<char> layout_descriptor;
+    bool has_predict_failure = true;
+    std::error_code predict_failure_error =
+        std::error_code(ERROR_NOT_SUPPORTED, std::system_category());
+    std::vector<char> predict_failure_descriptor;
 };
 
 /// Replays fabricated drives instead of calling the storage stack.
@@ -146,6 +160,18 @@ struct synthetic_api {
             static_cast<unsigned int>(
                 reinterpret_cast<std::intptr_t>(handle)) - 1U;
         return make_geometry(drives.at(index).disk_size_bytes);
+    }
+
+    syscape::result<std::vector<char>> query_predict_failure(
+        ::HANDLE handle) const {
+        const unsigned int index =
+            static_cast<unsigned int>(
+                reinterpret_cast<std::intptr_t>(handle)) - 1U;
+        const synthetic_drive& drive = drives.at(index);
+        if (!drive.has_predict_failure) {
+            return syscape::fail(drive.predict_failure_error);
+        }
+        return drive.predict_failure_descriptor;
     }
 
     syscape::result<std::vector<char>> query_layout(
@@ -644,6 +670,133 @@ void test_enumeration() {
            "valid data");
 }
 
+void test_predict_failure_conversion() {
+    namespace backend = syscape::detail::storage_backend;
+
+    const auto normal_buf = make_predict_failure(false);
+    const auto normal_res = backend::convert_predict_failure(normal_buf);
+    expect(normal_res.has_value() && !*normal_res,
+           "PredictFailure == 0 must convert to false");
+
+    const auto fail_buf = make_predict_failure(true);
+    const auto fail_res = backend::convert_predict_failure(fail_buf);
+    expect(fail_res.has_value() && *fail_res,
+           "PredictFailure != 0 must convert to true");
+
+    const std::vector<char> short_buf(2U);
+    const auto short_res = backend::convert_predict_failure(short_buf);
+    expect(!short_res && short_res.error() == syscape::errc::malformed_data,
+           "Short buffer must report malformed_data");
+}
+
+void test_health_enumeration() {
+    namespace backend = syscape::detail::storage_backend;
+    namespace common = syscape::detail::storage_common;
+
+    synthetic_api api;
+    api.drives[0].device_descriptor =
+        make_descriptor(nullptr, "Drive 0", nullptr, FALSE, BusTypeNvme);
+    api.drives[0].predict_failure_descriptor = make_predict_failure(false);
+
+    api.drives[1].device_descriptor =
+        make_descriptor(nullptr, "Drive 1", nullptr, FALSE, BusTypeScsi);
+    api.drives[1].predict_failure_descriptor = make_predict_failure(true);
+
+    api.drives[2].device_descriptor =
+        make_descriptor(nullptr, "Drive 2", nullptr, FALSE, BusTypeScsi);
+    api.drives[2].has_predict_failure = false;
+    api.drives[2].predict_failure_error =
+        std::error_code(ERROR_NOT_SUPPORTED, std::system_category());
+
+    const auto health_records = backend::enumerate_all_drive_health(api);
+    expect(health_records.has_value() && health_records->size() == 3U,
+           "enumerate_all_drive_health must succeed with 3 drives");
+    if (health_records && health_records->size() == 3U) {
+        expect((*health_records)[0].identifier == "PhysicalDrive0",
+               "First drive identifier must be PhysicalDrive0");
+        expect((*health_records)[0].has_failure_predicted &&
+                   !(*health_records)[0].failure_predicted,
+               "First drive must report failure_predicted == false");
+        expect((*health_records)[0].status ==
+                   common::health_status_classification::healthy,
+               "First drive must have healthy status");
+
+        expect((*health_records)[1].identifier == "PhysicalDrive1",
+               "Second drive identifier must be PhysicalDrive1");
+        expect((*health_records)[1].has_failure_predicted &&
+                   (*health_records)[1].failure_predicted,
+               "Second drive must report failure_predicted == true");
+        expect((*health_records)[1].status ==
+                   common::health_status_classification::warning,
+               "Second drive must have warning status");
+
+        expect((*health_records)[2].identifier == "PhysicalDrive2",
+               "Third drive identifier must be PhysicalDrive2");
+        expect(!(*health_records)[2].has_failure_predicted,
+               "Unsupported drive must report has_failure_predicted == false");
+        expect((*health_records)[2].status ==
+                   common::health_status_classification::unknown,
+               "Unsupported drive must report unknown status");
+    }
+
+    const auto single_h0 = backend::collect_drive_health(api, 0U);
+    expect(single_h0.has_value() && single_h0->identifier == "PhysicalDrive0",
+           "collect_drive_health for index 0 must return PhysicalDrive0");
+
+    const auto single_h1 = backend::collect_drive_health(api, 1U);
+    expect(single_h1.has_value() && single_h1->identifier == "PhysicalDrive1",
+           "collect_drive_health for index 1 must return PhysicalDrive1");
+
+    const auto single_h2 = backend::collect_drive_health(api, 2U);
+    expect(single_h2.has_value() && single_h2->identifier == "PhysicalDrive2",
+           "collect_drive_health for index 2 must return PhysicalDrive2");
+
+    synthetic_api malformed_api;
+    malformed_api.drives[0].device_descriptor =
+        make_descriptor(nullptr, "Drive 0", nullptr, FALSE, BusTypeNvme);
+    malformed_api.drives[0].predict_failure_descriptor = std::vector<char>(2U);
+    const auto malformed_res =
+        backend::collect_drive_health(malformed_api, 0U);
+    expect(!malformed_res &&
+               malformed_res.error() == syscape::errc::malformed_data,
+           "Malformed predict_failure buffer must report malformed_data");
+}
+
+void test_windows_health_identifier_overflow() {
+    namespace backend = syscape::detail::storage_backend;
+
+    const auto overflow_res = backend::health("PhysicalDrive4294967296");
+    expect(!overflow_res &&
+               overflow_res.error() == syscape::errc::value_too_large,
+           "PhysicalDrive4294967296 must report value_too_large");
+
+    const auto overflow_digits = backend::health("4294967296");
+    expect(!overflow_digits &&
+               overflow_digits.error() == syscape::errc::value_too_large,
+           "4294967296 must report value_too_large");
+
+    const auto invalid_nul =
+        backend::health(std::string_view("PhysicalDrive0\0suffix", 21));
+    expect(!invalid_nul &&
+               invalid_nul.error() == syscape::errc::invalid_argument,
+           "Embedded NUL in identifier must report invalid_argument");
+
+    const auto invalid_traversal = backend::health("../PhysicalDrive0");
+    expect(!invalid_traversal &&
+               invalid_traversal.error() == syscape::errc::invalid_argument,
+           "Path traversal in identifier must report invalid_argument");
+
+    const auto invalid_empty = backend::health("");
+    expect(!invalid_empty &&
+               invalid_empty.error() == syscape::errc::invalid_argument,
+           "Empty identifier must report invalid_argument");
+
+    const auto invalid_utf8 = backend::health("\xff\xfe");
+    expect(!invalid_utf8 &&
+               invalid_utf8.error() == syscape::errc::invalid_encoding,
+           "Invalid UTF-8 identifier must report invalid_encoding");
+}
+
 } // namespace
 
 int main() {
@@ -655,5 +808,8 @@ int main() {
     test_guid_formatting();
     test_volume_extent_conversion();
     test_partition_enumeration();
+    test_predict_failure_conversion();
+    test_health_enumeration();
+    test_windows_health_identifier_overflow();
     return failures == 0 ? 0 : 1;
 }
