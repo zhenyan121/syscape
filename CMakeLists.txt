@@ -19,11 +19,18 @@ target_compile_features(syscape_hosted INTERFACE cxx_std_17)
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     option(SYSCAPE_BUILD_TESTS "Build Syscape tests" ON)
+    option(SYSCAPE_BUILD_EXAMPLES "Build Syscape examples" ON)
 else()
     option(SYSCAPE_BUILD_TESTS "Build Syscape tests" OFF)
+    option(SYSCAPE_BUILD_EXAMPLES "Build Syscape examples" OFF)
 endif()
 
 if(SYSCAPE_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+if(SYSCAPE_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
+

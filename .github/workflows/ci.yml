@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  linux-gcc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ cmake ninja-build
+
+      - name: Configure CMake (Strict C++17 Hosted + C++11 Freestanding)
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_CXX_COMPILER=g++ \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run Tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Run Examples
+        run: |
+          ./build/examples/example_system_overview
+          ./build/examples/example_hardware_inventory
+          ./build/examples/example_network_overview
+
+  linux-clang-sanitizers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm cmake ninja-build
+
+      - name: Configure CMake with ASan + UBSan
+        run: |
+          cmake -B build-asan -G Ninja \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=ON
+
+      - name: Build
+        run: cmake --build build-asan
+
+      - name: Run Tests with Sanitizers
+        run: ctest --test-dir build-asan --output-on-failure
+
+  windows-msvc:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake (MSVC strict conformance)
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=ON
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run Tests
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Run Examples
+        run: |
+          ./build/examples/Release/example_system_overview.exe
+          ./build/examples/Release/example_hardware_inventory.exe
+          ./build/examples/Release/example_network_overview.exe
+
+  macos-apple-clang:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run Tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Run Examples
+        run: |
+          ./build/examples/example_system_overview
+          ./build/examples/example_hardware_inventory
+          ./build/examples/example_network_overview

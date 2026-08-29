@@ -61,6 +61,10 @@ void test_number_parser() {
                signed_value.error() == syscape::errc::malformed_data,
            "A signed rendering cannot describe an unsigned attribute");
 
+    const auto signed_int = backend::parse_number<std::int64_t>("-1000\n");
+    expect(signed_int && *signed_int == -1000,
+           "A signed rendering must parse for signed types");
+
     const auto empty = backend::parse_number<std::uint64_t>("   \n");
     expect(!empty && empty.error() == syscape::errc::malformed_data,
            "An empty numeric attribute must be malformed");
@@ -884,16 +888,56 @@ void test_ioctl_status_classifiers() {
     backend::linux_sg_io_hdr hdr{};
     hdr.host_status = 0;
     hdr.driver_status = 0;
+    hdr.status = 0;
 
     expect(backend::classify_linux_scsi_ioctl_status(0, 0, hdr, true).has_value(),
            "SCSI with ATA descriptor found must classify as success");
 
     // ATA descriptor found with driver_status == DRIVER_SENSE (0x08)
     hdr.driver_status = 0x08;
+    hdr.status = 0x02; // SAM_STAT_CHECK_CONDITION
     expect(backend::classify_linux_scsi_ioctl_status(0, 0, hdr, true).has_value(),
-           "SCSI DRIVER_SENSE with ATA descriptor must classify as success");
+           "SCSI CHECK_CONDITION + DRIVER_SENSE with ATA descriptor must classify as success");
+
+    // ATA descriptor found but host transmission failed
+    hdr.host_status = 1;
+    const auto scsi_host_with_desc = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, true);
+    expect(!scsi_host_with_desc && scsi_host_with_desc.error() == syscape::errc::io_error,
+           "SCSI host error with ATA descriptor must still classify as io_error");
+
+    // ATA descriptor found but unknown driver error
+    hdr.host_status = 0;
+    hdr.driver_status = 1;
+    const auto scsi_driver_err = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, true);
+    expect(!scsi_driver_err && scsi_driver_err.error() == syscape::errc::io_error,
+           "SCSI driver error with ATA descriptor must classify as io_error");
+
+    // Device status BUSY (0x08) or TASK_SET_FULL (0x28)
+    hdr.driver_status = 0;
+    hdr.status = 0x08;
+    const auto scsi_busy = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, true);
+    expect(!scsi_busy && scsi_busy.error() == syscape::errc::temporarily_unavailable,
+           "SCSI BUSY status must classify as temporarily_unavailable");
+
+    hdr.status = 0x28;
+    const auto scsi_task_set_full = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, true);
+    expect(!scsi_task_set_full && scsi_task_set_full.error() == syscape::errc::temporarily_unavailable,
+           "SCSI TASK_SET_FULL status must classify as temporarily_unavailable");
+
+    // Reservation conflict (0x18)
+    hdr.status = 0x18;
+    const auto scsi_res_conflict = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, true);
+    expect(!scsi_res_conflict && scsi_res_conflict.error() == syscape::errc::permission_denied,
+           "SCSI RESERVATION_CONFLICT must classify as permission_denied");
+
+    // Other unexpected SCSI device status (e.g. 0x04)
+    hdr.status = 0x04;
+    const auto scsi_other_status = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, true);
+    expect(!scsi_other_status && scsi_other_status.error() == syscape::errc::io_error,
+           "Unexpected SCSI status must classify as io_error");
 
     // Negative syscall
+    hdr.status = 0;
     const auto scsi_einval = backend::classify_linux_scsi_ioctl_status(-1, EINVAL, hdr, false);
     expect(!scsi_einval && scsi_einval.error() == std::error_code(EINVAL, std::generic_category()),
            "SCSI EINVAL must preserve native invalid argument error");
@@ -906,6 +950,80 @@ void test_ioctl_status_classifiers() {
     const auto scsi_host_err = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, false);
     expect(!scsi_host_err && scsi_host_err.error() == syscape::errc::io_error,
            "SCSI host error without ATA descriptor must classify as io_error");
+
+    // Sense data parsing when status == CHECK CONDITION (0x02) without ATA descriptor:
+    hdr.host_status = 0;
+    hdr.driver_status = 0x08;
+    hdr.status = 0x02;
+
+    // 1. Descriptor format sense with ILLEGAL REQUEST (0x05) -> unsupported -> success/empty
+    unsigned char sense_desc_illegal[8]{0x72, 0x05, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00};
+    hdr.sbp = sense_desc_illegal;
+    hdr.sb_len_wr = sizeof(sense_desc_illegal);
+    const auto scsi_illegal = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, false);
+    expect(scsi_illegal.has_value(),
+           "SCSI CHECK_CONDITION with ILLEGAL REQUEST sense must classify as unsupported");
+
+    // 2. Descriptor format sense with NOT READY (0x02) -> temporarily_unavailable
+    unsigned char sense_desc_not_ready[8]{0x72, 0x02, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00};
+    hdr.sbp = sense_desc_not_ready;
+    hdr.sb_len_wr = sizeof(sense_desc_not_ready);
+    const auto scsi_not_ready = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, false);
+    expect(!scsi_not_ready && scsi_not_ready.error() == syscape::errc::temporarily_unavailable,
+           "SCSI CHECK_CONDITION with NOT READY sense must classify as temporarily_unavailable");
+
+    // 3. Descriptor format sense with UNIT ATTENTION (0x06) -> temporarily_unavailable
+    unsigned char sense_desc_unit_att[8]{0x72, 0x06, 0x29, 0x00, 0x00, 0x00, 0x00, 0x00};
+    hdr.sbp = sense_desc_unit_att;
+    hdr.sb_len_wr = sizeof(sense_desc_unit_att);
+    const auto scsi_unit_att = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, false);
+    expect(!scsi_unit_att && scsi_unit_att.error() == syscape::errc::temporarily_unavailable,
+           "SCSI CHECK_CONDITION with UNIT ATTENTION sense must classify as temporarily_unavailable");
+
+    // 4. Descriptor format sense with DATA PROTECT (0x07) -> permission_denied
+    unsigned char sense_desc_data_prot[8]{0x72, 0x07, 0x27, 0x00, 0x00, 0x00, 0x00, 0x00};
+    hdr.sbp = sense_desc_data_prot;
+    hdr.sb_len_wr = sizeof(sense_desc_data_prot);
+    const auto scsi_data_prot = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, false);
+    expect(!scsi_data_prot && scsi_data_prot.error() == syscape::errc::permission_denied,
+           "SCSI CHECK_CONDITION with DATA PROTECT sense must classify as permission_denied");
+
+    // 5. Descriptor format sense with HARDWARE ERROR (0x04) -> io_error
+    unsigned char sense_desc_hw_err[8]{0x72, 0x04, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00};
+    hdr.sbp = sense_desc_hw_err;
+    hdr.sb_len_wr = sizeof(sense_desc_hw_err);
+    const auto scsi_hw_err = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, false);
+    expect(!scsi_hw_err && scsi_hw_err.error() == syscape::errc::io_error,
+           "SCSI CHECK_CONDITION with HARDWARE ERROR sense must classify as io_error");
+
+    // 6. Descriptor format sense with MEDIUM ERROR (0x03) -> io_error
+    unsigned char sense_desc_med_err[8]{0x72, 0x03, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00};
+    hdr.sbp = sense_desc_med_err;
+    hdr.sb_len_wr = sizeof(sense_desc_med_err);
+    const auto scsi_med_err = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, false);
+    expect(!scsi_med_err && scsi_med_err.error() == syscape::errc::io_error,
+           "SCSI CHECK_CONDITION with MEDIUM ERROR sense must classify as io_error");
+
+    // 7. Fixed format sense with HARDWARE ERROR (0x04) -> io_error
+    unsigned char sense_fixed_hw_err[14]{0x70, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x44, 0x00};
+    hdr.sbp = sense_fixed_hw_err;
+    hdr.sb_len_wr = sizeof(sense_fixed_hw_err);
+    const auto scsi_fixed_hw = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, false);
+    expect(!scsi_fixed_hw && scsi_fixed_hw.error() == syscape::errc::io_error,
+           "SCSI CHECK_CONDITION with Fixed Format HARDWARE ERROR must classify as io_error");
+
+    // 8. CHECK_CONDITION but no sense bytes returned (sb_len_wr == 0) -> io_error
+    hdr.sbp = nullptr;
+    hdr.sb_len_wr = 0;
+    const auto scsi_no_sense = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, false);
+    expect(!scsi_no_sense && scsi_no_sense.error() == syscape::errc::io_error,
+           "SCSI CHECK_CONDITION with empty sense data must classify as io_error");
+
+    // 9. GOOD status (0x00) without descriptor -> success / unsupported
+    hdr.status = 0x00;
+    const auto scsi_good_no_desc = backend::classify_linux_scsi_ioctl_status(0, 0, hdr, false);
+    expect(scsi_good_no_desc.has_value(),
+           "SCSI GOOD status without descriptor must classify as success");
 }
 
 } // namespace

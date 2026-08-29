@@ -63,22 +63,18 @@ template <typename Integer>
 inline result<Integer> parse_number(std::string_view input) {
     const std::string_view value = trim_attribute(input);
     if (value.empty()) { return fail(errc::malformed_data); }
-    constexpr std::uint64_t limit =
-        static_cast<std::uint64_t>(std::numeric_limits<Integer>::max());
-    std::uint64_t widened = 0U;
+    Integer parsed_val{};
     const char* first = value.data();
     const char* last = first + value.size();
     const std::from_chars_result parsed =
-        std::from_chars(first, last, widened);
-    if (parsed.ec == std::errc::result_out_of_range ||
-        (parsed.ec == std::errc() && parsed.ptr == last &&
-         widened > limit)) {
+        std::from_chars(first, last, parsed_val);
+    if (parsed.ec == std::errc::result_out_of_range) {
         return fail(errc::value_too_large);
     }
     if (parsed.ec != std::errc() || parsed.ptr != last) {
         return fail(errc::malformed_data);
     }
-    return static_cast<Integer>(widened);
+    return parsed_val;
 }
 
 /// Parses the documented zero-or-one Boolean renderings shared by the
@@ -1055,16 +1051,77 @@ inline result<void> classify_linux_scsi_ioctl_status(
         return fail(std::error_code(system_errno, std::generic_category()));
     }
 
+    // Host adapter transmission error: DID_OK is 0.
+    if (hdr.host_status != 0) {
+        return fail(errc::io_error);
+    }
+
+    // Driver status error: DRIVER_OK is 0, DRIVER_SENSE is 0x08.
+    if (hdr.driver_status != 0 && hdr.driver_status != 0x08) {
+        return fail(errc::io_error);
+    }
+
+    // SCSI device status
+    // SAM status codes: 0x00=GOOD, 0x02=CHECK_CONDITION, 0x08=BUSY, 0x18=RESERVATION_CONFLICT, 0x28=TASK_SET_FULL
+    if (hdr.status == 0x08 || hdr.status == 0x28) {
+        return fail(errc::temporarily_unavailable);
+    }
+    if (hdr.status == 0x18) {
+        return fail(errc::permission_denied);
+    }
+    if (hdr.status != 0x00 && hdr.status != 0x02) {
+        return fail(errc::io_error);
+    }
+
     if (ata_desc_found) {
         return {};
     }
 
-    // No ATA Return Descriptor was found in sense data.
-    if (hdr.host_status != 0 || (hdr.driver_status != 0 && hdr.driver_status != 0x08)) {
+    // If SCSI status is GOOD (0x00) and no descriptor, device does not support ATA pass-through.
+    if (hdr.status == 0x00) {
+        return {};
+    }
+
+    // SCSI status is CHECK CONDITION (0x02), but no ATA Return Descriptor was found.
+    // Inspect sense data to determine if this is an unsupported capability or a real hardware/device error.
+    if (hdr.sb_len_wr == 0 || hdr.sbp == nullptr) {
         return fail(errc::io_error);
     }
-    // Device does not support ATA pass-through or did not return SMART descriptor.
-    return {};
+
+    const unsigned char* sense = hdr.sbp;
+    std::uint8_t sense_key = 0xFFU;
+    const unsigned char resp_code = sense[0] & 0x7FU;
+
+    if (resp_code == 0x72 || resp_code == 0x73) {
+        // Descriptor format sense data (SPC-4 §4.5.2)
+        if (hdr.sb_len_wr >= 2) {
+            sense_key = sense[1] & 0x0FU;
+        }
+    } else if (resp_code == 0x70 || resp_code == 0x71) {
+        // Fixed format sense data (SPC-4 §4.5.3)
+        if (hdr.sb_len_wr >= 3) {
+            sense_key = sense[2] & 0x0FU;
+        }
+    }
+
+    switch (sense_key) {
+    case 0x00: // NO SENSE
+    case 0x01: // RECOVERED ERROR
+        return {};
+    case 0x05: // ILLEGAL REQUEST (e.g. Invalid Command Operation Code 0x20, Invalid Field in CDB 0x24)
+        // Device does not support ATA pass-through.
+        return {};
+    case 0x02: // NOT READY (e.g. drive spun down, becoming ready)
+    case 0x06: // UNIT ATTENTION (e.g. bus reset, power-on reset)
+        return fail(errc::temporarily_unavailable);
+    case 0x07: // DATA PROTECT
+        return fail(errc::permission_denied);
+    case 0x03: // MEDIUM ERROR
+    case 0x04: // HARDWARE ERROR
+    case 0x0B: // ABORTED COMMAND
+    default:
+        return fail(errc::io_error);
+    }
 }
 
 /// Issues an NVMe Admin Get Log Page ioctl to retrieve SMART facts.
@@ -1200,6 +1257,9 @@ inline result<storage_common::health_record> collect_drive_health(const char* na
     if (::lstat((block_path + "/partition").c_str(), &part_stat) == 0) {
         return fail(errc::not_found);
     }
+    if (errno != ENOENT) {
+        return fail(std::error_code(errno, std::generic_category()));
+    }
 
     storage_common::health_record record;
     record.identifier = entry;
@@ -1209,8 +1269,11 @@ inline result<storage_common::health_record> collect_drive_health(const char* na
     bool subsystem_resolved = false;
     const result<std::string> subsystem = read_link_basename(
         device_path + "/subsystem", subsystem_resolved);
+    if (!subsystem) {
+        return fail(subsystem.error());
+    }
 
-    if (subsystem && subsystem_resolved) {
+    if (subsystem_resolved) {
         if (*subsystem == "nvme") {
             const result<void> res = query_linux_nvme_smart(entry, record);
             if (!res) { return fail(res.error()); }
