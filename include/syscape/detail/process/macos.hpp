@@ -170,7 +170,7 @@ inline result<task_statistics> read_task_statistics() {
     struct ::proc_taskinfo info {};
     errno = 0;
     const int copied = ::proc_pidinfo(
-        ::getpid(), ::PROC_PIDTASKINFO, 0, &info,
+        ::getpid(), PROC_PIDTASKINFO, 0, &info,
         static_cast<int>(sizeof(info)));
     if (copied <= 0) {
         return fail(errno != 0

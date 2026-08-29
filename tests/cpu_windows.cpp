@@ -15,11 +15,11 @@ struct relationship_header {
     DWORD size;
 };
 
-::PROCESSOR_POWER_INFORMATION make_record(std::uint32_t current_megahertz,
-                                          std::uint32_t maximum_megahertz) {
-    ::PROCESSOR_POWER_INFORMATION record {};
-    record.CurrentMhz = current_megahertz;
-    record.MaxMhz = maximum_megahertz;
+syscape::detail::cpu_backend::processor_power_information make_record(
+    std::uint32_t current_megahertz, std::uint32_t maximum_megahertz) {
+    syscape::detail::cpu_backend::processor_power_information record {};
+    record.current_megahertz = current_megahertz;
+    record.maximum_megahertz = maximum_megahertz;
     return record;
 }
 
@@ -202,7 +202,7 @@ int main() {
         return 37;
     }
 
-    const ::PROCESSOR_POWER_INFORMATION clocks[] = {
+    const syscape::detail::cpu_backend::processor_power_information clocks[] = {
         make_record(800U, 2400U), make_record(1200U, 3100U)};
     const auto currents =
         backend::parse_current_frequencies(clocks, 2U);
@@ -213,9 +213,11 @@ int main() {
     const auto bound = backend::parse_maximum_frequency(clocks, 2U);
     if (!bound || *bound != 3100000U) { return 11; }
 
-    ::PROCESSOR_POWER_INFORMATION zero_clock = make_record(0U, 2400U);
+    syscape::detail::cpu_backend::processor_power_information zero_clock =
+        make_record(0U, 2400U);
     if (backend::parse_current_frequencies(&zero_clock, 1U)) { return 12; }
-    ::PROCESSOR_POWER_INFORMATION zero_bound = make_record(800U, 0U);
+    syscape::detail::cpu_backend::processor_power_information zero_bound =
+        make_record(800U, 0U);
     if (backend::parse_maximum_frequency(&zero_bound, 1U)) { return 13; }
     if (backend::parse_current_frequencies(nullptr, 1U) ||
         backend::parse_maximum_frequency(clocks, 0U)) {

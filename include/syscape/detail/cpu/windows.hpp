@@ -39,6 +39,24 @@ namespace syscape {
 namespace detail {
 namespace cpu_backend {
 
+/// Internal representation of the documented processor power record.
+///
+/// Microsoft documents this six-ULONG layout but current SDK releases do not
+/// consistently declare PROCESSOR_POWER_INFORMATION in a public header.
+/// Keeping the representation internal avoids exposing or conditionally
+/// redefining a Windows SDK type.
+struct processor_power_information {
+    ::ULONG number = 0U;
+    ::ULONG maximum_megahertz = 0U;
+    ::ULONG current_megahertz = 0U;
+    ::ULONG limit_megahertz = 0U;
+    ::ULONG maximum_idle_state = 0U;
+    ::ULONG current_idle_state = 0U;
+};
+
+static_assert(sizeof(processor_power_information) == 6U * sizeof(::ULONG),
+              "Unexpected Windows processor power record layout");
+
 inline result<std::vector<std::string>> vendor_identifiers() {
     return fail(errc::not_supported);
 }
@@ -234,7 +252,7 @@ inline result<cpu_common::cache_entry> convert_cache_record(
     entry.kind = kind;
     entry.instance_size_bytes = record.CacheSize;
     entry.line_size_bytes = record.LineSize;
-    if (record.Associativity == ::CACHE_FULLY_ASSOCIATIVE) {
+    if (record.Associativity == CACHE_FULLY_ASSOCIATIVE) {
         if (record.CacheSize % record.LineSize != 0U) {
             return fail(errc::malformed_data);
         }
@@ -567,13 +585,14 @@ inline result<void> require_single_active_processor_group() {
 /// thousand exactly. A zero frequency cannot describe an operating
 /// processor and is malformed platform data.
 inline result<std::vector<std::uint32_t>> parse_current_frequencies(
-    const ::PROCESSOR_POWER_INFORMATION* information, std::size_t count) {
+    const processor_power_information* information, std::size_t count) {
     if (!information || count == 0U) { return fail(errc::malformed_data); }
     std::vector<std::uint32_t> values;
     values.reserve(count);
     for (std::size_t index = 0U; index < count; ++index) {
         const std::uint64_t megahertz =
-            static_cast<std::uint64_t>(information[index].CurrentMhz);
+            static_cast<std::uint64_t>(
+                information[index].current_megahertz);
         if (megahertz == 0U) { return fail(errc::malformed_data); }
         const std::uint64_t kilohertz = megahertz * 1000U;
         if (kilohertz > (std::numeric_limits<std::uint32_t>::max)()) {
@@ -587,13 +606,14 @@ inline result<std::vector<std::uint32_t>> parse_current_frequencies(
 /// Extracts the highest recorded processor clock in kilohertz from the
 /// documented PROCESSOR_POWER_INFORMATION records.
 inline result<std::uint32_t> parse_maximum_frequency(
-    const ::PROCESSOR_POWER_INFORMATION* information, std::size_t count) {
+    const processor_power_information* information, std::size_t count) {
     if (!information || count == 0U) { return fail(errc::malformed_data); }
     std::uint64_t maximum_megahertz = 0U;
     for (std::size_t index = 0U; index < count; ++index) {
         maximum_megahertz =
-            maximum_megahertz < information[index].MaxMhz
-                ? static_cast<std::uint64_t>(information[index].MaxMhz)
+            maximum_megahertz < information[index].maximum_megahertz
+                ? static_cast<std::uint64_t>(
+                      information[index].maximum_megahertz)
                 : maximum_megahertz;
     }
     if (maximum_megahertz == 0U) { return fail(errc::malformed_data); }
@@ -626,7 +646,7 @@ inline result<std::size_t> query_processor_power_information(
         ProcessorInformation, nullptr, 0U, buffer,
         static_cast<::ULONG>(byte_count));
     if (status != 0) { return fail(processor_power_error(status)); }
-    return byte_count / sizeof(::PROCESSOR_POWER_INFORMATION);
+    return byte_count / sizeof(processor_power_information);
 }
 
 inline result<std::vector<std::uint32_t>> current_frequencies_khz() {
@@ -639,7 +659,7 @@ inline result<std::vector<std::uint32_t>> current_frequencies_khz() {
     }
     const std::size_t byte_count =
         static_cast<std::size_t>(processors) *
-        sizeof(::PROCESSOR_POWER_INFORMATION);
+        sizeof(processor_power_information);
     std::unique_ptr<unsigned char[]> buffer(
         new (std::nothrow) unsigned char[byte_count]);
     if (!buffer) { return fail(errc::resource_exhausted); }
@@ -650,7 +670,7 @@ inline result<std::vector<std::uint32_t>> current_frequencies_khz() {
     if (*returned != processors) { return fail(errc::malformed_data); }
 
     return parse_current_frequencies(
-        reinterpret_cast<const ::PROCESSOR_POWER_INFORMATION*>(buffer.get()),
+        reinterpret_cast<const processor_power_information*>(buffer.get()),
         *returned);
 }
 
@@ -671,7 +691,7 @@ inline result<std::uint32_t> maximum_frequency_khz() {
     }
     const std::size_t byte_count =
         static_cast<std::size_t>(processors) *
-        sizeof(::PROCESSOR_POWER_INFORMATION);
+        sizeof(processor_power_information);
     std::unique_ptr<unsigned char[]> buffer(
         new (std::nothrow) unsigned char[byte_count]);
     if (!buffer) { return fail(errc::resource_exhausted); }
@@ -682,7 +702,7 @@ inline result<std::uint32_t> maximum_frequency_khz() {
     if (*returned != processors) { return fail(errc::malformed_data); }
 
     return parse_maximum_frequency(
-        reinterpret_cast<const ::PROCESSOR_POWER_INFORMATION*>(buffer.get()),
+        reinterpret_cast<const processor_power_information*>(buffer.get()),
         *returned);
 }
 

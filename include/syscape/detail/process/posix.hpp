@@ -27,7 +27,7 @@ inline result<int> validate_priority(int value, int least_value,
 /// Reads and validates the nice value recorded for the caller.
 inline result<int> priority(int least_value, int greatest_value) {
     errno = 0;
-    const int value = ::getpriority(::PRIO_PROCESS, 0);
+    const int value = ::getpriority(PRIO_PROCESS, 0);
     if (value == -1 && errno != 0) {
         return fail(std::error_code(errno, std::generic_category()));
     }

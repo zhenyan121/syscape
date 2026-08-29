@@ -209,7 +209,7 @@ frequency_to_channel(std::uint32_t freq_mhz) noexcept {
             return static_cast<std::uint16_t>((freq_mhz - 2407U) / 5U);
         }
     } else if (freq_mhz == 2484U) {
-        return 14U;
+        return static_cast<std::uint16_t>(14U);
     } else if (freq_mhz >= 5000U && freq_mhz <= 5895U) {
         if ((freq_mhz - 5000U) % 5U == 0U) {
             return static_cast<std::uint16_t>((freq_mhz - 5000U) / 5U);

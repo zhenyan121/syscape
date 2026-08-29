@@ -134,11 +134,11 @@ inline storage_common::bus_classification classify_bus(
         return bus_classification::ata;
     case BusType1394:
         return bus_classification::firewire;
-    case BusTypeFibreChannel:
+    case BusTypeFibre:
         return bus_classification::fibre_channel;
     case BusTypeUsb:
         return bus_classification::usb;
-    case BusTypeRaid:
+    case BusTypeRAID:
         return bus_classification::raid;
     case BusTypeiScsi:
         return bus_classification::iscsi;
@@ -253,7 +253,7 @@ convert_alignment_descriptor(const std::vector<char>& buffer) {
         return fail(errc::malformed_data);
     }
     constexpr ::ULONG limit = static_cast<::ULONG>(
-        std::numeric_limits<std::uint32_t>::max());
+        (std::numeric_limits<std::uint32_t>::max)());
     if (descriptor.BytesPerLogicalSector > limit ||
         descriptor.BytesPerPhysicalSector > limit) {
         return fail(errc::value_too_large);
@@ -553,7 +553,7 @@ inline result<std::vector<volume_extent_record>> convert_volume_extents(
                                          NumberOfDiskExtents),
                 sizeof(count));
     if (static_cast<std::size_t>(count) >
-        (std::numeric_limits<std::size_t>::max() - extent_offset) /
+        ((std::numeric_limits<std::size_t>::max)() - extent_offset) /
             sizeof(::DISK_EXTENT)) {
         return fail(errc::value_too_large);
     }
@@ -787,7 +787,7 @@ native_drive_api::volume_extents() {
 inline std::string format_guid(const ::GUID& guid) {
     char buffer[37];
     static const char hex_digits[] = "0123456789abcdef";
-    const auto write_hex2 = [&hex_digits](char* dest, unsigned char val) {
+    const auto write_hex2 = [](char* dest, unsigned char val) {
         dest[0] = hex_digits[(val >> 4) & 0x0F];
         dest[1] = hex_digits[val & 0x0F];
     };
@@ -1191,7 +1191,8 @@ inline result<storage_common::health_record> health(
     if (num_str.empty()) { return fail(errc::invalid_argument); }
 
     unsigned int index = 0U;
-    constexpr unsigned int max_val = std::numeric_limits<unsigned int>::max();
+    constexpr unsigned int max_val =
+        (std::numeric_limits<unsigned int>::max)();
     for (char c : num_str) {
         if (c < '0' || c > '9') { return fail(errc::invalid_argument); }
         const unsigned int digit = static_cast<unsigned int>(c - '0');
