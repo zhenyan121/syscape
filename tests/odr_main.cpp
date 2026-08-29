@@ -12,6 +12,7 @@
 #include <syscape/gpu.hpp>
 #include <syscape/hardware.hpp>
 #include <syscape/input.hpp>
+#include <syscape/ipc.hpp>
 #include <syscape/locale.hpp>
 #include <syscape/memory.hpp>
 #include <syscape/network.hpp>
@@ -61,6 +62,7 @@ bool other_process_list_backend_callable();
 bool other_connection_backend_callable();
 bool other_software_backend_callable();
 bool other_numa_backend_callable();
+bool other_ipc_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -158,6 +160,9 @@ int main() {
     }
     if (!other_numa_backend_callable()) {
         return 31;
+    }
+    if (!other_ipc_backend_callable()) {
+        return 32;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;

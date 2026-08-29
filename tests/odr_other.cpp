@@ -14,6 +14,7 @@
 #include <syscape/gpu.hpp>
 #include <syscape/hardware.hpp>
 #include <syscape/input.hpp>
+#include <syscape/ipc.hpp>
 #include <syscape/locale.hpp>
 #include <syscape/memory.hpp>
 #include <syscape/network.hpp>
@@ -509,4 +510,17 @@ bool other_numa_backend_callable() {
     static_cast<void>(node0);
     static_cast<void>(thread_node);
     return avail.has_value() || static_cast<bool>(avail.error());
+}
+
+bool other_ipc_backend_callable() {
+    const auto shm = syscape::ipc::shared_memory_segments();
+    const auto msg = syscape::ipc::message_queues();
+    const auto sem = syscape::ipc::semaphore_sets();
+    const auto sock = syscape::ipc::local_sockets();
+    const auto lim = syscape::ipc::limits();
+    static_cast<void>(msg);
+    static_cast<void>(sem);
+    static_cast<void>(sock);
+    static_cast<void>(lim);
+    return shm.has_value() || static_cast<bool>(shm.error());
 }
