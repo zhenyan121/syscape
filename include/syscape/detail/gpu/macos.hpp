@@ -132,7 +132,7 @@ inline result<std::vector<::syscape::gpu::gpu_device>> collect_devices() {
     }
     ::io_iterator_t pci_iterator = IO_OBJECT_NULL;
     const ::kern_return_t pci_rc = ::IOServiceGetMatchingServices(
-        kIOMasterPortDefault, pci_matching, &pci_iterator);
+        MACH_PORT_NULL, pci_matching, &pci_iterator);
     if (pci_rc != KERN_SUCCESS) {
         return fail(errc::io_error);
     }
@@ -224,7 +224,7 @@ inline result<std::vector<::syscape::gpu::gpu_device>> collect_devices() {
     }
     ::io_iterator_t accel_iterator = IO_OBJECT_NULL;
     const ::kern_return_t accel_rc = ::IOServiceGetMatchingServices(
-        kIOMasterPortDefault, accel_matching, &accel_iterator);
+        MACH_PORT_NULL, accel_matching, &accel_iterator);
     if (accel_rc != KERN_SUCCESS) {
         return fail(errc::io_error);
     }

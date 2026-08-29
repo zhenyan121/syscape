@@ -121,14 +121,9 @@ inline result<hypervisor_info> detect_hypervisor() {
     }
 
     std::string model;
-#if defined(kIOMainPortDefault)
-    const ::io_service_t port = kIOMainPortDefault;
-#else
-    const ::io_service_t port = kIOMasterPortDefault;
-#endif
     ::CFMutableDictionaryRef matching = ::IOServiceMatching("IOPlatformExpertDevice");
     if (matching != nullptr) {
-        const ::io_service_t service = ::IOServiceGetMatchingService(port, matching);
+        const ::io_service_t service = ::IOServiceGetMatchingService(MACH_PORT_NULL, matching);
         if (service != IO_OBJECT_NULL) {
             const ::CFTypeRef model_prop = ::IORegistryEntryCreateCFProperty(
                 service, CFSTR("model"), ::kCFAllocatorDefault, 0);

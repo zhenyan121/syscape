@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <syscape/audio.hpp>
 #include <syscape/locale.hpp>
 #include <syscape/hardware.hpp>
 #include <syscape/storage.hpp>

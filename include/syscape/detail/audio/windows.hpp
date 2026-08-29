@@ -8,12 +8,11 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
-#include <propkeydef.h>
-#include <functiondiscoverykeys_devpkey.h>
-#include <mmdeviceapi.h>
 #include <objbase.h>
+#include <mmdeviceapi.h>
 #include <propsys.h>
 #include <propvarutil.h>
+#include <functiondiscoverykeys_devpkey.h>
 
 #include <cstddef>
 #include <cstdint>
