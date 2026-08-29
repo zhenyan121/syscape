@@ -645,6 +645,159 @@ inline bool parse_reboot_required_pkgs(
     return !out.empty();
 }
 
+inline bool parse_packagekit_package_id_parts(
+    const std::vector<std::string_view>& parts,
+    software_common::update_record& out) {
+    // PackageKit package IDs always contain four fields separated by exactly
+    // three semicolons. The architecture and data fields may be empty.
+    if (parts.size() != 4U || parts[0].empty() || parts[1].empty()) {
+        return false;
+    }
+    out = software_common::update_record {};
+    out.identifier = std::string(parts[0]);
+    out.title = std::string(parts[0]);
+    out.version = std::string(parts[1]);
+    const std::string_view name_view = parts[0];
+    if (name_view.rfind("linux", 0) == 0 ||
+        name_view == "systemd" ||
+        name_view == "glibc" ||
+        name_view.find("nvidia") != std::string_view::npos) {
+        out.requires_reboot = true;
+    }
+    return true;
+}
+
+inline bool parse_packagekit_package_id(
+    std::string_view package_id,
+    software_common::update_record& out) {
+    std::vector<std::string_view> parts;
+    std::size_t start = 0;
+    for (;;) {
+        const std::size_t separator = package_id.find(';', start);
+        if (separator == std::string_view::npos) {
+            parts.push_back(package_id.substr(start));
+            break;
+        }
+        parts.push_back(package_id.substr(start, separator - start));
+        start = separator + 1;
+    }
+    return parse_packagekit_package_id_parts(parts, out);
+}
+
+inline bool parse_packagekit_prepared_update(
+    std::string_view content,
+    std::vector<software_common::update_record>& out,
+    bool& is_malformed) {
+    is_malformed = false;
+    content = trim_whitespace_view(content);
+    if (content.empty()) {
+        is_malformed = true;
+        return false;
+    }
+
+    const std::size_t initial_count = out.size();
+
+    // Check if it is a KeyFile / INI format (starts with section or contains [update])
+    if (content.front() == '[' || content.find("\n[") != std::string_view::npos) {
+        bool in_update_section = false;
+        bool found_update_section = false;
+        bool found_prepared_ids_key = false;
+        std::size_t pos = 0;
+
+        while (pos < content.size()) {
+            const std::size_t next_line = content.find('\n', pos);
+            const std::size_t len = (next_line == std::string_view::npos) ? content.size() - pos : next_line - pos;
+            const std::string_view line = trim_whitespace_view(content.substr(pos, len));
+            pos = (next_line == std::string_view::npos) ? content.size() : next_line + 1;
+
+            if (line.empty() || line.front() == '#' || line.front() == ';') {
+                continue;
+            }
+
+            if (line.front() == '[' && line.back() == ']') {
+                const std::string_view section = line.substr(1, line.size() - 2);
+                in_update_section = (section == "update");
+                if (in_update_section) {
+                    found_update_section = true;
+                }
+                continue;
+            }
+
+            if (!in_update_section) {
+                continue;
+            }
+
+            const std::size_t eq = line.find('=');
+            if (eq == std::string_view::npos) {
+                continue;
+            }
+
+            const std::string_view key = trim_whitespace_view(line.substr(0, eq));
+            const std::string_view val = trim_whitespace_view(line.substr(eq + 1));
+
+            if (key == "prepared_ids") {
+                found_prepared_ids_key = true;
+                // In official PackageKit, list separator is comma ','
+                // Each element between commas is a package-id: "name;version;arch;data"
+                std::size_t item_start = 0;
+                while (item_start < val.size()) {
+                    const std::size_t comma = val.find(',', item_start);
+                    std::string_view item = (comma == std::string_view::npos)
+                        ? val.substr(item_start)
+                        : val.substr(item_start, comma - item_start);
+                    item = trim_whitespace_view(item);
+                    if (!item.empty()) {
+                        software_common::update_record rec;
+                        if (parse_packagekit_package_id(item, rec)) {
+                            out.push_back(std::move(rec));
+                        } else {
+                            is_malformed = true;
+                            return false;
+                        }
+                    }
+                    if (comma == std::string_view::npos) {
+                        break;
+                    }
+                    item_start = comma + 1;
+                }
+            }
+        }
+
+        if (!found_update_section || !found_prepared_ids_key) {
+            is_malformed = true;
+            return false;
+        }
+    } else {
+        // Legacy line-oriented format: each line is "name;version;arch;data"
+        std::size_t pos = 0;
+        while (pos < content.size()) {
+            const std::size_t next_line = content.find('\n', pos);
+            const std::size_t len = (next_line == std::string_view::npos) ? content.size() - pos : next_line - pos;
+            const std::string_view line = trim_whitespace_view(content.substr(pos, len));
+            pos = (next_line == std::string_view::npos) ? content.size() : next_line + 1;
+
+            if (line.empty() || line.front() == '#') {
+                continue;
+            }
+
+            software_common::update_record rec;
+            if (parse_packagekit_package_id(line, rec)) {
+                out.push_back(std::move(rec));
+            } else {
+                is_malformed = true;
+                return false;
+            }
+        }
+    }
+
+    if (out.size() == initial_count) {
+        is_malformed = true;
+        return false;
+    }
+
+    return out.size() > initial_count;
+}
+
 inline bool parse_rust_channel_manifest(
     std::string_view content,
     std::string& out_version) {
@@ -1154,7 +1307,7 @@ inline result<std::vector<software_common::update_record>> system_updates() {
         }
     };
 
-    // 1. Check reboot-required package list files (contains actual updated package names pending reboot)
+    // 1. Check reboot-required package list files (Debian/Ubuntu pending reboot records)
     const char* reboot_pkg_paths[] = {
         "/run/reboot-required.pkgs",
         "/var/run/reboot-required.pkgs"
@@ -1171,12 +1324,36 @@ inline result<std::vector<software_common::update_record>> system_updates() {
                     }
                 }
             }
-        } else if (content.error() != std::errc::no_such_file_or_directory) {
+        } else if (content.error() != std::errc::no_such_file_or_directory &&
+                   content.error() != std::errc::not_a_directory) {
             last_error = content.error();
         }
     }
 
-    // 2. Check general reboot-required indicator
+    // 2. Check FreeDesktop / systemd offline updates (PackageKit standard keyfile format)
+    const char* offline_update_paths[] = {
+        "/var/lib/PackageKit/prepared-update"
+    };
+    for (const char* path : offline_update_paths) {
+        const auto content = linux_platform::read_text_file(path, 256U * 1024U);
+        if (content) {
+            any_source_found = true;
+            bool is_malformed = false;
+            std::vector<software_common::update_record> parsed;
+            if (linux_impl::parse_packagekit_prepared_update(*content, parsed, is_malformed)) {
+                for (auto& item : parsed) {
+                    add_update(std::move(item));
+                }
+            } else if (is_malformed) {
+                return fail(errc::malformed_data);
+            }
+        } else if (content.error() != std::errc::no_such_file_or_directory &&
+                   content.error() != std::errc::not_a_directory) {
+            last_error = content.error();
+        }
+    }
+
+    // 3. Check general reboot-required indicator
     if (updates.empty()) {
         const char* reboot_indicators[] = {
             "/run/reboot-required",

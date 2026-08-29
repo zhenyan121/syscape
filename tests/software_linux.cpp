@@ -299,6 +299,121 @@ void test_reboot_required_parsing() {
     assert(records[2].identifier == "dbus");
 }
 
+void test_packagekit_prepared_update_parsing() {
+    // 1. Official PackageKit GKeyFile with comma-separated prepared_ids
+    const std::string official_comma_sample =
+        "[update]\n"
+        "prepared_ids=nano;8.0-1;x86_64;fedora,firefox;128.0-1.fc40;x86_64;updates,linux;6.10.1;x86_64;updates,\n"
+        "action=reboot\n";
+
+    bool is_malformed = false;
+    std::vector<syscape::detail::software_common::update_record> records;
+    assert(syscape::detail::software_backend::linux_impl::parse_packagekit_prepared_update(
+        official_comma_sample, records, is_malformed));
+    assert(!is_malformed);
+    assert(records.size() == 3);
+    assert(records[0].identifier == "nano");
+    assert(records[0].version.has_value() && *records[0].version == "8.0-1");
+    assert(!records[0].requires_reboot);
+
+    assert(records[1].identifier == "firefox");
+    assert(records[1].version.has_value() && *records[1].version == "128.0-1.fc40");
+    assert(!records[1].requires_reboot);
+
+    assert(records[2].identifier == "linux");
+    assert(records[2].requires_reboot);
+
+    // 2. Single package ID in prepared_ids without trailing comma
+    const std::string single_sample =
+        "[update]\n"
+        "prepared_ids=systemd;256.4-1;x86_64;updates\n";
+
+    records.clear();
+    assert(syscape::detail::software_backend::linux_impl::parse_packagekit_prepared_update(
+        single_sample, records, is_malformed));
+    assert(!is_malformed);
+    assert(records.size() == 1);
+    assert(records[0].identifier == "systemd");
+    assert(records[0].requires_reboot);
+
+    // 3. PackageKit permits empty architecture and data fields, but retains
+    // all three semicolon separators.
+    const std::string optional_fields_sample =
+        "[update]\n"
+        "prepared_ids=portable-package;1.0;;\n";
+
+    records.clear();
+    assert(syscape::detail::software_backend::linux_impl::parse_packagekit_prepared_update(
+        optional_fields_sample, records, is_malformed));
+    assert(!is_malformed);
+    assert(records.size() == 1);
+    assert(records[0].identifier == "portable-package");
+    assert(records[0].version.has_value() && *records[0].version == "1.0");
+
+    // 4. Legacy line-oriented format
+    const std::string legacy_sample =
+        "nano;8.0-1;x86_64;fedora\n"
+        "firefox;128.0-1.fc40;x86_64;updates\n";
+
+    records.clear();
+    assert(syscape::detail::software_backend::linux_impl::parse_packagekit_prepared_update(
+        legacy_sample, records, is_malformed));
+    assert(!is_malformed);
+    assert(records.size() == 2);
+    assert(records[0].identifier == "nano");
+    assert(records[1].identifier == "firefox");
+
+    // 5. Malformed case: Missing [update] section
+    records.clear();
+    is_malformed = false;
+    const std::string wrong_section =
+        "[not_update]\n"
+        "prepared_ids=nano;8.0-1;x86_64;fedora\n";
+    assert(!syscape::detail::software_backend::linux_impl::parse_packagekit_prepared_update(
+        wrong_section, records, is_malformed));
+    assert(is_malformed);
+    assert(records.empty());
+
+    // 6. Malformed case: Missing prepared_ids key in [update] section
+    records.clear();
+    is_malformed = false;
+    const std::string missing_key =
+        "[update]\n"
+        "action=reboot\n";
+    assert(!syscape::detail::software_backend::linux_impl::parse_packagekit_prepared_update(
+        missing_key, records, is_malformed));
+    assert(is_malformed);
+    assert(records.empty());
+
+    // 7. Malformed case: Empty package ID element
+    records.clear();
+    is_malformed = false;
+    const std::string invalid_pkg_id =
+        "[update]\n"
+        "prepared_ids=;\n";
+    assert(!syscape::detail::software_backend::linux_impl::parse_packagekit_prepared_update(
+        invalid_pkg_id, records, is_malformed));
+    assert(is_malformed);
+    assert(records.empty());
+
+    // 8. Malformed cases: empty files and package IDs without exactly four fields
+    const std::string malformed_package_ids[] = {
+        "",
+        "[update]\nprepared_ids=nano\n",
+        "[update]\nprepared_ids=nano;8.0-1\n",
+        "[update]\nprepared_ids=nano;;x86_64;updates\n",
+        "[update]\nprepared_ids=nano;8.0-1;x86_64;updates;extra\n"
+    };
+    for (const auto& malformed : malformed_package_ids) {
+        records.clear();
+        is_malformed = false;
+        assert(!syscape::detail::software_backend::linux_impl::parse_packagekit_prepared_update(
+            malformed, records, is_malformed));
+        assert(is_malformed);
+        assert(records.empty());
+    }
+}
+
 void test_executable_file_detection() {
     std::error_code error;
     const char* executable_paths[] = { "/bin/sh" };
@@ -463,6 +578,7 @@ int main() {
     test_apk_installed_parsing();
     test_desktop_entry_parsing();
     test_reboot_required_parsing();
+    test_packagekit_prepared_update_parsing();
     test_executable_file_detection();
     test_rust_manifest_parsing();
     test_java_release_parsing();

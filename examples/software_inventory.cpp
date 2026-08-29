@@ -119,6 +119,9 @@ int main() {
         std::cout << "  Pending Updates: " << updates->size() << std::endl;
         for (const auto& u : *updates) {
             std::cout << "  - [" << u.identifier << "] " << u.title;
+            if (u.version) {
+                std::cout << " -> v" << *u.version;
+            }
             if (u.requires_reboot) {
                 std::cout << " [Reboot Required]";
             }
