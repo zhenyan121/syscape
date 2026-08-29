@@ -1012,7 +1012,8 @@ inline result<std::vector<software_common::package_record>> installed_packages()
             const std::string desc_path = std::string("/var/lib/pacman/local/") + entry->d_name + "/desc";
             const result<std::string> content = linux_platform::read_text_file(desc_path.c_str(), 128U * 1024U);
             if (!content) {
-                if (content.error() != std::errc::no_such_file_or_directory) {
+                if (content.error() != std::errc::no_such_file_or_directory &&
+                    content.error() != std::errc::not_a_directory) {
                     last_error = content.error();
                 }
                 continue;

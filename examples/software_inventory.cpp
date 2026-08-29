@@ -109,6 +109,8 @@ int main() {
         if (pkgs->size() > 6) {
             std::cout << "  ... and " << (pkgs->size() - 6) << " more packages." << std::endl;
         }
+    } else {
+        std::cout << "  (No package database accessible)" << std::endl;
     }
 
     // Pending System Updates
@@ -122,6 +124,8 @@ int main() {
             }
             std::cout << std::endl;
         }
+    } else {
+        std::cout << "  (No pending reboot/update records reported by platform)" << std::endl;
     }
 
     return 0;
