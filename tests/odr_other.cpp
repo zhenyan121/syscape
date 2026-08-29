@@ -17,6 +17,7 @@
 #include <syscape/locale.hpp>
 #include <syscape/memory.hpp>
 #include <syscape/network.hpp>
+#include <syscape/numa.hpp>
 #include <syscape/os.hpp>
 #include <syscape/power.hpp>
 #include <syscape/printer.hpp>
@@ -494,4 +495,18 @@ bool other_software_backend_callable() {
     static_cast<void>(drv);
     static_cast<void>(pkg);
     return svcs.has_value() || static_cast<bool>(svcs.error());
+}
+
+bool other_numa_backend_callable() {
+    const auto avail = syscape::numa::is_numa_available();
+    const auto count = syscape::numa::node_count();
+    const auto nodes = syscape::numa::nodes();
+    const auto node0 = syscape::numa::node(0U);
+    const auto thread_node = syscape::numa::current_thread_node();
+    static_cast<void>(avail);
+    static_cast<void>(count);
+    static_cast<void>(nodes);
+    static_cast<void>(node0);
+    static_cast<void>(thread_node);
+    return avail.has_value() || static_cast<bool>(avail.error());
 }

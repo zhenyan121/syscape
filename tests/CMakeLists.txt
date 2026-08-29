@@ -92,6 +92,7 @@ syscape_add_test(header_printer 17 syscape::hosted header_printer.cpp)
 syscape_add_test(header_process_list 17 syscape::hosted header_process_list.cpp)
 syscape_add_test(header_connection 17 syscape::hosted header_connection.cpp)
 syscape_add_test(header_software 17 syscape::hosted header_software.cpp)
+syscape_add_test(header_numa 17 syscape::hosted header_numa.cpp)
 syscape_add_test(foundation 17 syscape::hosted foundation.cpp)
 syscape_add_test(odr 17 syscape::hosted odr_main.cpp odr_other.cpp)
 
@@ -224,6 +225,11 @@ target_compile_definitions(
     software_force_generic
     PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
 
+syscape_add_test(numa_force_generic 17 syscape::hosted numa_force_generic.cpp)
+target_compile_definitions(
+    numa_force_generic
+    PRIVATE SYSCAPE_FORCE_GENERIC_BACKEND=1)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(os_linux 17 syscape::hosted os_linux.cpp)
     syscape_add_test(cpu_linux 17 syscape::hosted cpu_linux.cpp)
@@ -252,6 +258,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     syscape_add_test(process_list_linux 17 syscape::hosted process_list_linux.cpp)
     syscape_add_test(connection_linux 17 syscape::hosted connection_linux.cpp)
     syscape_add_test(software_linux 17 syscape::hosted software_linux.cpp)
+    syscape_add_test(numa_linux 17 syscape::hosted numa_linux.cpp)
 endif()
 
 if(WIN32)
@@ -286,6 +293,7 @@ if(WIN32)
     syscape_add_test(process_list_windows 17 syscape::hosted process_list_windows.cpp)
     syscape_add_test(connection_windows 17 syscape::hosted connection_windows.cpp)
     syscape_add_test(software_windows 17 syscape::hosted software_windows.cpp)
+    syscape_add_test(numa_windows 17 syscape::hosted numa_windows.cpp)
     target_link_libraries(header_software PRIVATE advapi32 psapi)
     target_link_libraries(software_windows PRIVATE advapi32 psapi)
     target_link_libraries(odr PRIVATE advapi32 psapi)
@@ -359,6 +367,7 @@ if(APPLE)
     syscape_add_test(process_list_macos 17 syscape::hosted process_list_macos.cpp)
     syscape_add_test(connection_macos 17 syscape::hosted connection_macos.cpp)
     syscape_add_test(software_macos 17 syscape::hosted software_macos.cpp)
+    syscape_add_test(numa_macos 17 syscape::hosted numa_macos.cpp)
     target_link_libraries(
         header_software PRIVATE "-framework CoreFoundation")
     target_link_libraries(
@@ -580,3 +589,9 @@ syscape_expect_cpp11_rejection(
 syscape_expect_cpp11_rejection(
     "syscape/connection.hpp"
     "syscape/connection.hpp requires C++17 or later")
+syscape_expect_cpp11_rejection(
+    "syscape/software.hpp"
+    "syscape/software.hpp requires C++17 or later")
+syscape_expect_cpp11_rejection(
+    "syscape/numa.hpp"
+    "syscape/numa.hpp requires C++17 or later")

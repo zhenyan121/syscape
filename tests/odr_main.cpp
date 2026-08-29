@@ -15,6 +15,7 @@
 #include <syscape/locale.hpp>
 #include <syscape/memory.hpp>
 #include <syscape/network.hpp>
+#include <syscape/numa.hpp>
 #include <syscape/os.hpp>
 #include <syscape/power.hpp>
 #include <syscape/printer.hpp>
@@ -59,6 +60,7 @@ bool other_printer_backend_callable();
 bool other_process_list_backend_callable();
 bool other_connection_backend_callable();
 bool other_software_backend_callable();
+bool other_numa_backend_callable();
 
 int main() {
     const auto languages = syscape::locale::preferred_languages();
@@ -153,6 +155,9 @@ int main() {
     }
     if (!other_software_backend_callable()) {
         return 30;
+    }
+    if (!other_numa_backend_callable()) {
+        return 31;
     }
     const syscape::result<int> value(7);
     return value && *value == 7 ? 0 : 10;
