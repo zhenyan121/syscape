@@ -4,6 +4,7 @@
 #include <vector>
 
 #include <syscape/detail/sensor/common.hpp>
+#include <syscape/error.hpp>
 #include <syscape/result.hpp>
 
 namespace syscape {
@@ -11,7 +12,9 @@ namespace detail {
 namespace sensor_backend {
 
 inline result<std::vector<::syscape::sensor::temperature_sensor>> temperatures() {
-    // Stable public macOS APIs do not expose these hardware sensor readings.
+    // Stable public unprivileged macOS APIs do not expose per-diode hardware sensor
+    // readings (which require private AppleSMC entitlements). Qualitative thermal
+    // pressure states do not expose physical temperature measurements.
     return fail(errc::not_supported);
 }
 
@@ -21,6 +24,7 @@ inline result<std::vector<::syscape::sensor::fan_sensor>> fans() {
 }
 
 inline result<std::vector<::syscape::sensor::thermal_zone>> thermal_zones() {
+    // Stable public macOS APIs do not expose physical ACPI/hwmon thermal zone tables.
     return fail(errc::not_supported);
 }
 
