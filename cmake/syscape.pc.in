@@ -1,0 +1,7 @@
+prefix=@SYSCAPE_PKGCONFIG_PREFIX@
+includedir=@SYSCAPE_PKGCONFIG_INCLUDEDIR@
+
+Name: syscape
+Description: Zero-dependency, header-only C++ library for querying platform, hardware, and runtime system information
+Version: @PROJECT_VERSION@
+Cflags: -I${includedir}

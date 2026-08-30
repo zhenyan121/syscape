@@ -23,7 +23,10 @@
 /// and folds the host_processor_info scheduler ticks into cumulative
 /// utilization. Darwin's documented cache sysctls do not identify distinct
 /// sharing sets, so the cache-instance query reports not_supported. Platforms
-/// without the other facts also report not_supported. All other targets use
+/// without the other facts also report not_supported. FreeBSD implements model,
+/// topology counts, frequency, and cumulative usage queries through documented
+/// sysctl values; vendor, cache, and instruction-set queries report
+/// not_supported. All other targets use
 /// the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
@@ -72,6 +75,8 @@ enum class cache_kind : std::uint8_t {
     !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
     !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
 #include <syscape/detail/cpu/macos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
+#include <syscape/detail/cpu/freebsd.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif

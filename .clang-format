@@ -13,6 +13,7 @@ AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
+SpaceBeforeCpp11BracedList: true
 AccessModifierOffset: 0
 AlwaysBreakTemplateDeclarations: Yes
 BinPackArguments: true

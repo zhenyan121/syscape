@@ -2,11 +2,13 @@
 #define SYSCAPE_ENVIRONMENT_HPP
 
 /// @file
-/// @brief Hosted environment variables, standard directories, and interactive terminal queries.
+/// @brief Hosted environment variables, standard directories, and interactive
+/// terminal queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note Linux and macOS use their documented POSIX and platform directory
-/// facilities; Windows provides a native Win32/Shell known-folder backend.
-/// Android, Apple mobile platforms, and other targets use the generic fallback.
+/// @note Linux, macOS, and FreeBSD use their documented POSIX and platform
+/// directory facilities; Windows provides a native Win32/Shell known-folder
+/// backend. Android, Apple mobile platforms, and other targets use the generic
+/// fallback.
 /// @note All returned paths and strings are UTF-8 encoded.
 /// @note Thread-safety: queries observe the process environment without
 /// modifying it. C and POSIX environment mutation APIs do not provide a
@@ -63,6 +65,8 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
     !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
     !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
 #include <syscape/detail/environment/macos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
+#include <syscape/detail/environment/freebsd.hpp>
 #else
 #include <syscape/detail/environment/generic.hpp>
 #endif

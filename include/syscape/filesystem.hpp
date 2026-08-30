@@ -6,23 +6,24 @@
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note Linux enumerates mounts from the kernel-documented
 /// /proc/self/mounts interface and queries capacity through POSIX statvfs.
-/// macOS enumerates mounts through the documented getfsstat interface and
-/// queries capacity through statvfs. Windows enumerates drive-letter volumes
+/// macOS and FreeBSD enumerate mounts through the documented getfsstat
+/// interface and query capacity through statvfs. Windows enumerates
+/// drive-letter volumes
 /// through GetLogicalDrives, QueryDosDeviceW, and GetVolumeInformationW,
 /// resolves queried paths to their real volume mount point through
 /// GetVolumePathNameW, and queries capacity through GetDiskFreeSpaceExW;
 /// network shares without drive letters and other non-drive-letter volumes
 /// are not enumerated by this slice. Other targets use the generic
 /// not-supported fallback.
-/// @note Path-limit queries use POSIX pathconf on Linux and macOS. Windows
-/// reads the documented MaximumComponentLength record of
+/// @note Path-limit queries use POSIX pathconf on Linux, macOS, and FreeBSD.
+/// Windows reads the documented MaximumComponentLength record of
 /// GetVolumeInformationW after resolving a path to its volume, and reports
 /// no per-volume maximum complete-path length because the platform bounds
 /// complete paths by process-wide activation policy instead.
 /// @note Volume-identifier queries render each platform's recorded opaque
 /// identifier verbatim: Linux uses the kernel-documented statfs f_fsid word
-/// pair, macOS uses the statfs f_fsid word pair, and Windows uses the
-/// documented GetVolumeInformationW serial number.
+/// pair, macOS and FreeBSD use the statfs f_fsid word pair, and Windows uses
+/// the documented GetVolumeInformationW serial number.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 
@@ -50,6 +51,8 @@
     !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
     !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
 #include <syscape/detail/filesystem/macos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
+#include <syscape/detail/filesystem/freebsd.hpp>
 #else
 #include <syscape/detail/filesystem/generic.hpp>
 #endif

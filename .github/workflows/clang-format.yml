@@ -27,13 +27,16 @@ jobs:
           if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
             BASE_SHA="$(git rev-parse HEAD^)"
           fi
+          FORMAT_STATUS=0
           FORMAT_DIFF="$(git clang-format \
             --diff \
             --style file \
             --extensions cpp,hpp \
-            "$BASE_SHA" HEAD)"
-          if [[ -n "$FORMAT_DIFF" && \
-                "$FORMAT_DIFF" != "no modified files to format" ]]; then
+            "$BASE_SHA" HEAD)" || FORMAT_STATUS=$?
+          if [[ $FORMAT_STATUS -ne 0 || \
+                ( -n "$FORMAT_DIFF" && \
+                  "$FORMAT_DIFF" != "no modified files to format" && \
+                  "$FORMAT_DIFF" != "clang-format did not modify any files" ) ]]; then
             printf '%s\n' "$FORMAT_DIFF"
             exit 1
           fi

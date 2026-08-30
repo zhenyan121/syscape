@@ -18,7 +18,9 @@
 /// count and open-file count from the long-stable XNU sysctl values
 /// kern.num_threads and kern.num_files; those sysctls are not described in
 /// Apple's formal documentation set and are used because no stronger
-/// documented source exists on that platform. All other targets use the
+/// documented source exists on that platform. FreeBSD implements load average,
+/// process count, open-file count, and the system file limit; scheduler entity,
+/// thread, and handle totals report not_supported. All other targets use the
 /// not-supported fallback.
 /// @note Every count is an instantaneous snapshot observed during the call;
 /// values change continuously with system activity and must never be
@@ -50,6 +52,8 @@
     !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
     !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
 #include <syscape/detail/resource/macos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
+#include <syscape/detail/resource/freebsd.hpp>
 #else
 #include <syscape/detail/resource/generic.hpp>
 #endif
