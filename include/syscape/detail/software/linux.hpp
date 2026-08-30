@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <iterator>
 #include <optional>
 #include <pwd.h>
 #include <string>
@@ -16,8 +17,11 @@
 #include <vector>
 
 #include <dirent.h>
+#include <fcntl.h>
+#include <spawn.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <syscape/detail/linux/directory.hpp>
@@ -25,6 +29,8 @@
 #include <syscape/detail/software/common.hpp>
 #include <syscape/error.hpp>
 #include <syscape/result.hpp>
+
+extern char** environ;
 
 namespace syscape {
 namespace detail {
@@ -621,6 +627,156 @@ inline void list_numeric_version_directories(
 // ----------------------------------------------------------------------------
 // System Updates Parsing
 // ----------------------------------------------------------------------------
+
+inline bool
+parse_checkupdates_output(std::string_view content,
+                          std::vector<software_common::update_record>& out) {
+    std::vector<software_common::update_record> parsed;
+    std::size_t pos = 0;
+    while (pos < content.size()) {
+        const std::size_t next_line = content.find('\n', pos);
+        const std::size_t len = (next_line == std::string_view::npos)
+                                    ? content.size() - pos
+                                    : next_line - pos;
+        const std::string_view line =
+            trim_whitespace_view(content.substr(pos, len));
+        pos = (next_line == std::string_view::npos) ? content.size()
+                                                    : next_line + 1;
+        if (line.empty()) {
+            continue;
+        }
+
+        const std::size_t name_end = line.find_first_of(" \t");
+        const std::size_t arrow = line.find(" -> ", name_end);
+        if (name_end == std::string_view::npos ||
+            arrow == std::string_view::npos) {
+            return false;
+        }
+        const std::string_view name = line.substr(0, name_end);
+        const std::string_view old_version =
+            trim_whitespace_view(line.substr(name_end, arrow - name_end));
+        const std::string_view new_version =
+            trim_whitespace_view(line.substr(arrow + 4));
+        if (name.empty() || old_version.empty() || new_version.empty()) {
+            return false;
+        }
+
+        software_common::update_record rec;
+        rec.identifier = std::string(name);
+        rec.title = std::string(name);
+        rec.version = std::string(new_version);
+        if (name.rfind("linux", 0) == 0 || name == "systemd" ||
+            name == "glibc" || name.find("nvidia") != std::string_view::npos) {
+            rec.requires_reboot = true;
+        }
+        parsed.push_back(std::move(rec));
+    }
+    if (parsed.empty()) {
+        return false;
+    }
+    out.insert(out.end(), std::make_move_iterator(parsed.begin()),
+               std::make_move_iterator(parsed.end()));
+    return true;
+}
+
+struct command_output {
+    std::string standard_output;
+    int exit_code = -1;
+};
+
+inline result<command_output> run_checkupdates() {
+    int output_pipe[2];
+    if (::pipe(output_pipe) != 0) {
+        return fail(std::error_code(errno, std::generic_category()));
+    }
+
+    posix_spawn_file_actions_t actions;
+    int action_error = ::posix_spawn_file_actions_init(&actions);
+    const bool actions_initialized = action_error == 0;
+    if (action_error == 0) {
+        action_error = ::posix_spawn_file_actions_adddup2(
+            &actions, output_pipe[1], STDOUT_FILENO);
+    }
+    if (action_error == 0) {
+        action_error =
+            ::posix_spawn_file_actions_addclose(&actions, output_pipe[0]);
+    }
+    if (action_error == 0) {
+        action_error =
+            ::posix_spawn_file_actions_addclose(&actions, output_pipe[1]);
+    }
+    if (action_error == 0) {
+        action_error = ::posix_spawn_file_actions_addopen(
+            &actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
+    }
+    if (action_error != 0) {
+        if (actions_initialized) {
+            ::posix_spawn_file_actions_destroy(&actions);
+        }
+        ::close(output_pipe[0]);
+        ::close(output_pipe[1]);
+        return fail(std::error_code(action_error, std::generic_category()));
+    }
+
+    char executable[] = "/usr/bin/checkupdates";
+    char no_color[] = "--nocolor";
+    char* arguments[] = {executable, no_color, nullptr};
+    pid_t child = 0;
+    const int spawn_error = ::posix_spawn(&child, executable, &actions, nullptr,
+                                          arguments, ::environ);
+    ::posix_spawn_file_actions_destroy(&actions);
+    ::close(output_pipe[1]);
+    if (spawn_error != 0) {
+        ::close(output_pipe[0]);
+        return fail(std::error_code(spawn_error, std::generic_category()));
+    }
+
+    command_output output;
+    char buffer[4096];
+    for (;;) {
+        const ssize_t count = ::read(output_pipe[0], buffer, sizeof(buffer));
+        if (count > 0) {
+            if (output.standard_output.size() +
+                    static_cast<std::size_t>(count) >
+                4U * 1024U * 1024U) {
+                ::close(output_pipe[0]);
+                int ignored_status = 0;
+                while (::waitpid(child, &ignored_status, 0) < 0 &&
+                       errno == EINTR) {
+                }
+                return fail(std::make_error_code(std::errc::file_too_large));
+            }
+            output.standard_output.append(buffer,
+                                          static_cast<std::size_t>(count));
+            continue;
+        }
+        if (count < 0 && errno == EINTR) {
+            continue;
+        }
+        if (count < 0) {
+            const std::error_code error(errno, std::generic_category());
+            ::close(output_pipe[0]);
+            int ignored_status = 0;
+            while (::waitpid(child, &ignored_status, 0) < 0 && errno == EINTR) {
+            }
+            return fail(error);
+        }
+        break;
+    }
+    ::close(output_pipe[0]);
+
+    int status = 0;
+    while (::waitpid(child, &status, 0) < 0) {
+        if (errno != EINTR) {
+            return fail(std::error_code(errno, std::generic_category()));
+        }
+    }
+    if (!WIFEXITED(status)) {
+        return fail(std::make_error_code(std::errc::io_error));
+    }
+    output.exit_code = WEXITSTATUS(status);
+    return output;
+}
 
 inline bool parse_reboot_required_pkgs(
     std::string_view content,
@@ -1306,6 +1462,28 @@ inline result<std::vector<software_common::update_record>> system_updates() {
             updates.push_back(std::move(rec));
         }
     };
+
+    // Arch Linux: checkupdates refreshes an isolated pacman database and
+    // prints "name old-version -> new-version" for each pending update.
+    if (::access("/var/lib/pacman/local", F_OK) == 0 &&
+        ::access("/usr/bin/checkupdates", X_OK) == 0) {
+        any_source_found = true;
+        const auto command = linux_impl::run_checkupdates();
+        if (!command) {
+            last_error = command.error();
+        } else if (command->exit_code == 0) {
+            std::vector<software_common::update_record> parsed;
+            if (!linux_impl::parse_checkupdates_output(command->standard_output,
+                                                       parsed)) {
+                return fail(errc::malformed_data);
+            }
+            for (auto& item : parsed) {
+                add_update(std::move(item));
+            }
+        } else if (command->exit_code != 2) {
+            last_error = make_error_code(errc::temporarily_unavailable);
+        }
+    }
 
     // 1. Check reboot-required package list files (Debian/Ubuntu pending reboot records)
     const char* reboot_pkg_paths[] = {

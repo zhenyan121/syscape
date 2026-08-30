@@ -349,9 +349,14 @@ inline result<package_entry> find_package(std::string_view name) {
 /// Results may include updates pending application and already-applied packages
 /// for which the platform reports that a reboot is still required. The returned
 /// state can change while the process is running. Platform backends return
-/// `errc::not_supported` when no documented in-process source is available and
-/// preserve permission, malformed-data, encoding, and native system errors.
-/// @return Observable update entries, or an error if the query cannot be completed.
+/// `errc::not_supported` when no documented source is available and preserve
+/// permission, malformed-data, encoding, and native system errors. On Arch
+/// Linux, this query runs `/usr/bin/checkupdates --nocolor`; it synchronizes an
+/// isolated pacman database and can require network access. Exit status 2 is a
+/// successful empty result, while synchronization failure reports
+/// `errc::temporarily_unavailable`.
+/// @return Observable update entries, or an error if the query cannot be
+/// completed.
 inline result<std::vector<update_entry>> system_updates() {
     auto records = detail::software_backend::system_updates();
     if (!records) {
