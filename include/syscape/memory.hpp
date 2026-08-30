@@ -47,6 +47,8 @@
 #include <syscape/detail/memory/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/memory/freebsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
+#include <syscape/detail/memory/openbsd.hpp>
 #else
 #include <syscape/detail/memory/generic.hpp>
 #endif

@@ -158,6 +158,8 @@ struct thermal_zone {
 #include <syscape/detail/sensor/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/sensor/freebsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
+#include <syscape/detail/sensor/openbsd.hpp>
 #else
 #include <syscape/detail/sensor/generic.hpp>
 #endif

@@ -77,6 +77,8 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/detail/cpu/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/cpu/freebsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
+#include <syscape/detail/cpu/openbsd.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif

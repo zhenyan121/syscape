@@ -128,6 +128,8 @@ struct process_entry {
 #include <syscape/detail/process_list/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/process_list/freebsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
+#include <syscape/detail/process_list/openbsd.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif

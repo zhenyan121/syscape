@@ -314,6 +314,8 @@ struct memory_device {
 #include <syscape/detail/hardware/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/hardware/freebsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
+#include <syscape/detail/hardware/openbsd.hpp>
 #else
 #include <syscape/detail/hardware/generic.hpp>
 #endif

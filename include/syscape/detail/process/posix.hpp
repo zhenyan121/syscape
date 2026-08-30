@@ -78,9 +78,13 @@ inline result<int> native_limit_resource(
         case process_common::limit_resource::stack_size:
             return RLIMIT_STACK;
         case process_common::limit_resource::address_space:
+#if defined(RLIMIT_AS)
             return RLIMIT_AS;
-    }
-    return fail(errc::invalid_argument);
+#else
+            return fail(errc::not_supported);
+#endif
+        }
+        return fail(errc::invalid_argument);
 }
 
 inline result<process_common::resource_limit_snapshot> resource_limit(
