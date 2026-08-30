@@ -28,7 +28,7 @@ jobs:
             -DSYSCAPE_BUILD_EXAMPLES=ON
 
       - name: Build
-        run: cmake --build build
+        run: cmake --build build -j
 
       - name: Run Tests
         run: ctest --test-dir build --output-on-failure
@@ -65,7 +65,7 @@ jobs:
             -DSYSCAPE_BUILD_EXAMPLES=ON
 
       - name: Build
-        run: cmake --build build-asan
+        run: cmake --build build-asan -j
 
       - name: Run Tests with Sanitizers
         run: ctest --test-dir build-asan --output-on-failure
@@ -97,7 +97,7 @@ jobs:
             -DSYSCAPE_BUILD_EXAMPLES=ON
 
       - name: Build
-        run: cmake --build build --config Release
+        run: cmake --build build --config Release -j
 
       - name: Run Tests
         run: ctest --test-dir build -C Release --output-on-failure
@@ -126,7 +126,7 @@ jobs:
             -DSYSCAPE_BUILD_EXAMPLES=ON
 
       - name: Build
-        run: cmake --build build
+        run: cmake --build build -j
 
       - name: Run Tests
         run: ctest --test-dir build --output-on-failure

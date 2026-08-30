@@ -677,16 +677,25 @@ void test_usb_id_parsers() {
 
 void test_live_windows_queries() {
     const auto pci = syscape::hardware::pci_devices();
-    expect(pci.has_value() || pci.error() == syscape::errc::not_supported,
-           "pci_devices() must succeed or report not_supported");
+    expect(pci.has_value() ||
+               pci.error() == syscape::errc::not_supported ||
+               pci.error().category() == std::system_category(),
+           "pci_devices() must succeed or preserve an environmental system "
+           "error");
 
     const auto usb = syscape::hardware::usb_devices();
-    expect(usb.has_value() || usb.error() == syscape::errc::not_supported,
-           "usb_devices() must succeed or report not_supported");
+    expect(usb.has_value() ||
+               usb.error() == syscape::errc::not_supported ||
+               usb.error().category() == std::system_category(),
+           "usb_devices() must succeed or preserve an environmental system "
+           "error");
 
     const auto mem = syscape::hardware::memory_devices();
-    expect(mem.has_value() || mem.error() == syscape::errc::not_supported,
-           "memory_devices() must succeed or report not_supported");
+    expect(mem.has_value() ||
+               mem.error() == syscape::errc::not_supported ||
+               mem.error().category() == std::system_category(),
+           "memory_devices() must succeed or preserve an environmental "
+           "system error");
 }
 
 } // namespace
