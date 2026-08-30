@@ -137,7 +137,7 @@ inline result<std::string> host_name() {
 
 inline result<std::chrono::system_clock::time_point> boot_time() {
     int name[] = {CTL_KERN, KERN_BOOTTIME};
-    struct timeval value{};
+    struct timeval value {};
     std::size_t size = sizeof(value);
     if (::sysctl(name, 2U, &value, &size, nullptr, 0U) != 0) {
         return fail(std::error_code(errno, std::generic_category()));

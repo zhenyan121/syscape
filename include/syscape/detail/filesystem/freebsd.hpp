@@ -103,7 +103,7 @@ max_path_length(const std::string& path) {
 
 inline result<std::string> statfs_volume_id(const std::string& path) {
     for (;;) {
-        struct ::statfs status{};
+        struct ::statfs status {};
         if (::statfs(path.c_str(), &status) == 0) {
             static_assert(sizeof(status.f_fsid.val[0]) == sizeof(std::uint32_t),
                           "The FreeBSD backend requires 32-bit filesystem "

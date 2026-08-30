@@ -85,7 +85,7 @@ parse_resolver_address(std::string_view token) {
     text[literal.size()] = '\0';
 
     network_common::ip_address_record address;
-    struct ::in_addr ipv4{};
+    struct ::in_addr ipv4 {};
     if (zone.empty() && ::inet_pton(AF_INET, text, &ipv4) == 1) {
         address.family = network_common::address_family::ipv4;
         const auto* bytes =
@@ -96,7 +96,7 @@ parse_resolver_address(std::string_view token) {
         return address;
     }
 
-    struct ::in6_addr ipv6{};
+    struct ::in6_addr ipv6 {};
     if (::inet_pton(AF_INET6, text, &ipv6) != 1) {
         return fail(errc::malformed_data);
     }

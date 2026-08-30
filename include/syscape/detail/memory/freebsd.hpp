@@ -148,7 +148,7 @@ inline result<memory_common::swap_usage> swap_status() {
 
     for (int index = 0;; ++index) {
         mib[mib_len] = index;
-        struct ::xswdev xsw{};
+        struct ::xswdev xsw {};
         std::size_t size = sizeof(xsw);
         if (::sysctl(mib, static_cast<u_int>(mib_len + 1U), &xsw, &size,
                      nullptr, 0U) != 0) {

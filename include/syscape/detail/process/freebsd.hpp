@@ -186,7 +186,7 @@ inline result<std::string> working_directory() {
 
 inline result<struct ::kinfo_proc> query_kinfo_proc(pid_t pid) {
     int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, static_cast<int>(pid)};
-    struct ::kinfo_proc kp{};
+    struct ::kinfo_proc kp {};
     std::size_t size = sizeof(kp);
     if (::sysctl(mib, 4, &kp, &size, nullptr, 0U) != 0) {
         return fail(std::error_code(errno, std::generic_category()));
@@ -201,7 +201,7 @@ inline result<struct ::kinfo_proc> query_kinfo_proc(pid_t pid) {
 }
 
 inline result<process_common::cpu_time_usage> cpu_time() {
-    struct ::rusage usage{};
+    struct ::rusage usage {};
     if (::getrusage(RUSAGE_SELF, &usage) != 0) {
         return fail(std::error_code(errno, std::generic_category()));
     }
