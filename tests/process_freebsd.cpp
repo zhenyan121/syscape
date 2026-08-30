@@ -1,0 +1,30 @@
+#include <iostream>
+
+#include <syscape/process.hpp>
+
+namespace {
+
+int failures = 0;
+
+void expect(bool condition, const char* message) {
+    if (!condition) {
+        std::cerr << "FAIL: " << message << '\n';
+        ++failures;
+    }
+}
+
+void test_process_queries() {
+    const auto pid = syscape::process::current_process_id();
+    expect(pid && *pid > 0, "PID must be positive");
+
+    const auto threads = syscape::process::thread_count();
+    expect(!threads || *threads > 0,
+           "thread count must be positive if present");
+}
+
+} // namespace
+
+int main() {
+    test_process_queries();
+    return failures == 0 ? 0 : 1;
+}
