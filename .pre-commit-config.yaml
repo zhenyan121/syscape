@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: clang-format
+        name: clang-format
+        description: Format staged Syscape C++ sources.
+        entry: clang-format
+        args: [-i, -style=file]
+        language: system
+        files: \.(cpp|hpp)$
