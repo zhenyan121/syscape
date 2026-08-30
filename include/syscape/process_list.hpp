@@ -126,6 +126,8 @@ struct process_entry {
     !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) &&                   \
     !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
 #include <syscape/detail/process_list/macos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
+#include <syscape/detail/process_list/freebsd.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif

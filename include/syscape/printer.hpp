@@ -144,6 +144,8 @@ struct printer_info {
 #include <syscape/detail/printer/windows.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__)
 #include <syscape/detail/printer/macos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
+#include <syscape/detail/printer/freebsd.hpp>
 #else
 #include <syscape/detail/printer/generic.hpp>
 #endif

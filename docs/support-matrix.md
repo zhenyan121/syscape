@@ -95,7 +95,7 @@ error, string, or runtime-query layer.
 | Platform family | Initial variants | Intended platform sources | Current status |
 | --- | --- | --- | --- |
 | Android | Android NDK on Arm, Arm64, x86, and x86-64 | NDK APIs, Linux interfaces available to applications, and documented Android system data | Not started |
-| FreeBSD | Supported releases and architectures available to the project | POSIX, `sysctl`, devstat, and documented FreeBSD interfaces | Initial OS, CPU, memory, process, user, filesystem, network, environment, resource, locale, and IPC-limits slices implemented with explicit unsupported fallbacks for unavailable queries; source-reviewed but not yet compiled or run on FreeBSD |
+| FreeBSD | Supported releases and architectures available to the project | POSIX, `sysctl`, devstat, kenv, pciio, OSS audio, CUPS, and documented FreeBSD interfaces | Implemented across core OS, CPU, memory, process, user, filesystem, network, environment, resource, locale, IPC limits, virtualization, hardware, power, sensor, security, NUMA, process list, storage, software, audio, and printer modules; includes standalone tests for all 21 FreeBSD modules; source-reviewed awaiting FreeBSD hardware verification |
 | OpenBSD | Supported releases and architectures available to the project | POSIX, `sysctl`, and documented OpenBSD interfaces | Not started |
 | NetBSD | Supported releases and architectures available to the project | POSIX, `sysctl`, and documented NetBSD interfaces | Not started |
 | DragonFly BSD | Supported releases and architectures available to the project | POSIX, `sysctl`, and documented DragonFly interfaces | Not started |
