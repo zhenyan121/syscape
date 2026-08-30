@@ -1,6 +1,6 @@
 #include <iostream>
-#include <syscape/detail/sensor/macos.hpp>
 #include <syscape/sensor.hpp>
+#include <syscape/detail/sensor/macos.hpp>
 
 namespace {
 

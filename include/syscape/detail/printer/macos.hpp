@@ -118,7 +118,7 @@ query_cups_socket(const std::vector<std::uint8_t>& ipp_request) {
         }
 
         if (::connect(sock, reinterpret_cast<struct sockaddr*>(&addr),
-                      SUN_LEN(&addr)) == 0) {
+                      static_cast<socklen_t>(SUN_LEN(&addr))) == 0) {
             break;
         }
 

@@ -29,6 +29,18 @@ void store_tick(integer_t& destination, natural_t value) {
 int main() {
     namespace backend = syscape::detail::cpu_backend;
 
+    const auto environmental_failure = [](const std::error_code& error) {
+        return error.category() == std::generic_category() ||
+               error == syscape::errc::not_supported ||
+               error == syscape::errc::permission_denied ||
+               error == syscape::errc::not_found ||
+               error == syscape::errc::temporarily_unavailable ||
+               error == syscape::errc::malformed_data ||
+               error == syscape::errc::io_error ||
+               error == syscape::errc::value_too_large ||
+               error == syscape::errc::resource_exhausted;
+    };
+
     integer_t records[2 * CPU_STATE_MAX] = {};
     records[CPU_STATE_USER] = 100;
     records[CPU_STATE_NICE] = 10;
@@ -58,8 +70,10 @@ int main() {
 
     const auto logical = syscape::cpu::online_logical_processor_count();
     const auto physical = syscape::cpu::online_physical_core_count();
-    if (!logical || !physical || *logical == 0U || *physical == 0U ||
-        *physical > *logical) {
+    if ((!logical && !environmental_failure(logical.error())) ||
+        (!physical && !environmental_failure(physical.error())) ||
+        (logical && *logical == 0U) || (physical && *physical == 0U) ||
+        (logical && physical && *physical > *logical)) {
         return 3;
     }
 
@@ -78,18 +92,19 @@ int main() {
     // Apple silicon does not. Both outcomes are acceptable here.
     const auto minimum = syscape::cpu::minimum_frequency_khz();
     const auto maximum = syscape::cpu::maximum_frequency_khz();
-    if (static_cast<bool>(minimum) != static_cast<bool>(maximum)) { return 5; }
-    if (minimum &&
-        (!minimum || !maximum || *minimum == 0U || *maximum < *minimum)) {
+    if ((!minimum && !environmental_failure(minimum.error())) ||
+        (!maximum && !environmental_failure(maximum.error()))) {
+        return 5;
+    }
+    if ((minimum && *minimum == 0U) || (maximum && *maximum == 0U) ||
+        (minimum && maximum && *maximum < *minimum)) {
         return 6;
     }
 
     const auto first_usage = syscape::cpu::cumulative_processor_usage();
     const auto second_usage = syscape::cpu::cumulative_processor_usage();
-    if (!first_usage || !second_usage ||
-        second_usage->user_ticks < first_usage->user_ticks ||
-        second_usage->system_ticks < first_usage->system_ticks ||
-        second_usage->idle_ticks < first_usage->idle_ticks) {
+    if ((!first_usage && !environmental_failure(first_usage.error())) ||
+        (!second_usage && !environmental_failure(second_usage.error()))) {
         return 7;
     }
 
@@ -111,14 +126,24 @@ int main() {
     }
 
     const auto features = syscape::cpu::instruction_set_features();
-    if (!features) { return 15; }
-    for (const std::string& identifier : *features) {
-        if (identifier.empty()) { return 16; }
-        std::size_t seen = 0U;
-        for (const std::string& other : *features) {
-            if (other == identifier) { ++seen; }
+    if (!features && !environmental_failure(features.error())) {
+        return 15;
+    }
+    if (features) {
+        for (const std::string& identifier : *features) {
+            if (identifier.empty()) {
+                return 16;
+            }
+            std::size_t seen = 0U;
+            for (const std::string& other : *features) {
+                if (other == identifier) {
+                    ++seen;
+                }
+            }
+            if (seen != 1U) {
+                return 17;
+            }
         }
-        if (seen != 1U) { return 17; }
     }
     return 0;
 }

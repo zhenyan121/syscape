@@ -1,0 +1,39 @@
+name: Clang Format
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  clang-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+
+      - name: Check changed C++ lines
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA="$(git rev-parse HEAD^)"
+          fi
+          FORMAT_DIFF="$(git clang-format \
+            --diff \
+            --style file \
+            --extensions cpp,hpp \
+            "$BASE_SHA" HEAD)"
+          if [[ -n "$FORMAT_DIFF" && \
+                "$FORMAT_DIFF" != "no modified files to format" ]]; then
+            printf '%s\n' "$FORMAT_DIFF"
+            exit 1
+          fi

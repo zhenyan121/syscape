@@ -165,13 +165,6 @@ inline result<std::vector<::syscape::display::display_info>> collect_displays() 
                 pixel_w, pixel_h, bounds.size.width, bounds.size.height);
         }
 
-        const size_t bpp = ::CGDisplayBitsPerPixel(did);
-        if (bpp > 0U) {
-            const auto bits = display_dimension_u32(bpp);
-            if (!bits) { return fail(bits.error()); }
-            info.bits_per_pixel = *bits;
-        }
-
         const double rot = ::CGDisplayRotation(did);
         if (std::abs(rot - 0.0) < 1.0) {
             info.orientation = ::syscape::display::display_orientation::landscape;

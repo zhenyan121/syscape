@@ -321,7 +321,7 @@ inline result<std::vector<wifi::adapter_info>> adapters() {
 
         // Query radio state
         DWORD radio_size = 0;
-        PWLAN_PHY_RADIO_STATE pRadio = nullptr;
+        PWLAN_RADIO_STATE pRadio = nullptr;
         WLAN_OPCODE_VALUE_TYPE opType;
         const DWORD radio_result = ::WlanQueryInterface(
             client.get(), &item.InterfaceGuid, wlan_intf_opcode_radio_state,
@@ -331,6 +331,14 @@ inline result<std::vector<wifi::adapter_info>> adapters() {
             return fail(errc::malformed_data);
         }
         if (radio_result == ERROR_SUCCESS) {
+            constexpr std::size_t states_offset =
+                offsetof(WLAN_RADIO_STATE, PhyRadioState);
+            if (static_cast<std::size_t>(radio_size) < states_offset ||
+                static_cast<std::size_t>(pRadio->dwNumberOfPhys) >
+                    (static_cast<std::size_t>(radio_size) - states_offset) /
+                        sizeof(WLAN_PHY_RADIO_STATE)) {
+                return fail(errc::malformed_data);
+            }
             if (pRadio->dwNumberOfPhys > 0) {
                 bool all_off = true;
                 bool all_on = true;

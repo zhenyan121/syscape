@@ -191,7 +191,7 @@ int main() {
            "macOS must count at least the calling thread");
 
     errno = 0;
-    const int nice_reference = ::getpriority(::PRIO_PROCESS, 0);
+    const int nice_reference = ::getpriority(PRIO_PROCESS, 0);
     const auto scheduling = syscape::process::priority();
     if (!(nice_reference == -1 && errno != 0)) {
         expect(scheduling && *scheduling == nice_reference,

@@ -1,9 +1,9 @@
 #include <iostream>
 #include <string_view>
 
+#include <syscape/gpu.hpp>
 #include <syscape/detail/gpu/common.hpp>
 #include <syscape/detail/utf8.hpp>
-#include <syscape/gpu.hpp>
 
 namespace {
 

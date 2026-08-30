@@ -188,13 +188,8 @@ inline result<std::vector<bluetooth::adapter_info>> adapters() {
     }
 
     io_iterator_t iterator = IO_OBJECT_NULL;
-#if defined(kIOMainPortDefault)
-    const mach_port_t main_port = kIOMainPortDefault;
-#else
-    const mach_port_t main_port = kIOMasterPortDefault;
-#endif
-
-    kern_return_t kr = IOServiceGetMatchingServices(main_port, matching, &iterator);
+    kern_return_t kr =
+        IOServiceGetMatchingServices(MACH_PORT_NULL, matching, &iterator);
     if (kr != KERN_SUCCESS) {
         return fail(errc::io_error);
     }

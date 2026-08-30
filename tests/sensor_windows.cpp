@@ -1,7 +1,7 @@
 #include <cmath>
 #include <iostream>
-#include <syscape/detail/sensor/windows.hpp>
 #include <syscape/sensor.hpp>
+#include <syscape/detail/sensor/windows.hpp>
 
 namespace {
 

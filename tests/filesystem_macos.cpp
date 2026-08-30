@@ -188,7 +188,7 @@ void test_runtime_limits_and_identifier() {
     // Whether Darwin's limit interface validates the whole path before
     // answering is compared against an independent reference instead of
     // being assumed.
-    ::errno = 0;
+    errno = 0;
     const long missing_reference =
         ::pathconf("/definitely-not-present-4711", _PC_NAME_MAX);
     const int missing_errno = missing_reference == -1 ? errno : 0;

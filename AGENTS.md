@@ -260,6 +260,19 @@ tests pass.
 
 ## Change Discipline
 
+- Treat `main` as a protected branch. Before making any repository change,
+  verify the current branch. Never modify files, create commits, or push
+  directly while on `main`; create or switch to a non-`main` working branch
+  first. Read-only inspection on `main` is allowed.
+- Before completing any code change, stage the intended C++ changes and run
+  `pre-commit run clang-format`. Review and stage any resulting formatting
+  changes, then run the command again and require it to pass. The hook formats
+  only changed lines in staged C++ files. If `pre-commit`, `git-clang-format`,
+  or `clang-format` is unavailable, report that explicitly in the change
+  summary.
+- Install the repository's pre-commit hook in each local clone with
+  `pre-commit install`. The hook formats staged C++ headers and sources with
+  the repository's `.clang-format` configuration before a commit is created.
 - Inspect existing abstractions before adding another one. Reuse the shared
   result, error, encoding, resource, and capability machinery.
 - Keep changes focused and do not reformat or rename unrelated code.

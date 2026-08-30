@@ -1,6 +1,19 @@
 #ifndef SYSCAPE_DETAIL_ENVIRONMENT_WINDOWS_HPP
 #define SYSCAPE_DETAIL_ENVIRONMENT_WINDOWS_HPP
 
+#if defined(_WIN32_WINNT) && _WIN32_WINNT < 0x0601
+#error "syscape/environment.hpp requires _WIN32_WINNT >= 0x0601 on Windows"
+#endif
+#if defined(WINVER) && WINVER < 0x0601
+#error "syscape/environment.hpp requires WINVER >= 0x0601 on Windows"
+#endif
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0601
+#endif
+#ifndef WINVER
+#define WINVER 0x0601
+#endif
+
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif

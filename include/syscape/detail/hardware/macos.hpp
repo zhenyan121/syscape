@@ -187,21 +187,14 @@ inline result<platform_facts> extract_platform_facts(
 
 /// Locates the platform-expert entry and extracts its identity facts.
 ///
-/// Newer SDKs name the default master port kIOMainPortDefault while older
-/// SDKs only declare kIOMasterPortDefault; both constants carry the same
-/// value. The matching call consumes the dictionary reference the matcher
+/// The matching call consumes the dictionary reference the matcher
 /// creates, so no separate release applies to it.
 inline result<platform_facts> collect_platform_facts() {
-#if defined(kIOMainPortDefault)
-    const ::io_service_t port = kIOMainPortDefault;
-#else
-    const ::io_service_t port = kIOMasterPortDefault;
-#endif
     ::CFMutableDictionaryRef matching =
         ::IOServiceMatching(platform_expert_class);
     if (matching == nullptr) { return fail(errc::io_error); }
     const ::io_service_t service =
-        ::IOServiceGetMatchingService(port, matching);
+        ::IOServiceGetMatchingService(MACH_PORT_NULL, matching);
     if (service == IO_OBJECT_NULL) { return fail(errc::not_found); }
     const io_object_guard owned(service);
     static_cast<void>(owned);
@@ -370,15 +363,11 @@ inline result<std::optional<std::string>> optional_cfstring_utf8(
 }
 
 inline result<std::vector<::syscape::hardware::pci_device>> pci_devices() {
-#if defined(kIOMainPortDefault)
-    const ::io_service_t port = kIOMainPortDefault;
-#else
-    const ::io_service_t port = kIOMasterPortDefault;
-#endif
     ::CFMutableDictionaryRef matching = ::IOServiceMatching("IOPCIDevice");
     if (matching == nullptr) { return fail(errc::io_error); }
     ::io_iterator_t iterator = IO_OBJECT_NULL;
-    if (::IOServiceGetMatchingServices(port, matching, &iterator) != KERN_SUCCESS ||
+    if (::IOServiceGetMatchingServices(MACH_PORT_NULL, matching, &iterator) !=
+            KERN_SUCCESS ||
         iterator == IO_OBJECT_NULL) {
         return fail(errc::io_error);
     }
@@ -456,17 +445,13 @@ inline result<std::vector<::syscape::hardware::pci_device>> pci_devices() {
     return result_devices;
 }
 
-inline result<std::vector<::syscape::hardware::usb_device>> usb_devices_for_class(
-    const char* service_class) {
-#if defined(kIOMainPortDefault)
-    const ::io_service_t port = kIOMainPortDefault;
-#else
-    const ::io_service_t port = kIOMasterPortDefault;
-#endif
+inline result<std::vector<::syscape::hardware::usb_device>>
+usb_devices_for_class(const char* service_class) {
     ::CFMutableDictionaryRef matching = ::IOServiceMatching(service_class);
     if (matching == nullptr) { return fail(errc::io_error); }
     ::io_iterator_t iterator = IO_OBJECT_NULL;
-    if (::IOServiceGetMatchingServices(port, matching, &iterator) != KERN_SUCCESS ||
+    if (::IOServiceGetMatchingServices(MACH_PORT_NULL, matching, &iterator) !=
+            KERN_SUCCESS ||
         iterator == IO_OBJECT_NULL) {
         return fail(errc::io_error);
     }
