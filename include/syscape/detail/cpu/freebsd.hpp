@@ -226,10 +226,12 @@ inline result<std::vector<std::string>> instruction_set_features() {
 }
 
 inline result<cpu_common::usage_information> cumulative_processor_usage() {
-    int mib[2] = {CTL_KERN, KERN_CPTIME};
     long cp_time[5] = {0};
     std::size_t size = sizeof(cp_time);
-    if (::sysctl(mib, 2, cp_time, &size, nullptr, 0U) != 0) {
+    if (::sysctlbyname("kern.cp_time", cp_time, &size, nullptr, 0U) != 0) {
+        if (errno == ENOENT) {
+            return fail(errc::not_supported);
+        }
         return fail(std::error_code(errno, std::generic_category()));
     }
     if (size != sizeof(cp_time)) {
