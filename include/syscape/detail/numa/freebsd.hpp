@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <sched.h>
 #include <sys/cpuset.h>
 #include <sys/param.h>
 #include <sys/sysctl.h>
@@ -14,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include <syscape/numa.hpp>
 #include <syscape/detail/numa/common.hpp>
 #include <syscape/result.hpp>
 
@@ -73,7 +75,14 @@ inline result<::syscape::numa::numa_node> read_node(std::uint32_t node_id) {
         CPU_ZERO(&domain_mask);
         if (::cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_DOMAIN,
                                  static_cast<id_t>(node_id),
-                                 sizeof(domain_mask), &domain_mask) == 0) {
+                                 sizeof(domain_mask), &domain_mask) != 0) {
+            if (errno == EACCES || errno == EPERM) {
+                return fail(errc::permission_denied);
+            }
+            if (errno != ESRCH && errno != ENOENT) {
+                return fail(std::error_code(errno, std::generic_category()));
+            }
+        } else {
             int ncpu = 0;
             std::size_t size = sizeof(ncpu);
             if (::sysctlbyname("hw.ncpu", &ncpu, &size, nullptr, 0U) != 0 ||
@@ -133,18 +142,19 @@ inline result<::syscape::numa::numa_node> node(std::uint32_t id) {
 
 inline result<std::uint32_t> current_thread_node() {
     const result<int> ndomains = read_sysctl_int("vm.ndomains");
-    if (!ndomains || *ndomains <= 1) {
+    if (!ndomains) {
+        if (ndomains.error() == errc::not_found) {
+            return 0U;
+        }
+        return fail(ndomains.error());
+    }
+    if (*ndomains <= 1) {
         return 0U;
     }
 
-    cpuset_t thread_mask;
-    CPU_ZERO(&thread_mask);
-    if (::cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,
-                             sizeof(thread_mask), &thread_mask) != 0) {
-        if (errno == EACCES || errno == EPERM) {
-            return fail(errc::permission_denied);
-        }
-        return fail(std::error_code(errno, std::generic_category()));
+    const int current_cpu = ::sched_getcpu();
+    if (current_cpu < 0) {
+        return fail(errc::not_supported);
     }
 
     for (int d = 0; d < *ndomains; ++d) {
@@ -152,13 +162,17 @@ inline result<std::uint32_t> current_thread_node() {
         CPU_ZERO(&domain_mask);
         if (::cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_DOMAIN,
                                  static_cast<id_t>(d), sizeof(domain_mask),
-                                 &domain_mask) == 0) {
-            for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
-                if (CPU_ISSET(cpu, &thread_mask) &&
-                    CPU_ISSET(cpu, &domain_mask)) {
-                    return static_cast<std::uint32_t>(d);
-                }
+                                 &domain_mask) != 0) {
+            if (errno == EACCES || errno == EPERM) {
+                return fail(errc::permission_denied);
             }
+            if (errno == ESRCH || errno == ENOENT) {
+                continue;
+            }
+            return fail(std::error_code(errno, std::generic_category()));
+        }
+        if (current_cpu < CPU_SETSIZE && CPU_ISSET(current_cpu, &domain_mask)) {
+            return static_cast<std::uint32_t>(d);
         }
     }
 

@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include <syscape/storage.hpp>
 #include <syscape/detail/storage/common.hpp>
 #include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
@@ -24,6 +25,27 @@
 namespace syscape {
 namespace detail {
 namespace storage_backend {
+
+inline storage_common::bus_classification
+classify_bus_name(std::string_view name) noexcept {
+    if (name.rfind("nvme", 0) == 0 || name.rfind("nvd", 0) == 0 ||
+        name.rfind("nda", 0) == 0) {
+        return storage_common::bus_classification::nvme;
+    }
+    if (name.rfind("ada", 0) == 0) {
+        return storage_common::bus_classification::sata;
+    }
+    if (name.rfind("da", 0) == 0) {
+        return storage_common::bus_classification::scsi;
+    }
+    if (name.rfind("cd", 0) == 0 || name.rfind("acd", 0) == 0) {
+        return storage_common::bus_classification::atapi;
+    }
+    if (name.rfind("vtbd", 0) == 0) {
+        return storage_common::bus_classification::virtual_media;
+    }
+    return storage_common::bus_classification::unknown;
+}
 
 inline result<std::string> read_sysctl_string(const char* name) {
     std::size_t size = 0U;
@@ -80,7 +102,7 @@ inline result<std::vector<storage_common::drive_record>> drives() {
 
         storage_common::drive_record rec;
         rec.identifier = name;
-        rec.bus = storage_common::classify_bus_type(name);
+        rec.bus = classify_bus_name(name);
 
         const std::string dev_path = "/dev/" + name;
         const int fd = ::open(dev_path.c_str(), O_RDONLY | O_CLOEXEC);
@@ -115,13 +137,11 @@ inline result<std::vector<storage_common::partition_record>> partitions() {
     return std::vector<storage_common::partition_record>();
 }
 
-inline result<storage_common::drive_health_record>
-drive_health(std::string_view) {
+inline result<storage_common::health_record> health(std::string_view) {
     return fail(errc::not_supported);
 }
 
-inline result<std::vector<storage_common::drive_health_record>>
-all_drive_health() {
+inline result<std::vector<storage_common::health_record>> all_drive_health() {
     return fail(errc::not_supported);
 }
 

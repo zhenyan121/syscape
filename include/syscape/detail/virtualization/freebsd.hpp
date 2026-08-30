@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include <syscape/virtualization.hpp>
 #include <syscape/detail/virtualization/common.hpp>
 #include <syscape/result.hpp>
 

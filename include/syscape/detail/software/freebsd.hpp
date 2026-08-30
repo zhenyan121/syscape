@@ -40,7 +40,7 @@ inline result<std::vector<software_common::service_record>> services() {
             rec.name = entry->d_name;
             rec.display_name = entry->d_name;
             rec.state = software_common::service_state::unknown;
-            rec.startup_type = software_common::startup_type::unknown;
+            rec.startup_type = software_common::service_startup::unknown;
             list.push_back(std::move(rec));
         }
         ::closedir(dir);
