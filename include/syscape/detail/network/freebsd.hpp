@@ -183,7 +183,7 @@ inline result<network_common::dns_record> dns() {
     }
 
     network_common::dns_record parsed;
-    parsed.search_domains = std::vector<std::string>{};
+    parsed.search_domains = std::vector<std::string> {};
     std::vector<std::string> search_list;
     std::string domain_value;
     bool has_domain = false;

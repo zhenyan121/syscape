@@ -78,7 +78,7 @@ inline result<std::vector<std::string>> vendor_identifiers() {
 inline result<std::vector<std::string>> model_names() {
     auto model = sysctl_string("hw.model");
     if (model) {
-        return std::vector<std::string>{*model};
+        return std::vector<std::string> {*model};
     }
     return fail(model.error());
 }
