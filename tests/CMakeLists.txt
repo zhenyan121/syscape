@@ -8,7 +8,7 @@ function(syscape_configure_test target standard library_target)
             CXX_EXTENSIONS NO)
 
     if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+        target_compile_options(${target} PRIVATE /W4 /WX /permissive- /utf-8)
     else()
         target_compile_options(
             ${target}
@@ -305,8 +305,9 @@ if(WIN32)
     target_link_libraries(header_software PRIVATE advapi32 psapi)
     target_link_libraries(software_windows PRIVATE advapi32 psapi)
     target_link_libraries(odr PRIVATE advapi32 psapi)
-    target_link_libraries(header_connection PRIVATE iphlpapi)
-    target_link_libraries(connection_windows PRIVATE iphlpapi)
+    target_link_libraries(header_connection PRIVATE iphlpapi ws2_32)
+    target_link_libraries(connection_windows PRIVATE iphlpapi ws2_32)
+    target_link_libraries(odr PRIVATE ws2_32)
     target_link_libraries(header_bluetooth PRIVATE bthprops)
     target_link_libraries(bluetooth_windows PRIVATE bthprops)
     target_link_libraries(odr PRIVATE bthprops)
@@ -336,7 +337,8 @@ if(WIN32)
     # Targets that call the network API follow its documented Windows linkage
     # contract without imposing Iphlpapi on unrelated Hosted Full consumers.
     target_link_libraries(odr PRIVATE iphlpapi)
-    target_link_libraries(network_windows PRIVATE iphlpapi)
+    target_link_libraries(header_network PRIVATE ws2_32)
+    target_link_libraries(network_windows PRIVATE iphlpapi ws2_32)
     # Targets that call the user privilege and session APIs follow their documented
     # Windows linkage contracts without imposing Advapi32 or Wtsapi32 on unrelated consumers.
     target_link_libraries(header_user PRIVATE advapi32 wtsapi32)

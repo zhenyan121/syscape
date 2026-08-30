@@ -3,6 +3,13 @@
 #include <system_error>
 #include <vector>
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <windows.h>
 
 #include <syscape/cpu.hpp>
@@ -154,7 +161,7 @@ int main() {
 
     // A fully associative cache is exactly one set holding every line.
     const cache_record fully_associative =
-        make_cache_record(2U, ::CACHE_FULLY_ASSOCIATIVE, 64U, 65536UL,
+        make_cache_record(2U, CACHE_FULLY_ASSOCIATIVE, 64U, 65536UL,
                           ::CacheUnified, 0x1U);
     if (!converts_to(fully_associative, 2U,
                      syscape::cpu::cache_kind::unified,
@@ -178,20 +185,21 @@ int main() {
         make_cache_record(1U, 8U, 64U, 0UL, ::CacheData, 0x1U);
     const cache_record empty_mask =
         make_cache_record(1U, 8U, 64U, 32768UL, ::CacheData, 0U);
-    const cache_record foreign_group =
+    cache_record foreign_group =
         make_cache_record(1U, 8U, 64U, 32768UL, ::CacheData, 0x1U);
     foreign_group.cache.GroupMask.Group = 1U;
     const cache_record unknown_type =
         make_cache_record(1U, 8U, 64U, 32768UL,
                           static_cast<::PROCESSOR_CACHE_TYPE>(99), 0x1U);
     const cache_record torn_fully_associative =
-        make_cache_record(1U, ::CACHE_FULLY_ASSOCIATIVE, 96U, 32768UL,
+        make_cache_record(1U, CACHE_FULLY_ASSOCIATIVE, 96U, 32768UL,
                           ::CacheUnified, 0x1U);
-    for (const cache_record* malformed :
-         {&zero_level, &zero_line, &zero_size, &empty_mask, &foreign_group,
-          &unknown_type, &torn_fully_associative}) {
+    const cache_record* const malformed_records[] = {
+        &zero_level, &zero_line, &zero_size, &empty_mask, &foreign_group,
+        &unknown_type, &torn_fully_associative};
+    for (const cache_record* malformed_record : malformed_records) {
         if (syscape::detail::cpu_backend::convert_cache_record(
-                reinterpret_cast<const unsigned char*>(malformed),
+                reinterpret_cast<const unsigned char*>(malformed_record),
                 sizeof(cache_record))) {
             return 36;
         }
@@ -239,9 +247,9 @@ int main() {
     }
 
     const auto denied = backend::processor_power_error(
-        static_cast<::NTSTATUS>(-1073741790L));
+        static_cast<::LONG>(-1073741790L));
     if (denied != std::errc::permission_denied ||
-        backend::processor_power_error(static_cast<::NTSTATUS>(-1L)) !=
+        backend::processor_power_error(static_cast<::LONG>(-1L)) !=
             std::errc::io_error) {
         return 17;
     }

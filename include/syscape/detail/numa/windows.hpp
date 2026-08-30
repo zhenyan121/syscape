@@ -189,7 +189,7 @@ inline result<std::uint32_t> current_thread_node() {
         return fail(std::error_code(static_cast<int>(::GetLastError()),
                                     std::system_category()));
     }
-    if (node_num == MAXUSHORT || node_num == static_cast<USHORT>(0xFFFF)) {
+    if (node_num == static_cast<USHORT>(0xFFFF)) {
         return fail(errc::not_found);
     }
     return static_cast<std::uint32_t>(node_num);

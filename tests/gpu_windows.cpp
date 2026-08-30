@@ -6,8 +6,8 @@
 
 #include <windows.h>
 
-#include <syscape/detail/gpu/common.hpp>
 #include <syscape/gpu.hpp>
+#include <syscape/detail/gpu/common.hpp>
 
 namespace {
 

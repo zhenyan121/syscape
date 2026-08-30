@@ -32,6 +32,11 @@ namespace syscape {
 namespace detail {
 namespace audio_backend {
 
+inline constexpr ::PROPERTYKEY audio_engine_device_format_key = {
+    {0xf19f064d, 0x082c, 0x4e27,
+     {0xbc, 0x73, 0x68, 0x82, 0xa1, 0xbb, 0x8e, 0x4c}},
+    0U};
+
 class hresult_error_category final : public std::error_category {
 public:
     const char* name() const noexcept override { return "windows-hresult"; }
@@ -199,8 +204,8 @@ inline result<std::vector<::syscape::audio::audio_device>> collect_devices(
 
     com_ptr<IMMDeviceEnumerator> enumerator;
     HRESULT hr = ::CoCreateInstance(
-        CLSID_MMDeviceEnumerator, nullptr, CLSCTX_INPROC_SERVER,
-        IID_IMMDeviceEnumerator, enumerator.put_void());
+        __uuidof(MMDeviceEnumerator), nullptr, CLSCTX_INPROC_SERVER,
+        __uuidof(IMMDeviceEnumerator), enumerator.put_void());
     if (FAILED(hr) || !enumerator) {
         return fail(FAILED(hr) ? map_hresult(hr)
                                : make_error_code(errc::not_supported));
@@ -258,7 +263,7 @@ inline result<std::vector<::syscape::audio::audio_device>> collect_devices(
         audio_dev.state = ::syscape::audio::audio_device_state::active;
 
         com_ptr<IMMEndpoint> endpoint;
-        hr = dev->QueryInterface(IID_IMMEndpoint, endpoint.put_void());
+        hr = dev->QueryInterface(__uuidof(IMMEndpoint), endpoint.put_void());
         if (FAILED(hr) || !endpoint) {
             return fail(FAILED(hr) ? map_hresult(hr)
                                    : make_error_code(errc::malformed_data));
@@ -305,7 +310,7 @@ inline result<std::vector<::syscape::audio::audio_device>> collect_devices(
         audio_dev.name = *name_utf8;
 
         prop_variant_guard prop_fmt;
-        hr = props->GetValue(PKEY_AudioEngine_DeviceFormat, prop_fmt.get());
+        hr = props->GetValue(audio_engine_device_format_key, prop_fmt.get());
         if (FAILED(hr) && hr != HRESULT_FROM_WIN32(ERROR_NOT_FOUND)) {
             return fail(map_hresult(hr));
         }

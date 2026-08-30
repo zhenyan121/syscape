@@ -630,7 +630,7 @@ inline result<std::uint32_t> parse_maximum_frequency(
 /// The NTSTATUS result carries no standard-library error category, so a
 /// failing status maps to io_error for the same reason Mach failures do on
 /// other backends.
-inline std::error_code processor_power_error(::NTSTATUS status) noexcept {
+inline std::error_code processor_power_error(::LONG status) noexcept {
     // STATUS_ACCESS_DENIED is the documented NTSTATUS value 0xC0000022.
     // Converting the signed status to ULONG preserves its 32-bit value using
     // the standard unsigned conversion rules without requiring ntstatus.h.
@@ -642,7 +642,7 @@ inline std::error_code processor_power_error(::NTSTATUS status) noexcept {
 
 inline result<std::size_t> query_processor_power_information(
     unsigned char* buffer, std::size_t byte_count) {
-    const ::NTSTATUS status = ::CallNtPowerInformation(
+    const ::LONG status = ::CallNtPowerInformation(
         ProcessorInformation, nullptr, 0U, buffer,
         static_cast<::ULONG>(byte_count));
     if (status != 0) { return fail(processor_power_error(status)); }

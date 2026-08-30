@@ -9,7 +9,7 @@ function(syscape_add_example target source)
             CXX_EXTENSIONS NO)
 
     if(MSVC)
-        target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+        target_compile_options(${target} PRIVATE /W4 /WX /permissive- /utf-8)
     else()
         target_compile_options(
             ${target}

@@ -22,7 +22,7 @@ void test_windows_connection_backend() {
     expect(map_windows_tcp_state(MIB_TCP_STATE_CLOSED) == tcp_state::closed, "CLOSED mapping");
     expect(map_windows_tcp_state(MIB_TCP_STATE_LISTEN) == tcp_state::listen, "LISTEN mapping");
     expect(map_windows_tcp_state(MIB_TCP_STATE_SYN_SENT) == tcp_state::syn_sent, "SYN_SENT mapping");
-    expect(map_windows_tcp_state(MIB_TCP_STATE_SYN_RCV) == tcp_state::syn_recv, "SYN_RCV mapping");
+    expect(map_windows_tcp_state(MIB_TCP_STATE_SYN_RCVD) == tcp_state::syn_recv, "SYN_RCVD mapping");
     expect(map_windows_tcp_state(MIB_TCP_STATE_ESTAB) == tcp_state::established, "ESTAB mapping");
     expect(map_windows_tcp_state(MIB_TCP_STATE_FIN_WAIT1) == tcp_state::fin_wait1, "FIN_WAIT1 mapping");
     expect(map_windows_tcp_state(MIB_TCP_STATE_FIN_WAIT2) == tcp_state::fin_wait2, "FIN_WAIT2 mapping");

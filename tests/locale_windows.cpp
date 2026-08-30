@@ -46,6 +46,7 @@ void test_language_name_splitting() {
 
     // Padding after the documented double-null terminator is ignored.
     std::wstring padded = joined({L"en"});
+    padded.push_back(L'\0');
     padded.append(L"padding");
     const auto trimmed =
         backend::split_language_names(padded.data(), padded.size());
@@ -156,9 +157,11 @@ int main() {
         return 8;
     }
 
-    const char* const reference_locale = std::setlocale(LC_ALL, nullptr);
+    const char* const reference_locale_ptr = std::setlocale(LC_ALL, nullptr);
+    if (reference_locale_ptr == nullptr) { return 9; }
+    const std::string reference_locale(reference_locale_ptr);
     const auto locale = syscape::locale::current_locale();
-    if (!locale || reference_locale == nullptr || *locale != reference_locale) {
+    if (!locale || *locale != reference_locale) {
         return 9;
     }
 

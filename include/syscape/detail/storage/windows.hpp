@@ -1179,6 +1179,9 @@ result<std::vector<storage_common::health_record>> enumerate_all_drive_health(
 
 inline result<storage_common::health_record> health(
     std::string_view disk_identifier) {
+    if (!is_valid_utf8(disk_identifier)) {
+        return fail(errc::invalid_encoding);
+    }
     if (!storage_common::is_valid_disk_identifier(disk_identifier)) {
         return fail(errc::invalid_argument);
     }

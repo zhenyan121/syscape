@@ -7,10 +7,6 @@
 #include <utility>
 #include <vector>
 
-#include <winsock2.h>
-#include <windows.h>
-#include <iphlpapi.h>
-
 #include <syscape/detail/network/common.hpp>
 #include <syscape/detail/network/windows.hpp>
 #include <syscape/network.hpp>
@@ -78,7 +74,7 @@ bool fake_route_api::no_addresses = false;
 /// Converts one IPv4 address and prefix into wired unicast storage.
 ::IP_ADAPTER_UNICAST_ADDRESS make_unicast_ipv4(::sockaddr_in& storage,
                                                std::uint32_t address,
-                                               ::ULONG prefix) {
+                                               ::UINT8 prefix) {
     ::IP_ADAPTER_UNICAST_ADDRESS entry {};
     std::memset(&storage, 0, sizeof(storage));
     storage.sin_family = AF_INET;
@@ -91,7 +87,7 @@ bool fake_route_api::no_addresses = false;
 
 ::IP_ADAPTER_UNICAST_ADDRESS make_unicast_ipv6(::sockaddr_in6& storage,
                                                const unsigned char* bytes,
-                                               ::ULONG prefix,
+                                               ::UINT8 prefix,
                                                std::uint32_t scope_id = 0U) {
     ::IP_ADAPTER_UNICAST_ADDRESS entry {};
     std::memset(&storage, 0, sizeof(storage));
@@ -616,7 +612,8 @@ void test_windows_dns_collection_order_and_bindings() {
     first.Next = &second;
     fake_adapter_api::table = &first;
     fake_adapter_api::fail_enumeration = false;
-    std::strcpy(fake_params_api::value.DomainName, "corp.example.com");
+    strcpy_s(fake_params_api::value.DomainName,
+             sizeof(fake_params_api::value.DomainName), "corp.example.com");
     fake_params_api::fail_call = false;
 
     const auto collected = syscape::detail::network_backend::collect_dns(
@@ -710,7 +707,8 @@ void test_windows_dns_edge_cases() {
                unterminated.error() == syscape::errc::malformed_data,
            "An unterminated domain-name field is malformed");
 
-    std::strcpy(fake_params_api::value.DomainName, "bad\xff domain");
+    strcpy_s(fake_params_api::value.DomainName,
+             sizeof(fake_params_api::value.DomainName), "bad\xff domain");
     const auto invalid_encoding =
         syscape::detail::network_backend::collect_dns(
             fake_adapter_api{}, fake_params_api{});
@@ -718,7 +716,8 @@ void test_windows_dns_edge_cases() {
                invalid_encoding.error() == syscape::errc::invalid_encoding,
            "A non-UTF-8 domain name reports an encoding failure");
 
-    std::strcpy(fake_params_api::value.DomainName, "corp.example.com");
+    strcpy_s(fake_params_api::value.DomainName,
+             sizeof(fake_params_api::value.DomainName), "corp.example.com");
     fake_params_api::fail_call = true;
     fake_params_api::native_error = ERROR_ACCESS_DENIED;
     const auto native_failure =
@@ -759,7 +758,7 @@ void test_windows_statistics_conversion() {
     table->NumEntries = 1U;
     ::MIB_IF_ROW2& row = table->Table[0];
     row.InterfaceIndex = 42U;
-    std::wcscpy(row.Alias, L"Ethernet 1");
+    wcscpy_s(row.Alias, L"Ethernet 1");
     row.InOctets = 1000ULL;
     row.OutOctets = 2000ULL;
     row.InUcastPkts = 10ULL;
