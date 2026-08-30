@@ -26,10 +26,6 @@ namespace syscape {
 namespace detail {
 namespace network_backend {
 
-inline result<std::vector<network_common::interface_record>> interfaces() {
-    return network_posix::interfaces();
-}
-
 inline result<std::vector<network_common::route_record>> routes() {
     return fail(errc::not_supported);
 }
@@ -180,21 +176,6 @@ inline result<std::string> read_resolv_conf() {
     return content;
 }
 
-class ifaddrs_list {
-    public:
-    explicit ifaddrs_list(struct ::ifaddrs* value) noexcept : value_(value) {}
-    ifaddrs_list(const ifaddrs_list&) = delete;
-    ifaddrs_list& operator=(const ifaddrs_list&) = delete;
-    ~ifaddrs_list() {
-        if (value_ != nullptr) {
-            ::freeifaddrs(value_);
-        }
-    }
-
-    private:
-    struct ::ifaddrs* value_;
-};
-
 inline result<network_common::dns_record> dns() {
     const auto content_res = read_resolv_conf();
     if (!content_res) {
@@ -270,7 +251,7 @@ inline result<std::vector<network_common::statistics_record>> statistics() {
     if (::getifaddrs(&head) != 0) {
         return fail(std::error_code(errno, std::generic_category()));
     }
-    const ifaddrs_list owned_head(head);
+    const ifaddrs_guard owned_head(head);
     std::vector<network_common::statistics_record> results;
     for (const struct ::ifaddrs* cursor = head; cursor != nullptr;
          cursor = cursor->ifa_next) {
@@ -295,17 +276,17 @@ inline result<std::vector<network_common::statistics_record>> statistics() {
                                         fail(errc::temporarily_unavailable));
             }
             record.index = static_cast<std::uint32_t>(index);
-            record.rx_bytes = data->ifi_ibytes;
-            record.tx_bytes = data->ifi_obytes;
-            record.rx_packets = data->ifi_ipackets;
-            record.tx_packets = data->ifi_opackets;
-            record.rx_errors = data->ifi_ierrors;
-            record.tx_errors = data->ifi_oerrors;
-            record.rx_drops = data->ifi_iqdrops;
-            record.tx_drops = data->ifi_oqdrops;
-            record.multicast_rx_packets = data->ifi_imcasts;
-            record.multicast_tx_packets = data->ifi_omcasts;
-            record.collisions = data->ifi_collisions;
+            record.rx_bytes = static_cast<std::uint64_t>(data->ifi_ibytes);
+            record.tx_bytes = static_cast<std::uint64_t>(data->ifi_obytes);
+            record.rx_packets = static_cast<std::uint64_t>(data->ifi_ipackets);
+            record.tx_packets = static_cast<std::uint64_t>(data->ifi_opackets);
+            record.rx_errors = static_cast<std::uint64_t>(data->ifi_ierrors);
+            record.tx_errors = static_cast<std::uint64_t>(data->ifi_oerrors);
+            record.rx_dropped = static_cast<std::uint64_t>(data->ifi_iqdrops);
+            record.tx_dropped = static_cast<std::uint64_t>(data->ifi_oqdrops);
+            record.rx_multicast = static_cast<std::uint64_t>(data->ifi_imcasts);
+            record.collisions =
+                static_cast<std::uint64_t>(data->ifi_collisions);
             results.push_back(std::move(record));
         }
     }
