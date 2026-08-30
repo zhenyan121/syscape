@@ -85,11 +85,8 @@ inline result<std::vector<power_common::battery_record>> batteries() {
                         static_cast<std::uint32_t>(s.value / 1000);
                 }
             } else {
-                if (errno == EOPNOTSUPP || errno == ENOTSUP ||
-                    errno == ENODEV || errno == EINVAL) {
-                    return fail(errc::not_supported);
-                }
-                if (errno != ENOENT && errno != ENXIO) {
+                if (errno != ENOENT && errno != ENXIO && errno != EOPNOTSUPP &&
+                    errno != ENOTSUP && errno != ENODEV && errno != EINVAL) {
                     if (errno == EACCES || errno == EPERM) {
                         return fail(errc::permission_denied);
                     }
@@ -161,11 +158,9 @@ inline result<std::vector<power_common::power_source_record>> power_sources() {
                         sources.push_back(std::move(rec));
                     }
                 } else {
-                    if (errno == EOPNOTSUPP || errno == ENOTSUP ||
-                        errno == ENODEV || errno == EINVAL) {
-                        return fail(errc::not_supported);
-                    }
-                    if (errno != ENOENT && errno != ENXIO) {
+                    if (errno != ENOENT && errno != ENXIO &&
+                        errno != EOPNOTSUPP && errno != ENOTSUP &&
+                        errno != ENODEV && errno != EINVAL) {
                         if (errno == EACCES || errno == EPERM) {
                             return fail(errc::permission_denied);
                         }

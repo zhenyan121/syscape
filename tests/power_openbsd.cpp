@@ -19,8 +19,10 @@ void test_power_queries() {
            "batteries query must return list or not_supported");
 
     const auto ext = syscape::power::external_power_online();
-    expect(ext.has_value() || ext.error() == syscape::errc::not_supported,
-           "external power query must succeed or report not_supported");
+    expect(ext.has_value() || ext.error() == syscape::errc::not_supported ||
+               ext.error() == syscape::errc::not_found,
+           "external power query must succeed, report not_supported, or report "
+           "not_found");
 }
 
 } // namespace

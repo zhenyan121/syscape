@@ -242,8 +242,26 @@ inline result<void> convert_ifaddrs_row(
         created.name = name;
         created.index = *index;
         const result<std::uint32_t> mtu = InterfaceApi::mtu_of(name);
-        if (!mtu) { return fail(mtu.error()); }
-        created.mtu_bytes = *mtu;
+        if (mtu) {
+            created.mtu_bytes = *mtu;
+        } else {
+#if defined(AF_LINK)
+            if (row.ifa_data != nullptr) {
+                const struct ::if_data* data =
+                    reinterpret_cast<const struct ::if_data*>(row.ifa_data);
+                if (data->ifi_mtu > 0) {
+                    created.mtu_bytes =
+                        static_cast<std::uint32_t>(data->ifi_mtu);
+                } else {
+                    return fail(mtu.error());
+                }
+            } else {
+                return fail(mtu.error());
+            }
+#else
+            return fail(mtu.error());
+#endif
+        }
         interfaces.push_back(std::move(created));
         entry = &interfaces.back();
     }
