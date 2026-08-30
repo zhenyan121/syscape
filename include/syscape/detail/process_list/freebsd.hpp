@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include <syscape/process_list.hpp>
 #include <syscape/detail/process_list/common.hpp>
 #include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
@@ -267,13 +268,16 @@ inline result<process_list::process_entry> find_process(std::uint32_t pid) {
 
 inline result<std::vector<process_list::process_entry>>
 find_processes_by_name(std::string_view name) {
+    if (name.empty()) {
+        return std::vector<process_list::process_entry> {};
+    }
     const result<std::vector<process_list::process_entry>> all = processes();
     if (!all) {
         return fail(all.error());
     }
     std::vector<process_list::process_entry> matches;
     for (const auto& proc : *all) {
-        if (process_list_common::matches_process_name(proc, name)) {
+        if (process_list_common::matches_process_name(proc, name, false)) {
             matches.push_back(proc);
         }
     }
