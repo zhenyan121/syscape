@@ -299,6 +299,30 @@ void test_reboot_required_parsing() {
     assert(records[2].identifier == "dbus");
 }
 
+void test_checkupdates_parsing() {
+    const std::string sample = "linux 6.10.1.arch1-1 -> 6.10.2.arch1-1\n"
+                               "openssl 3.3.1-1 -> 3.3.1-2\n"
+                               "epoch-package 2:1.0-1 -> 2:1.1-1\n";
+    std::vector<syscape::detail::software_common::update_record> records;
+    assert(syscape::detail::software_backend::linux_impl::
+               parse_checkupdates_output(sample, records));
+    assert(records.size() == 3);
+    assert(records[0].identifier == "linux");
+    assert(records[0].version.has_value() &&
+           *records[0].version == "6.10.2.arch1-1");
+    assert(records[0].requires_reboot);
+    assert(records[1].identifier == "openssl");
+    assert(records[1].version.has_value() && *records[1].version == "3.3.1-2");
+    assert(!records[1].requires_reboot);
+    assert(records[2].version.has_value() && *records[2].version == "2:1.1-1");
+
+    records.clear();
+    assert(!syscape::detail::software_backend::linux_impl::
+               parse_checkupdates_output(
+                   "valid 1-1 -> 1-2\nmissing-version-separator\n", records));
+    assert(records.empty());
+}
+
 void test_packagekit_prepared_update_parsing() {
     // 1. Official PackageKit GKeyFile with comma-separated prepared_ids
     const std::string official_comma_sample =
@@ -547,7 +571,8 @@ void test_live_system_updates() {
         }
     } else {
         assert(upds.error() == syscape::errc::not_supported ||
-               upds.error() == syscape::errc::permission_denied);
+               upds.error() == syscape::errc::permission_denied ||
+               upds.error() == syscape::errc::temporarily_unavailable);
     }
 }
 
@@ -578,6 +603,7 @@ int main() {
     test_apk_installed_parsing();
     test_desktop_entry_parsing();
     test_reboot_required_parsing();
+    test_checkupdates_parsing();
     test_packagekit_prepared_update_parsing();
     test_executable_file_detection();
     test_rust_manifest_parsing();
