@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
-#include <ifaddrs.h>
 #include <net/if.h>
+#include <ifaddrs.h>
 #include <net/if_dl.h>
 #include <net/if_types.h>
 #include <netinet/in.h>

@@ -19,7 +19,8 @@ void test_cpu_queries() {
     expect(count && *count > 0, "logical core count must be positive");
 
     const auto physical = syscape::cpu::online_physical_core_count();
-    expect(physical && *physical > 0, "physical core count must be positive");
+    expect(!physical && physical.error() == syscape::errc::not_supported,
+           "physical core count must report not_supported on OpenBSD");
 
     const auto models = syscape::cpu::model_names();
     expect(models || models.error() == syscape::errc::not_found ||

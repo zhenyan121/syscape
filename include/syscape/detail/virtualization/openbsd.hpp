@@ -53,8 +53,12 @@ inline result<std::string> read_mib_string(const int* mib,
         mib_copy[i] = mib[i];
     }
     if (::sysctl(mib_copy, mib_len, nullptr, &size, nullptr, 0U) != 0) {
-        if (errno == ENOENT) {
+        if (errno == ENOENT || errno == EINVAL || errno == EOPNOTSUPP ||
+            errno == ENODEV || errno == ENOTSUP) {
             return fail(errc::not_found);
+        }
+        if (errno == EACCES || errno == EPERM) {
+            return fail(errc::permission_denied);
         }
         return fail(std::error_code(errno, std::generic_category()));
     }
@@ -63,6 +67,13 @@ inline result<std::string> read_mib_string(const int* mib,
     }
     std::string value(size, '\0');
     if (::sysctl(mib_copy, mib_len, &value[0], &size, nullptr, 0U) != 0) {
+        if (errno == ENOENT || errno == EINVAL || errno == EOPNOTSUPP ||
+            errno == ENODEV || errno == ENOTSUP) {
+            return fail(errc::not_found);
+        }
+        if (errno == EACCES || errno == EPERM) {
+            return fail(errc::permission_denied);
+        }
         return fail(std::error_code(errno, std::generic_category()));
     }
     while (!value.empty() && (value.back() == '\0' || value.back() == '\n' ||
@@ -102,6 +113,20 @@ inline result<hypervisor_info> detect_hypervisor() {
             candidate += " ";
         }
         candidate += *vendor;
+    }
+#endif
+#ifdef HW_MODEL
+    int mib_model[] = {CTL_HW, HW_MODEL};
+    auto model = read_mib_string(mib_model, 2U);
+    if (!model && model.error() != errc::not_found &&
+        model.error() != errc::not_supported) {
+        return fail(model.error());
+    }
+    if (model && !model->empty()) {
+        if (!candidate.empty()) {
+            candidate += " ";
+        }
+        candidate += *model;
     }
 #endif
 

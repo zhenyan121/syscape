@@ -187,6 +187,9 @@ inline result<network_common::unicast_record> make_ipv4_record(
     for (std::size_t offset = 0U; offset < 4U; ++offset) {
         record.value[offset] = address[offset];
     }
+    if (netmask == nullptr) {
+        return fail(errc::malformed_data);
+    }
     const result<std::uint8_t> prefix =
         prefix_from_netmask(netmask, 4U, network_common::maximum_prefix_length(
                                             record.family));
@@ -203,6 +206,14 @@ inline result<network_common::unicast_record> make_ipv6_record(
     record.family = network_common::address_family::ipv6;
     for (std::size_t offset = 0U; offset < 16U; ++offset) {
         record.value[offset] = address[offset];
+    }
+    if (scope_id != 0U && record.value[0] == 0xFE &&
+        (record.value[1] & 0xC0) == 0x80) {
+        record.value[2] = 0;
+        record.value[3] = 0;
+    }
+    if (netmask == nullptr) {
+        return fail(errc::malformed_data);
     }
     const result<std::uint8_t> prefix =
         prefix_from_netmask(netmask, 16U, network_common::maximum_prefix_length(
@@ -249,37 +260,67 @@ inline result<void> convert_ifaddrs_row(
         static_cast<unsigned int>(row.ifa_addr->sa_family);
 
     if (family == static_cast<unsigned int>(AF_INET)) {
-        if (row.ifa_netmask == nullptr ||
+        if (row.ifa_netmask != nullptr &&
             static_cast<unsigned int>(row.ifa_netmask->sa_family) !=
-                static_cast<unsigned int>(AF_INET)) {
+                static_cast<unsigned int>(AF_INET) &&
+            static_cast<unsigned int>(row.ifa_netmask->sa_family) !=
+                static_cast<unsigned int>(AF_UNSPEC) &&
+            row.ifa_netmask->sa_family != 0) {
             return fail(errc::malformed_data);
         }
         const ::sockaddr_in* address =
             reinterpret_cast<const ::sockaddr_in*>(row.ifa_addr);
-        const ::sockaddr_in* netmask =
-            reinterpret_cast<const ::sockaddr_in*>(row.ifa_netmask);
+        const unsigned char* netmask_bytes = nullptr;
+        if (row.ifa_netmask != nullptr) {
+            const ::sockaddr_in* netmask =
+                reinterpret_cast<const ::sockaddr_in*>(row.ifa_netmask);
+            netmask_bytes =
+                reinterpret_cast<const unsigned char*>(&netmask->sin_addr);
+        }
         result<network_common::unicast_record> record = make_ipv4_record(
             reinterpret_cast<const unsigned char*>(&address->sin_addr),
-            reinterpret_cast<const unsigned char*>(&netmask->sin_addr));
+            netmask_bytes);
         if (!record) { return fail(record.error()); }
         entry->addresses.push_back(std::move(*record));
         return {};
     }
 
     if (family == static_cast<unsigned int>(AF_INET6)) {
-        if (row.ifa_netmask == nullptr ||
+        if (row.ifa_netmask != nullptr &&
             static_cast<unsigned int>(row.ifa_netmask->sa_family) !=
-                static_cast<unsigned int>(AF_INET6)) {
+                static_cast<unsigned int>(AF_INET6) &&
+            static_cast<unsigned int>(row.ifa_netmask->sa_family) !=
+                static_cast<unsigned int>(AF_UNSPEC) &&
+            row.ifa_netmask->sa_family != 0) {
             return fail(errc::malformed_data);
         }
         const ::sockaddr_in6* address =
             reinterpret_cast<const ::sockaddr_in6*>(row.ifa_addr);
-        const ::sockaddr_in6* netmask =
-            reinterpret_cast<const ::sockaddr_in6*>(row.ifa_netmask);
+        const unsigned char* netmask_bytes = nullptr;
+        if (row.ifa_netmask != nullptr) {
+            const ::sockaddr_in6* netmask =
+                reinterpret_cast<const ::sockaddr_in6*>(row.ifa_netmask);
+            netmask_bytes =
+                reinterpret_cast<const unsigned char*>(&netmask->sin6_addr);
+        }
+        std::uint32_t scope_id = 0U;
+#if defined(SIN6_LEN) || defined(__OpenBSD__) || defined(__FreeBSD__) ||       \
+    defined(__NetBSD__) || defined(__DragonFly__) || defined(__APPLE__)
+        if (address->sin6_scope_id != 0U) {
+            scope_id = static_cast<std::uint32_t>(address->sin6_scope_id);
+        } else if (address->sin6_addr.s6_addr[0] == 0xFE &&
+                   (address->sin6_addr.s6_addr[1] & 0xC0) == 0x80) {
+            scope_id =
+                (static_cast<std::uint32_t>(address->sin6_addr.s6_addr[2])
+                 << 8) |
+                address->sin6_addr.s6_addr[3];
+        }
+#else
+        scope_id = static_cast<std::uint32_t>(address->sin6_scope_id);
+#endif
         result<network_common::unicast_record> record = make_ipv6_record(
             reinterpret_cast<const unsigned char*>(&address->sin6_addr),
-            reinterpret_cast<const unsigned char*>(&netmask->sin6_addr),
-            static_cast<std::uint32_t>(address->sin6_scope_id));
+            netmask_bytes, scope_id);
         if (!record) { return fail(record.error()); }
         entry->addresses.push_back(std::move(*record));
         return {};
@@ -303,7 +344,7 @@ inline result<void> convert_ifaddrs_row(
         return {};
     }
 #elif defined(AF_LINK)
-    // Darwin exposes the link-layer address through an AF_LINK row. The
+    // Darwin and BSDs expose the link-layer address through an AF_LINK row. The
     // address begins after the interface name inside sdl_data and its
     // usable length is bounded by the recorded socket-address length.
     if (family == static_cast<unsigned int>(AF_LINK)) {
@@ -323,10 +364,12 @@ inline result<void> convert_ifaddrs_row(
         if (address_length > available) {
             return fail(errc::malformed_data);
         }
-        const unsigned char* data =
-            reinterpret_cast<const unsigned char*>(link) + data_offset +
-            name_length;
-        entry->hardware_address.assign(data, data + address_length);
+        if (address_length > 0U) {
+            const unsigned char* data =
+                reinterpret_cast<const unsigned char*>(link) + data_offset +
+                name_length;
+            entry->hardware_address.assign(data, data + address_length);
+        }
         return {};
     }
 #endif

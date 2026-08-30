@@ -422,6 +422,36 @@ void test_mask_family_mismatch_is_malformed() {
            "data");
 }
 
+void test_missing_netmask_is_malformed() {
+    fake_index_api::reset();
+    synthetic_chain ipv4_chain;
+    ipv4_chain
+        .add_ipv4("eth0", IFF_UP | IFF_RUNNING, htonl(0x0A000001U),
+                  htonl(0xFFFFFF00U))
+        .ifa_netmask = nullptr;
+
+    const auto ipv4_converted =
+        syscape::detail::network_backend::convert_ifaddrs<fake_index_api>(
+            ipv4_chain.head());
+    expect(!ipv4_converted &&
+               ipv4_converted.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "An IPv4 address without a netmask is malformed platform data");
+
+    fake_index_api::reset();
+    synthetic_chain ipv6_chain;
+    ipv6_chain.add_ipv6("eth0", IFF_UP | IFF_RUNNING, "2001:db8::1", 64U)
+        .ifa_netmask = nullptr;
+
+    const auto ipv6_converted =
+        syscape::detail::network_backend::convert_ifaddrs<fake_index_api>(
+            ipv6_chain.head());
+    expect(!ipv6_converted &&
+               ipv6_converted.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "An IPv6 address without a netmask is malformed platform data");
+}
+
 void test_null_socket_address_contributes_flags_only() {
     fake_index_api::reset();
     synthetic_chain chain;
@@ -1644,6 +1674,7 @@ int main() {
     test_prefix_boundaries();
     test_non_contiguous_mask_is_malformed();
     test_mask_family_mismatch_is_malformed();
+    test_missing_netmask_is_malformed();
     test_null_socket_address_contributes_flags_only();
     test_unknown_family_is_skipped();
     test_hardware_address_lengths();

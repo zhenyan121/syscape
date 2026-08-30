@@ -45,6 +45,10 @@ inline result<std::vector<::syscape::sensor::thermal_zone>> thermal_zones() {
             if (errno == ENXIO) {
                 continue;
             }
+            if (errno == EOPNOTSUPP || errno == ENOTSUP || errno == ENODEV ||
+                errno == EINVAL) {
+                return fail(errc::not_supported);
+            }
             if (errno == EACCES || errno == EPERM) {
                 return fail(errc::permission_denied);
             }
@@ -71,6 +75,10 @@ inline result<std::vector<::syscape::sensor::thermal_zone>> thermal_zones() {
             if (::sysctl(mib, 5U, &s, &s_size, nullptr, 0U) != 0) {
                 if (errno == ENOENT || errno == ENXIO) {
                     continue;
+                }
+                if (errno == EOPNOTSUPP || errno == ENOTSUP ||
+                    errno == ENODEV || errno == EINVAL) {
+                    return fail(errc::not_supported);
                 }
                 if (errno == EACCES || errno == EPERM) {
                     return fail(errc::permission_denied);
@@ -117,6 +125,10 @@ temperatures() {
             if (errno == ENXIO) {
                 continue;
             }
+            if (errno == EOPNOTSUPP || errno == ENOTSUP || errno == ENODEV ||
+                errno == EINVAL) {
+                return fail(errc::not_supported);
+            }
             if (errno == EACCES || errno == EPERM) {
                 return fail(errc::permission_denied);
             }
@@ -138,6 +150,10 @@ temperatures() {
             if (::sysctl(mib, 5U, &s, &s_size, nullptr, 0U) != 0) {
                 if (errno == ENOENT || errno == ENXIO) {
                     continue;
+                }
+                if (errno == EOPNOTSUPP || errno == ENOTSUP ||
+                    errno == ENODEV || errno == EINVAL) {
+                    return fail(errc::not_supported);
                 }
                 if (errno == EACCES || errno == EPERM) {
                     return fail(errc::permission_denied);
@@ -187,6 +203,10 @@ inline result<std::vector<::syscape::sensor::fan_sensor>> fans() {
             if (errno == ENXIO) {
                 continue;
             }
+            if (errno == EOPNOTSUPP || errno == ENOTSUP || errno == ENODEV ||
+                errno == EINVAL) {
+                return fail(errc::not_supported);
+            }
             if (errno == EACCES || errno == EPERM) {
                 return fail(errc::permission_denied);
             }
@@ -208,6 +228,10 @@ inline result<std::vector<::syscape::sensor::fan_sensor>> fans() {
             if (::sysctl(mib, 5U, &s, &s_size, nullptr, 0U) != 0) {
                 if (errno == ENOENT || errno == ENXIO) {
                     continue;
+                }
+                if (errno == EOPNOTSUPP || errno == ENOTSUP ||
+                    errno == ENODEV || errno == EINVAL) {
+                    return fail(errc::not_supported);
                 }
                 if (errno == EACCES || errno == EPERM) {
                     return fail(errc::permission_denied);
