@@ -169,9 +169,8 @@ inline result<std::uint32_t> task_thread_count(std::int32_t count) {
 inline result<task_statistics> read_task_statistics() {
     struct ::proc_taskinfo info {};
     errno = 0;
-    const int copied = ::proc_pidinfo(
-        ::getpid(), PROC_PIDTASKINFO, 0, &info,
-        static_cast<int>(sizeof(info)));
+    const int copied = ::proc_pidinfo(::getpid(), PROC_PIDTASKINFO, 0, &info,
+                                      static_cast<int>(sizeof(info)));
     if (copied <= 0) {
         return fail(errno != 0
                         ? std::error_code(errno, std::generic_category())

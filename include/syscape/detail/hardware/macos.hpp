@@ -366,7 +366,8 @@ inline result<std::vector<::syscape::hardware::pci_device>> pci_devices() {
     ::CFMutableDictionaryRef matching = ::IOServiceMatching("IOPCIDevice");
     if (matching == nullptr) { return fail(errc::io_error); }
     ::io_iterator_t iterator = IO_OBJECT_NULL;
-    if (::IOServiceGetMatchingServices(MACH_PORT_NULL, matching, &iterator) != KERN_SUCCESS ||
+    if (::IOServiceGetMatchingServices(MACH_PORT_NULL, matching, &iterator) !=
+            KERN_SUCCESS ||
         iterator == IO_OBJECT_NULL) {
         return fail(errc::io_error);
     }
@@ -444,12 +445,13 @@ inline result<std::vector<::syscape::hardware::pci_device>> pci_devices() {
     return result_devices;
 }
 
-inline result<std::vector<::syscape::hardware::usb_device>> usb_devices_for_class(
-    const char* service_class) {
+inline result<std::vector<::syscape::hardware::usb_device>>
+usb_devices_for_class(const char* service_class) {
     ::CFMutableDictionaryRef matching = ::IOServiceMatching(service_class);
     if (matching == nullptr) { return fail(errc::io_error); }
     ::io_iterator_t iterator = IO_OBJECT_NULL;
-    if (::IOServiceGetMatchingServices(MACH_PORT_NULL, matching, &iterator) != KERN_SUCCESS ||
+    if (::IOServiceGetMatchingServices(MACH_PORT_NULL, matching, &iterator) !=
+            KERN_SUCCESS ||
         iterator == IO_OBJECT_NULL) {
         return fail(errc::io_error);
     }

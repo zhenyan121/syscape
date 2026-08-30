@@ -31,14 +31,14 @@ int main() {
 
     const auto environmental_failure = [](const std::error_code& error) {
         return error.category() == std::generic_category() ||
-            error == syscape::errc::not_supported ||
-            error == syscape::errc::permission_denied ||
-            error == syscape::errc::not_found ||
-            error == syscape::errc::temporarily_unavailable ||
-            error == syscape::errc::malformed_data ||
-            error == syscape::errc::io_error ||
-            error == syscape::errc::value_too_large ||
-            error == syscape::errc::resource_exhausted;
+               error == syscape::errc::not_supported ||
+               error == syscape::errc::permission_denied ||
+               error == syscape::errc::not_found ||
+               error == syscape::errc::temporarily_unavailable ||
+               error == syscape::errc::malformed_data ||
+               error == syscape::errc::io_error ||
+               error == syscape::errc::value_too_large ||
+               error == syscape::errc::resource_exhausted;
     };
 
     integer_t records[2 * CPU_STATE_MAX] = {};
@@ -126,15 +126,23 @@ int main() {
     }
 
     const auto features = syscape::cpu::instruction_set_features();
-    if (!features && !environmental_failure(features.error())) { return 15; }
+    if (!features && !environmental_failure(features.error())) {
+        return 15;
+    }
     if (features) {
         for (const std::string& identifier : *features) {
-            if (identifier.empty()) { return 16; }
+            if (identifier.empty()) {
+                return 16;
+            }
             std::size_t seen = 0U;
             for (const std::string& other : *features) {
-                if (other == identifier) { ++seen; }
+                if (other == identifier) {
+                    ++seen;
+                }
             }
-            if (seen != 1U) { return 17; }
+            if (seen != 1U) {
+                return 17;
+            }
         }
     }
     return 0;

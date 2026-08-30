@@ -262,7 +262,8 @@ tests pass.
 
 - Before completing any code change, stage the intended C++ changes and run
   `pre-commit run clang-format`. Review and stage any resulting formatting
-  changes, then run the command again and require it to pass. If `pre-commit`
+  changes, then run the command again and require it to pass. The hook formats
+  only changed lines in staged C++ files. If `pre-commit`, `git-clang-format`,
   or `clang-format` is unavailable, report that explicitly in the change
   summary.
 - Install the repository's pre-commit hook in each local clone with

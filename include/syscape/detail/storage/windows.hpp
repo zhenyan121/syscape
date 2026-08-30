@@ -252,8 +252,8 @@ convert_alignment_descriptor(const std::vector<char>& buffer) {
         descriptor.BytesPerPhysicalSector == 0U) {
         return fail(errc::malformed_data);
     }
-    constexpr ::ULONG limit = static_cast<::ULONG>(
-        (std::numeric_limits<std::uint32_t>::max)());
+    constexpr ::ULONG limit =
+        static_cast<::ULONG>((std::numeric_limits<std::uint32_t>::max)());
     if (descriptor.BytesPerLogicalSector > limit ||
         descriptor.BytesPerPhysicalSector > limit) {
         return fail(errc::value_too_large);
@@ -1194,8 +1194,7 @@ inline result<storage_common::health_record> health(
     if (num_str.empty()) { return fail(errc::invalid_argument); }
 
     unsigned int index = 0U;
-    constexpr unsigned int max_val =
-        (std::numeric_limits<unsigned int>::max)();
+    constexpr unsigned int max_val = (std::numeric_limits<unsigned int>::max)();
     for (char c : num_str) {
         if (c < '0' || c > '9') { return fail(errc::invalid_argument); }
         const unsigned int digit = static_cast<unsigned int>(c - '0');

@@ -3,8 +3,9 @@ repos:
     hooks:
       - id: clang-format
         name: clang-format
-        description: Format staged Syscape C++ sources.
-        entry: clang-format
-        args: [-i, -style=file]
+        description: Format changed lines in staged Syscape C++ sources.
+        entry: git clang-format --staged --style file
         language: system
         files: \.(cpp|hpp)$
+        pass_filenames: false
+        require_serial: true

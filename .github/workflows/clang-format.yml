@@ -19,16 +19,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-format
-          python -m pip install pre-commit
 
-      - name: Check changed C++ files
+      - name: Check changed C++ lines
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
             BASE_SHA="$(git rev-parse HEAD^)"
           fi
-          pre-commit run clang-format \
-            --from-ref "$BASE_SHA" \
-            --to-ref HEAD \
-            --show-diff-on-failure
+          FORMAT_DIFF="$(git clang-format \
+            --diff \
+            --style file \
+            --extensions cpp,hpp \
+            "$BASE_SHA" HEAD)"
+          if [[ -n "$FORMAT_DIFF" && \
+                "$FORMAT_DIFF" != "no modified files to format" ]]; then
+            printf '%s\n' "$FORMAT_DIFF"
+            exit 1
+          fi

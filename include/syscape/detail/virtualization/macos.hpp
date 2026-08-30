@@ -123,7 +123,8 @@ inline result<hypervisor_info> detect_hypervisor() {
     std::string model;
     ::CFMutableDictionaryRef matching = ::IOServiceMatching("IOPlatformExpertDevice");
     if (matching != nullptr) {
-        const ::io_service_t service = ::IOServiceGetMatchingService(MACH_PORT_NULL, matching);
+        const ::io_service_t service =
+            ::IOServiceGetMatchingService(MACH_PORT_NULL, matching);
         if (service != IO_OBJECT_NULL) {
             const ::CFTypeRef model_prop = ::IORegistryEntryCreateCFProperty(
                 service, CFSTR("model"), ::kCFAllocatorDefault, 0);

@@ -271,7 +271,8 @@ void test_collection() {
     mixed_api::entries().push_back(first);
     mixed_api::entries().push_back(image);
 
-    const syscape::result<std::vector<syscape::detail::storage_common::drive_record>>
+    const syscape::result<
+        std::vector<syscape::detail::storage_common::drive_record>>
         listed = backend::collect_drives<mixed_api>();
     expect(listed.has_value(),
            "A synthetic machine must enumerate successfully");
@@ -309,7 +310,8 @@ void test_collection() {
     expect((*listed)[1].removable == true,
            "Ejectable media must report removable");
 
-    const syscape::result<std::vector<syscape::detail::storage_common::drive_record>>
+    const syscape::result<
+        std::vector<syscape::detail::storage_common::drive_record>>
         nothing = backend::collect_drives<empty_machine_api>();
     expect(nothing.has_value() && nothing->empty(),
            "An empty enumeration is valid data and must be accepted");

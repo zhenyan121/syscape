@@ -470,8 +470,8 @@ inline void gather_backing_identity(::io_service_t media,
     if (complete) { return; }
 
     ::io_object_t current = 0;
-    if (::IORegistryEntryGetParentEntry(media, kIOServicePlane,
-                                        &current) != KERN_SUCCESS) {
+    if (::IORegistryEntryGetParentEntry(media, kIOServicePlane, &current) !=
+        KERN_SUCCESS) {
         return;
     }
     constexpr int maximum_levels = 10;
@@ -723,8 +723,8 @@ collect_partitions() {
         }
 
         std::uint64_t base_bytes = 0U;
-        const result<bool> copied_base = copy_optional_number(
-            dictionary, CFSTR("Base"), base_bytes);
+        const result<bool> copied_base =
+            copy_optional_number(dictionary, CFSTR("Base"), base_bytes);
         if (!copied_base) { return fail(copied_base.error()); }
         if (*copied_base) {
             record.has_start_offset_bytes = true;
@@ -823,9 +823,9 @@ inline ::CFMutableDictionaryRef build_partition_dictionary(
     ::CFNumberRef size = static_cast<::CFNumberRef>(
         ::IORegistryEntryCreateCFProperty(media, CFSTR(kIOMediaSizeKey),
                                           ::kCFAllocatorDefault, 0));
-    ::CFNumberRef base = static_cast<::CFNumberRef>(
-        ::IORegistryEntryCreateCFProperty(media, CFSTR("Base"),
-                                          ::kCFAllocatorDefault, 0));
+    ::CFNumberRef base =
+        static_cast<::CFNumberRef>(::IORegistryEntryCreateCFProperty(
+            media, CFSTR("Base"), ::kCFAllocatorDefault, 0));
     ::CFStringRef content = static_cast<::CFStringRef>(
         ::IORegistryEntryCreateCFProperty(media, CFSTR(kIOMediaContentKey),
                                           ::kCFAllocatorDefault, 0));
@@ -942,27 +942,35 @@ inline ::CFMutableDictionaryRef build_partition_dictionary(
 inline result<::CFArrayRef> native_drive_api::whole_media_facts() {
     ::io_iterator_t raw_iterator = 0;
     const ::kern_return_t matched = ::IOServiceGetMatchingServices(
-        MACH_PORT_NULL, ::IOServiceMatching("IOMedia"),
-        &raw_iterator);
-    if (matched != KERN_SUCCESS) { return fail(errc::io_error); }
+        MACH_PORT_NULL, ::IOServiceMatching("IOMedia"), &raw_iterator);
+    if (matched != KERN_SUCCESS) {
+        return fail(errc::io_error);
+    }
     const io_object iterator(raw_iterator);
 
-    const ::DASessionRef raw_session =
-        ::DASessionCreate(::kCFAllocatorDefault);
-    if (raw_session == nullptr) { return fail(errc::io_error); }
+    const ::DASessionRef raw_session = ::DASessionCreate(::kCFAllocatorDefault);
+    if (raw_session == nullptr) {
+        return fail(errc::io_error);
+    }
     const cf_object session(raw_session);
 
     ::CFMutableArrayRef facts = ::CFArrayCreateMutable(
         ::kCFAllocatorDefault, 0, &::kCFTypeArrayCallBacks);
-    if (facts == nullptr) { return fail(errc::io_error); }
+    if (facts == nullptr) {
+        return fail(errc::io_error);
+    }
 
     for (;;) {
         const ::io_object_t media = ::IOIteratorNext(iterator.get());
-        if (media == 0) { break; }
+        if (media == 0) {
+            break;
+        }
         const io_object owned_media(media);
         ::CFMutableDictionaryRef entry = build_media_dictionary(
             static_cast<::io_service_t>(media), raw_session);
-        if (entry == nullptr) { continue; }
+        if (entry == nullptr) {
+            continue;
+        }
         ::CFArrayAppendValue(facts, entry);
         ::CFRelease(entry);
     }
@@ -972,14 +980,16 @@ inline result<::CFArrayRef> native_drive_api::whole_media_facts() {
 inline result<::CFArrayRef> native_drive_api::partition_media_facts() {
     ::io_iterator_t raw_iterator = 0;
     const ::kern_return_t matched = ::IOServiceGetMatchingServices(
-        MACH_PORT_NULL, ::IOServiceMatching("IOMedia"),
-        &raw_iterator);
-    if (matched != KERN_SUCCESS) { return fail(errc::io_error); }
+        MACH_PORT_NULL, ::IOServiceMatching("IOMedia"), &raw_iterator);
+    if (matched != KERN_SUCCESS) {
+        return fail(errc::io_error);
+    }
     const io_object iterator(raw_iterator);
 
-    const ::DASessionRef raw_session =
-        ::DASessionCreate(::kCFAllocatorDefault);
-    if (raw_session == nullptr) { return fail(errc::io_error); }
+    const ::DASessionRef raw_session = ::DASessionCreate(::kCFAllocatorDefault);
+    if (raw_session == nullptr) {
+        return fail(errc::io_error);
+    }
     const cf_object session(raw_session);
 
     ::CFMutableArrayRef facts = ::CFArrayCreateMutable(

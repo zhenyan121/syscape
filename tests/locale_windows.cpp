@@ -158,7 +158,9 @@ int main() {
     }
 
     const char* const reference_locale_ptr = std::setlocale(LC_ALL, nullptr);
-    if (reference_locale_ptr == nullptr) { return 9; }
+    if (reference_locale_ptr == nullptr) {
+        return 9;
+    }
     const std::string reference_locale(reference_locale_ptr);
     const auto locale = syscape::locale::current_locale();
     if (!locale || *locale != reference_locale) {

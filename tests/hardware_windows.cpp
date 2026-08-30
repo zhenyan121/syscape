@@ -678,15 +678,15 @@ void test_usb_id_parsers() {
 void test_live_windows_queries() {
     const auto is_environmental_failure = [](const std::error_code& error) {
         return error.category() == std::system_category() ||
-            error == syscape::errc::not_supported ||
-            error == syscape::errc::permission_denied ||
-            error == syscape::errc::not_found ||
-            error == syscape::errc::temporarily_unavailable ||
-            error == syscape::errc::malformed_data ||
-            error == syscape::errc::io_error ||
-            error == syscape::errc::invalid_encoding ||
-            error == syscape::errc::value_too_large ||
-            error == syscape::errc::resource_exhausted;
+               error == syscape::errc::not_supported ||
+               error == syscape::errc::permission_denied ||
+               error == syscape::errc::not_found ||
+               error == syscape::errc::temporarily_unavailable ||
+               error == syscape::errc::malformed_data ||
+               error == syscape::errc::io_error ||
+               error == syscape::errc::invalid_encoding ||
+               error == syscape::errc::value_too_large ||
+               error == syscape::errc::resource_exhausted;
     };
 
     const auto pci = syscape::hardware::pci_devices();

@@ -33,7 +33,9 @@ namespace detail {
 namespace audio_backend {
 
 inline constexpr ::PROPERTYKEY audio_engine_device_format_key = {
-    {0xf19f064d, 0x082c, 0x4e27,
+    {0xf19f064d,
+     0x082c,
+     0x4e27,
      {0xbc, 0x73, 0x68, 0x82, 0xa1, 0xbb, 0x8e, 0x4c}},
     0U};
 
