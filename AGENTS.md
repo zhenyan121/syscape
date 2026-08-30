@@ -260,6 +260,10 @@ tests pass.
 
 ## Change Discipline
 
+- Treat `main` as a protected branch. Before making any repository change,
+  verify the current branch. Never modify files, create commits, or push
+  directly while on `main`; create or switch to a non-`main` working branch
+  first. Read-only inspection on `main` is allowed.
 - Before completing any code change, stage the intended C++ changes and run
   `pre-commit run clang-format`. Review and stage any resulting formatting
   changes, then run the command again and require it to pass. The hook formats
