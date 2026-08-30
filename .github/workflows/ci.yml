@@ -141,3 +141,31 @@ jobs:
           ./build/examples/example_peripherals_multimedia >/dev/null
           ./build/examples/example_process_monitor >/dev/null
           ./build/examples/example_software_inventory >/dev/null
+
+  freebsd-clang:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test in FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          release: "14.4"
+          prepare: |
+            pkg install -y cmake ninja
+          run: |
+            cmake -B build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DSYSCAPE_BUILD_TESTS=ON \
+              -DSYSCAPE_BUILD_EXAMPLES=ON
+            cmake --build build -j
+            ctest --test-dir build --output-on-failure
+            ./build/examples/example_system_overview >/dev/null
+            ./build/examples/example_hardware_inventory >/dev/null
+            ./build/examples/example_network_overview >/dev/null
+            ./build/examples/example_filesystem_storage >/dev/null
+            ./build/examples/example_security_virtualization >/dev/null
+            ./build/examples/example_peripherals_multimedia >/dev/null
+            ./build/examples/example_process_monitor >/dev/null
+            ./build/examples/example_software_inventory >/dev/null
