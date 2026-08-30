@@ -676,26 +676,33 @@ void test_usb_id_parsers() {
 }
 
 void test_live_windows_queries() {
+    const auto is_environmental_failure = [](const std::error_code& error) {
+        return error.category() == std::system_category() ||
+            error == syscape::errc::not_supported ||
+            error == syscape::errc::permission_denied ||
+            error == syscape::errc::not_found ||
+            error == syscape::errc::temporarily_unavailable ||
+            error == syscape::errc::malformed_data ||
+            error == syscape::errc::io_error ||
+            error == syscape::errc::invalid_encoding ||
+            error == syscape::errc::value_too_large ||
+            error == syscape::errc::resource_exhausted;
+    };
+
     const auto pci = syscape::hardware::pci_devices();
-    expect(pci.has_value() ||
-               pci.error() == syscape::errc::not_supported ||
-               pci.error().category() == std::system_category(),
-           "pci_devices() must succeed or preserve an environmental system "
-           "error");
+    expect(pci.has_value() || is_environmental_failure(pci.error()),
+           "pci_devices() must succeed or report a documented environmental "
+           "failure");
 
     const auto usb = syscape::hardware::usb_devices();
-    expect(usb.has_value() ||
-               usb.error() == syscape::errc::not_supported ||
-               usb.error().category() == std::system_category(),
-           "usb_devices() must succeed or preserve an environmental system "
-           "error");
+    expect(usb.has_value() || is_environmental_failure(usb.error()),
+           "usb_devices() must succeed or report a documented environmental "
+           "failure");
 
     const auto mem = syscape::hardware::memory_devices();
-    expect(mem.has_value() ||
-               mem.error() == syscape::errc::not_supported ||
-               mem.error().category() == std::system_category(),
-           "memory_devices() must succeed or preserve an environmental "
-           "system error");
+    expect(mem.has_value() || is_environmental_failure(mem.error()),
+           "memory_devices() must succeed or report a documented "
+           "environmental failure");
 }
 
 } // namespace

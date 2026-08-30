@@ -140,15 +140,6 @@ void test_runtime_queries() {
         nullptr, text, ::kCFStringEncodingUTF8);
 }
 
-/// Builds an owned one-element string array for synthetic records.
-::CFArrayRef make_single_string_array(::CFStringRef entry) {
-    ::CFArrayRef array = ::CFArrayCreate(
-        nullptr, reinterpret_cast<const void**>(&entry), 1,
-        &::kCFTypeArrayCallBacks);
-    ::CFRelease(entry);
-    return array;
-}
-
 void test_language_collection() {
     namespace backend = syscape::detail::locale_backend;
 
