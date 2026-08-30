@@ -5,13 +5,15 @@
 /// @brief Hosted locale, text-encoding, language-preference, and time-zone
 /// queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note Linux and macOS share a POSIX backend for locale identity and UTC
-/// offset; Windows provides a native backend. Language preferences and
+/// @note Linux, macOS, and FreeBSD share a POSIX backend for locale identity
+/// and UTC offset; Windows provides a native backend. Language preferences and
 /// region codes use native backends on Windows and macOS. Time-zone
 /// identifiers use the documented localtime configuration on Linux and
 /// dynamic time-zone information on Windows. macOS reports not_supported
 /// because CoreFoundation silently substitutes GMT when the system zone is
-/// indeterminable. Other targets use the generic not-supported fallback.
+/// indeterminable. FreeBSD uses its POSIX locale facilities and documented
+/// zoneinfo layout, while language preferences and region codes report
+/// not_supported. Other targets use the generic not-supported fallback.
 /// @note On Windows the preference queries require _WIN32_WINNT and WINVER
 /// declarations of at least 0x0600 (Windows Vista); a lower setting is
 /// rejected with a diagnostic. When absent, the internal SDK include boundary
@@ -49,6 +51,8 @@
     !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
     !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
 #include <syscape/detail/locale/macos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
+#include <syscape/detail/locale/freebsd.hpp>
 #else
 #include <syscape/detail/locale/generic.hpp>
 #endif

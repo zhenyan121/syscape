@@ -6,20 +6,25 @@
 /// message queues, semaphores, local UNIX domain sockets, and IPC limits.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note This module exposes:
-/// - Enumeration of POSIX and System V shared memory segments (shared_memory_segments()).
+/// - Enumeration of POSIX and System V shared memory segments
+/// (shared_memory_segments()).
 /// - Enumeration of POSIX and System V message queues (message_queues()).
 /// - Enumeration of POSIX and System V semaphore sets (semaphore_sets()).
 /// - Enumeration of active local UNIX domain sockets (local_sockets()).
 /// - System-wide or namespace-wide IPC limits and tuning parameters (limits()).
-/// @note Linux queries procfs (/proc/sysvipc/shm, /proc/sysvipc/msg, /proc/sysvipc/sem,
-/// /proc/net/unix, /proc/[pid]/fd) and standard filesystem locations (/dev/shm, /dev/mqueue).
-/// Results represent a point-in-time runtime snapshot visible to the calling process
-/// within its current execution namespace(s) (IPC, network, mount, and PID namespaces).
-/// Because /dev/shm is a standard tmpfs mount, regular files created by applications in /dev/shm
+/// @note Linux queries procfs (/proc/sysvipc/shm, /proc/sysvipc/msg,
+/// /proc/sysvipc/sem, /proc/net/unix, /proc/[pid]/fd) and standard filesystem
+/// locations (/dev/shm, /dev/mqueue). Results represent a point-in-time runtime
+/// snapshot visible to the calling process within its current execution
+/// namespace(s) (IPC, network, mount, and PID namespaces). Because /dev/shm is
+/// a standard tmpfs mount, regular files created by applications in /dev/shm
 /// are enumerated as candidate POSIX shared memory objects.
-/// @note Process IDs associated with local sockets reflect observable processes holding
-/// open file descriptors, subject to operating-system caller permissions.
-/// @note Windows and macOS targets use their respective platform mechanisms or generic fallbacks.
+/// @note Process IDs associated with local sockets reflect observable processes
+/// holding open file descriptors, subject to operating-system caller
+/// permissions.
+/// @note FreeBSD exposes System V IPC limits through documented sysctl values;
+/// object inventories and local sockets report not_supported. Windows and macOS
+/// targets use their respective platform mechanisms or generic fallbacks.
 
 #include <syscape/detail/config.hpp>
 
@@ -47,6 +52,8 @@
     !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
     !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
 #include <syscape/detail/ipc/macos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
+#include <syscape/detail/ipc/freebsd.hpp>
 #else
 #include <syscape/detail/ipc/generic.hpp>
 #endif

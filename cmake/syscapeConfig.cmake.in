@@ -1,0 +1,10 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/syscapeTargets.cmake")
+
+if(TARGET syscape::syscape_hosted AND NOT TARGET syscape::hosted)
+    add_library(syscape::hosted INTERFACE IMPORTED)
+    target_link_libraries(syscape::hosted INTERFACE syscape::syscape_hosted)
+endif()
+
+check_required_components(syscape)

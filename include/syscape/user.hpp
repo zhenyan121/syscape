@@ -5,19 +5,25 @@
 /// @brief Hosted user identity and active login session queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note This module exposes:
-/// - Real and effective user and group numeric identifiers (real_user_id(), effective_user_id(), real_group_id(), effective_group_id()).
+/// - Real and effective user and group numeric identifiers (real_user_id(),
+/// effective_user_id(), real_group_id(), effective_group_id()).
 /// - Supplementary group numeric memberships (supplementary_groups()).
 /// - Privilege state classification (privilege()).
-/// - Login name, user name, home directory, and login shell (login_name(), user_name(), home_directory(), shell()).
-/// - Active user login sessions and logged-in user names (sessions(), logged_in_users()).
-/// @note Linux and macOS share a POSIX backend querying passwd, groups, getlogin_r, and utmpx.
-/// @note Windows provides a native backend querying GetUserNameW, SHGetKnownFolderPath,
-/// process token elevation (Advapi32.lib), and Terminal Services session enumeration (Wtsapi32.lib).
+/// - Login name, user name, home directory, and login shell (login_name(),
+/// user_name(), home_directory(), shell()).
+/// - Active user login sessions and logged-in user names (sessions(),
+/// logged_in_users()).
+/// @note Linux, macOS, and FreeBSD share a POSIX backend querying passwd,
+/// groups, getlogin_r, and utmpx.
+/// @note Windows provides a native backend querying GetUserNameW,
+/// SHGetKnownFolderPath, process token elevation (Advapi32.lib), and Terminal
+/// Services session enumeration (Wtsapi32.lib).
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
-/// @note Privacy: user names, home directories, and login sessions can identify persons or
-/// accounts. Every query here is explicit, performs no logging, persistence,
-/// telemetry, or network access, and preserves platform permission errors.
+/// @note Privacy: user names, home directories, and login sessions can identify
+/// persons or accounts. Every query here is explicit, performs no logging,
+/// persistence, telemetry, or network access, and preserves platform permission
+/// errors.
 
 #include <syscape/detail/config.hpp>
 
@@ -45,6 +51,8 @@
     !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
     !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
 #include <syscape/detail/user/macos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
+#include <syscape/detail/user/freebsd.hpp>
 #else
 #include <syscape/detail/user/generic.hpp>
 #endif

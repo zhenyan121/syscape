@@ -2,21 +2,24 @@
 #define SYSCAPE_NETWORK_HPP
 
 /// @file
-/// @brief Hosted network interface, address, route, gateway, and statistics queries.
+/// @brief Hosted network interface, address, route, gateway, and statistics
+/// queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note Linux and macOS enumerate interfaces through the documented
+/// @note Linux, macOS, and FreeBSD enumerate interfaces through the documented
 /// getifaddrs interface, resolving interface indices through POSIX
 /// if_nametoindex; Linux exposes link-layer addresses through AF_PACKET
-/// rows and macOS through AF_LINK rows. Windows enumerates adapters through
-/// GetAdaptersAddresses. Linux obtains routes from NETLINK_ROUTE, Windows
-/// from GetIpForwardTable2 with GetUnicastIpAddressTable context, and macOS
-/// from a PF_ROUTE NET_RT_DUMP2 sysctl. Interface traffic and error
+/// rows and macOS and FreeBSD through AF_LINK rows. Windows enumerates adapters
+/// through GetAdaptersAddresses. Linux obtains routes from NETLINK_ROUTE,
+/// Windows from GetIpForwardTable2 with GetUnicastIpAddressTable context, and
+/// macOS from a PF_ROUTE NET_RT_DUMP2 sysctl. Interface traffic and error
 /// statistics query /proc/net/dev and sysfs on Linux, GetIfTable2 / GetIfEntry2
 /// on Windows, and a PF_ROUTE NET_RT_IFLIST2 sysctl on macOS.
 /// The Windows sources require Windows Vista or later. Applications that use
 /// this header on Windows must link the Iphlpapi import library;
 /// Syscape itself stays header-only and does not add linkage for unrelated
-/// Hosted Full domains. Other targets use the generic not-supported fallback.
+/// Hosted Full domains. FreeBSD reads resolv.conf and getifaddrs traffic
+/// statistics, and reports routes and gateways as unsupported. Other targets
+/// use the generic not-supported fallback.
 /// @note The implemented network slices expose interface names, indices,
 /// operational state, loopback classification, link-layer (hardware)
 /// addresses, MTU values, and unicast IPv4/IPv6 addresses with prefix lengths
@@ -57,6 +60,8 @@
     !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
     !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
 #include <syscape/detail/network/macos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
+#include <syscape/detail/network/freebsd.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif
