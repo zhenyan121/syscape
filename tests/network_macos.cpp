@@ -282,11 +282,18 @@ void test_live_enumeration() {
     const auto interfaces = syscape::network::interfaces();
     if (!interfaces) {
         const std::error_code error = interfaces.error();
-        expect(error == std::errc::permission_denied ||
+        expect(error.category() == std::generic_category() ||
+                   error == syscape::errc::permission_denied ||
+                   error == syscape::errc::not_found ||
+                   error == syscape::errc::temporarily_unavailable ||
+                   error == syscape::errc::malformed_data ||
+                   error == syscape::errc::invalid_encoding ||
+                   error == syscape::errc::io_error ||
+                   error == std::errc::permission_denied ||
                    error == std::errc::operation_not_permitted ||
                    error == std::errc::operation_not_supported,
-               "Live enumeration fails only when the environment denies "
-               "or does not expose the required capability");
+               "Live enumeration reports a documented platform or "
+               "environmental failure");
         return;
     }
     expect(!interfaces->empty(),

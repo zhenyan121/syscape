@@ -1,3 +1,12 @@
+foreach(configuration IN ITEMS RELEASE RELWITHDEBINFO MINSIZEREL)
+    string(
+        REGEX REPLACE
+        "(^| )[/-]DNDEBUG( |$)"
+        " "
+        CMAKE_CXX_FLAGS_${configuration}
+        "${CMAKE_CXX_FLAGS_${configuration}}")
+endforeach()
+
 function(syscape_configure_test target standard library_target)
     target_link_libraries(${target} PRIVATE ${library_target})
     set_target_properties(
@@ -8,8 +17,7 @@ function(syscape_configure_test target standard library_target)
             CXX_EXTENSIONS NO)
 
     if(MSVC)
-        target_compile_options(
-            ${target} PRIVATE /W4 /WX /permissive- /utf-8 /UNDEBUG)
+        target_compile_options(${target} PRIVATE /W4 /WX /permissive- /utf-8)
     else()
         target_compile_options(
             ${target}
@@ -20,8 +28,7 @@ function(syscape_configure_test target standard library_target)
                 -pedantic-errors
                 -Wconversion
                 -Wsign-conversion
-                -Werror
-                -UNDEBUG)
+                -Werror)
     endif()
 endfunction()
 
