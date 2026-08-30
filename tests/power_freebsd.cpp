@@ -17,7 +17,7 @@ void test_power_queries() {
     const auto bats = syscape::power::batteries();
     expect(bats.has_value(), "batteries query must succeed");
 
-    const auto ext = syscape::power::is_external_power_connected();
+    const auto ext = syscape::power::external_power_online();
     expect(ext.has_value() || ext.error() == syscape::errc::not_found,
            "external power query must succeed or report not_found");
 }

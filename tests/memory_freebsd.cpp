@@ -14,12 +14,15 @@ void expect(bool condition, const char* message) {
 }
 
 void test_memory_queries() {
-    const auto total = syscape::memory::physical_total_bytes();
+    const auto total = syscape::memory::physical_memory_bytes();
     expect(total && *total > 0, "total physical memory must be positive");
 
-    const auto free_bytes = syscape::memory::physical_free_bytes();
-    expect(free_bytes && *free_bytes <= *total,
-           "free physical memory must not exceed total");
+    const auto free_bytes = syscape::memory::available_memory_bytes();
+    expect(free_bytes.has_value(), "available memory query must succeed");
+    if (free_bytes && total) {
+        expect(*free_bytes <= *total,
+               "available memory must not exceed total physical memory");
+    }
 
     const auto page_size = syscape::memory::page_size_bytes();
     expect(page_size && *page_size > 0, "page size must be positive");

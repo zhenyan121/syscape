@@ -15,7 +15,7 @@ void expect(bool condition, const char* message) {
 }
 
 void test_user_queries() {
-    const auto name = syscape::user::current_user_name();
+    const auto name = syscape::user::user_name();
     expect(name && !name->empty() && syscape::detail::is_valid_utf8(*name),
            "current user name must be nonempty UTF-8");
 }

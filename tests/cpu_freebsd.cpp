@@ -16,16 +16,22 @@ void expect(bool condition, const char* message) {
 }
 
 void test_cpu_queries() {
-    const auto count = syscape::cpu::logical_core_count();
+    const auto count = syscape::cpu::online_logical_processor_count();
     expect(count && *count > 0, "logical core count must be positive");
 
-    const auto physical = syscape::cpu::physical_core_count();
+    const auto physical = syscape::cpu::online_physical_core_count();
     expect(physical && *physical > 0, "physical core count must be positive");
 
-    const auto model = syscape::cpu::model_name();
-    expect(!model ||
-               (!model->empty() && syscape::detail::is_valid_utf8(*model)),
-           "model name must be valid UTF-8 if present");
+    const auto models = syscape::cpu::model_names();
+    expect(models || models.error() == syscape::errc::not_found ||
+               models.error() == syscape::errc::not_supported,
+           "model names must succeed or report an unavailable-source error");
+    if (models) {
+        for (const auto& model : *models) {
+            expect(!model.empty() && syscape::detail::is_valid_utf8(model),
+                   "model names must be nonempty UTF-8");
+        }
+    }
 }
 
 } // namespace

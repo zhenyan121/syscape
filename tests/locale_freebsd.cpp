@@ -14,7 +14,7 @@ void expect(bool condition, const char* message) {
 }
 
 void test_locale_queries() {
-    const auto loc = syscape::locale::current_locale_name();
+    const auto loc = syscape::locale::current_locale();
     expect(loc && !loc->empty(), "locale name must not be empty");
 }
 

@@ -14,7 +14,7 @@ void expect(bool condition, const char* message) {
 }
 
 void test_process_queries() {
-    const auto pid = syscape::process::current_process_id();
+    const auto pid = syscape::process::process_id();
     expect(pid && *pid > 0, "PID must be positive");
 
     const auto threads = syscape::process::thread_count();
