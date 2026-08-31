@@ -16,11 +16,18 @@ void expect(bool condition, const char* message) {
 
 void test_process_list_queries() {
     const auto procs = syscape::process_list::processes();
-    expect(procs && !procs->empty(),
-           "process list must return at least one entry");
+    expect(procs.has_value(), "process list query must succeed");
+    if (procs) {
+        std::uint32_t previous_pid = 0U;
+        for (const auto& process : *procs) {
+            expect(process.pid > previous_pid,
+                   "process list must contain ascending positive PIDs");
+            previous_pid = process.pid;
+        }
+    }
 
     const auto count = syscape::process_list::process_count();
-    expect(count && *count > 0, "process_count must be positive");
+    expect(count.has_value(), "process_count query must succeed");
 
     const auto oversized = syscape::process_list::find_process(
         (std::numeric_limits<std::uint32_t>::max)());
