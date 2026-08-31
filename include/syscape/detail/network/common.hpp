@@ -190,18 +190,18 @@ inline result<std::vector<route_record>> validate_route_records(
 
 /// Validates converted interface records at the public boundary.
 ///
-/// Every record needs a non-empty name in valid UTF-8, a nonzero index, and a
-/// nonzero MTU. Each address needs a prefix length within its family's
-/// documented range, and an IPv4 record must use a zero scope identifier and
-/// leave the bytes beyond the first four zero. One unusable record fails the
-/// whole snapshot so that silently dropping entries can never hide platform
-/// damage.
+/// Every record needs a non-empty name in valid UTF-8 and a nonzero index.
+/// Each address needs a prefix length within its family's documented range,
+/// and an IPv4 record must use a zero scope identifier and leave the bytes
+/// beyond the first four zero. A zero MTU remains valid because platforms can
+/// record it for interfaces that do not transmit packets directly. One
+/// unusable record fails the whole snapshot so that silently dropping entries
+/// can never hide platform damage.
 inline result<std::vector<interface_record>> validate_interface_records(
     result<std::vector<interface_record>> records) {
     if (!records) { return fail(records.error()); }
     for (const interface_record& entry : *records) {
-        if (entry.name.empty() || entry.index == 0U ||
-            entry.mtu_bytes == 0U) {
+        if (entry.name.empty() || entry.index == 0U) {
             return fail(errc::malformed_data);
         }
         if (!is_valid_utf8(entry.name)) {

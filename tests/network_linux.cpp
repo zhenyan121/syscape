@@ -651,9 +651,11 @@ void test_boundary_validation() {
     {
         interface_record record = make_valid_record();
         record.mtu_bytes = 0U;
-        expect_validation_failure(std::move(record),
-                                  syscape::errc::malformed_data,
-                                  "A zero MTU is malformed platform data");
+        const auto outcome =
+            syscape::detail::network_common::validate_interface_records(
+                std::vector<interface_record> {record});
+        expect(outcome.has_value() && outcome->at(0U).mtu_bytes == 0U,
+               "A platform-recorded zero MTU remains valid data");
     }
 
     {

@@ -128,8 +128,9 @@ struct interface_entry {
     /// assigned unicast addresses.
     std::vector<unicast_address> addresses;
     /// Maximum transmission unit recorded for this interface, in bytes.
-    /// The value can change when the interface is reconfigured and is always
-    /// nonzero in a successful snapshot.
+    /// The value can change when the interface is reconfigured. Zero is a
+    /// valid native value for an interface that does not transmit packets
+    /// directly, such as an OpenBSD IPsec filtering interface.
     std::uint32_t mtu_bytes;
 };
 
@@ -193,9 +194,9 @@ struct gateway_entry {
 ///
 /// @return A list with at least one entry on any running hosted system,
 /// invalid_encoding when a name is not valid UTF-8, malformed_data for
-/// unusable platform records including a zero MTU or nonzero IPv4 scope
-/// identifier, not_supported when the platform exposes no acceptable source
-/// or cannot represent a record, or a native platform error.
+/// unusable platform records including a nonzero IPv4 scope identifier,
+/// not_supported when the platform exposes no acceptable source or cannot
+/// represent a record, or a native platform error.
 inline result<std::vector<interface_entry>> interfaces() {
     result<std::vector<detail::network_common::interface_record>> records =
         detail::network_common::validate_interface_records(
