@@ -14,7 +14,7 @@ void expect(bool condition, const char* message) {
 }
 
 void test_ipc_queries() {
-    const auto lim = syscape::ipc::system_limits();
+    const auto lim = syscape::ipc::limits();
     expect(lim.has_value() || lim.error() == syscape::errc::not_supported,
            "IPC system limits query must succeed or report not_supported");
 }
