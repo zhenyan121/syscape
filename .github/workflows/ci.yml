@@ -207,7 +207,7 @@ jobs:
         with:
           release: "10.0"
           prepare: |
-            pkgin -y install cmake ninja-build
+            /usr/sbin/pkg_add -u cmake ninja-build
           run: |
             export CC=/usr/bin/gcc
             export CXX=/usr/bin/g++
@@ -238,7 +238,7 @@ jobs:
         with:
           release: "10.0"
           prepare: |
-            pkgin -y install cmake ninja-build clang
+            /usr/sbin/pkg_add -u cmake ninja-build clang
           run: |
             export CC=clang
             export CXX=clang++
