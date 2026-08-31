@@ -246,7 +246,7 @@ void test_adapter_without_protocol_index() {
            "unsupported representation, not malformed data");
 }
 
-void test_zero_mtu_is_malformed_at_boundary() {
+void test_zero_mtu_is_preserved_at_boundary() {
     ::IP_ADAPTER_ADDRESSES adapter {};
     adapter.AdapterName = const_cast<::PSTR>("zero-mtu-adapter");
     adapter.IfIndex = 29U;
@@ -256,10 +256,9 @@ void test_zero_mtu_is_malformed_at_boundary() {
         syscape::detail::network_backend::enumerate(fake_adapter_api{});
     const auto validated = syscape::detail::network_common::
         validate_interface_records(std::move(converted));
-    expect(!validated &&
-               validated.error() == syscape::make_error_code(
-                                        syscape::errc::malformed_data),
-           "A zero adapter MTU is malformed at the public boundary");
+    expect(validated && validated->size() == 1U &&
+               validated->at(0U).mtu_bytes == 0U,
+           "A zero adapter MTU is preserved at the public boundary");
 }
 
 void test_unknown_unicast_family_skipped() {
@@ -410,10 +409,7 @@ void test_live_enumeration() {
            "A running hosted system exposes at least one adapter");
     bool has_loopback = false;
     for (const syscape::network::interface_entry& entry : *interfaces) {
-        expect(entry.index != 0U,
-               "Every live adapter has a nonzero index");
-        expect(entry.mtu_bytes != 0U,
-               "Every live adapter has a nonzero MTU");
+        expect(entry.index != 0U, "Every live adapter has a nonzero index");
         expect(!entry.name.empty(), "Every live adapter has a name");
         has_loopback = has_loopback || entry.loopback;
     }
@@ -817,7 +813,7 @@ int main() {
     test_unknown_oper_status();
     test_ipv6_only_index();
     test_adapter_without_protocol_index();
-    test_zero_mtu_is_malformed_at_boundary();
+    test_zero_mtu_is_preserved_at_boundary();
     test_unknown_unicast_family_skipped();
     test_prefix_and_socket_address_validation();
     test_nameless_adapter_is_malformed();

@@ -737,10 +737,7 @@ void test_live_enumeration() {
     bool has_loopback = false;
     std::size_t unicast_total = 0U;
     for (const syscape::network::interface_entry& entry : *interfaces) {
-        expect(entry.index != 0U,
-               "Every live interface has a nonzero index");
-        expect(entry.mtu_bytes != 0U,
-               "Every live interface has a nonzero MTU");
+        expect(entry.index != 0U, "Every live interface has a nonzero index");
         expect(!entry.name.empty(), "Every live interface has a name");
         unicast_total += entry.addresses.size();
         for (const syscape::network::unicast_address& address :
