@@ -163,7 +163,7 @@ inline result<::syscape::ipc::ipc_limits> limits() {
         return fail(msgmnb.error());
     }
     if (msgmnb) {
-        lim.max_message_queue_bytes = *msgmnb;
+        lim.default_message_queue_bytes = *msgmnb;
         ++supported_count;
     }
 
