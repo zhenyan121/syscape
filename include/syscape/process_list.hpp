@@ -132,6 +132,8 @@ struct process_entry {
 #include <syscape/detail/process_list/openbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__NetBSD__)
 #include <syscape/detail/process_list/netbsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
+#include <syscape/detail/process_list/dragonfly.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif
