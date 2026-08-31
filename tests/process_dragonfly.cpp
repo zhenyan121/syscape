@@ -22,6 +22,32 @@ void test_process_queries() {
 
     const auto threads = syscape::process::thread_count();
     expect(threads && *threads > 0, "thread count must be positive");
+
+    const auto working_directory = syscape::process::working_directory();
+    expect(working_directory && !working_directory->empty() &&
+               working_directory->front() == '/',
+           "working directory must be an absolute path");
+
+    const auto cpu_time = syscape::process::cpu_time();
+    expect(cpu_time && cpu_time->user.count() >= 0 &&
+               cpu_time->system.count() >= 0,
+           "CPU times must be nonnegative");
+
+    const auto memory = syscape::process::memory_usage();
+    expect(memory && memory->resident_bytes > 0 && memory->virtual_bytes > 0,
+           "process memory extents must be positive");
+
+    const auto priority = syscape::process::priority();
+    expect(priority.has_value(), "process priority query must succeed");
+
+    const auto affinity = syscape::process::cpu_affinity();
+    expect(!affinity && affinity.error() == syscape::make_error_code(
+                                                syscape::errc::not_supported),
+           "CPU affinity must report not_supported on DragonFly BSD");
+
+    const auto limits = syscape::process::resource_limit(
+        syscape::process::resource_kind::open_files);
+    expect(limits.has_value(), "open-file resource limit query must succeed");
 }
 
 } // namespace

@@ -157,99 +157,127 @@ inline result<std::vector<std::string>> command_line() {
 }
 
 inline result<std::string> working_directory() {
-    return posix_working_directory();
+    std::vector<char> buffer(1024U);
+    constexpr std::size_t maximum_size = 1024U * 1024U;
+    for (;;) {
+        errno = 0;
+        const char* value = ::getcwd(buffer.data(), buffer.size());
+        if (value != nullptr) {
+            const std::string path(buffer.data());
+            return path.empty() || path.front() != '/'
+                       ? result<std::string>(fail(errc::malformed_data))
+                       : result<std::string>(std::move(path));
+        }
+        if (errno != ERANGE) {
+            return fail(std::error_code(errno, std::generic_category()));
+        }
+        if (buffer.size() >= maximum_size) {
+            return fail(errc::value_too_large);
+        }
+        buffer.resize(buffer.size() <= maximum_size / 2U ? buffer.size() * 2U
+                                                         : maximum_size);
+    }
+}
+
+inline result<struct ::kinfo_proc> query_kinfo_proc(pid_t pid) {
+    int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, static_cast<int>(pid)};
+    struct ::kinfo_proc proc {};
+    std::size_t size = sizeof(proc);
+    if (::sysctl(mib, 4, &proc, &size, nullptr, 0U) != 0) {
+        return fail(std::error_code(errno, std::generic_category()));
+    }
+    if (size == 0U) {
+        return fail(errc::not_found);
+    }
+    if (size != sizeof(proc)) {
+        return fail(errc::malformed_data);
+    }
+    return proc;
 }
 
 inline result<std::chrono::system_clock::time_point> start_time() {
-    struct rusage ru {};
-    if (::getrusage(RUSAGE_SELF, &ru) != 0) {
-        return fail(std::error_code(errno, std::generic_category()));
+    const result<struct ::kinfo_proc> proc = query_kinfo_proc(::getpid());
+    if (!proc) {
+        return fail(proc.error());
     }
-    int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, ::getpid()};
-    struct kinfo_proc proc {};
-    std::size_t size = sizeof(proc);
-    if (::sysctl(mib, 4, &proc, &size, nullptr, 0U) == 0 &&
-        size == sizeof(proc)) {
-        return timeval_to_time_point(
-            static_cast<std::int64_t>(proc.kp_start.tv_sec),
-            static_cast<std::int64_t>(proc.kp_start.tv_usec));
-    }
-    return fail(errc::not_supported);
+    return timeval_to_time_point(
+        static_cast<std::int64_t>(proc->kp_start.tv_sec),
+        static_cast<std::int64_t>(proc->kp_start.tv_usec));
 }
 
-inline result<process_common::cpu_times> cpu_time() {
-    struct rusage ru {};
-    if (::getrusage(RUSAGE_SELF, &ru) != 0) {
+inline result<process_common::cpu_time_usage> cpu_time() {
+    struct ::rusage usage {};
+    if (::getrusage(RUSAGE_SELF, &usage) != 0) {
         return fail(std::error_code(errno, std::generic_category()));
     }
-    const auto user =
-        timeval_to_nanoseconds(static_cast<std::int64_t>(ru.ru_utime.tv_sec),
-                               static_cast<std::int64_t>(ru.ru_utime.tv_usec));
+    const result<std::chrono::nanoseconds> user = timeval_to_nanoseconds(
+        static_cast<std::int64_t>(usage.ru_utime.tv_sec),
+        static_cast<std::int64_t>(usage.ru_utime.tv_usec));
     if (!user) {
         return fail(user.error());
     }
-    const auto sys =
-        timeval_to_nanoseconds(static_cast<std::int64_t>(ru.ru_stime.tv_sec),
-                               static_cast<std::int64_t>(ru.ru_stime.tv_usec));
-    if (!sys) {
-        return fail(sys.error());
+    const result<std::chrono::nanoseconds> system = timeval_to_nanoseconds(
+        static_cast<std::int64_t>(usage.ru_stime.tv_sec),
+        static_cast<std::int64_t>(usage.ru_stime.tv_usec));
+    if (!system) {
+        return fail(system.error());
     }
-    process_common::cpu_times times;
-    times.user_cpu_time_ns = *user;
-    times.system_cpu_time_ns = *sys;
+    process_common::cpu_time_usage times;
+    times.user = *user;
+    times.system = *system;
     return times;
 }
 
 inline result<process_common::memory_usage_snapshot> memory_usage() {
-    struct rusage ru {};
-    if (::getrusage(RUSAGE_SELF, &ru) != 0) {
-        return fail(std::error_code(errno, std::generic_category()));
+    const result<struct ::kinfo_proc> proc = query_kinfo_proc(::getpid());
+    if (!proc) {
+        return fail(proc.error());
+    }
+    errno = 0;
+    const long page_size = ::sysconf(_SC_PAGESIZE);
+    if (page_size <= 0) {
+        return errno != 0
+                   ? result<process_common::memory_usage_snapshot>(
+                         fail(std::error_code(errno, std::generic_category())))
+                   : result<process_common::memory_usage_snapshot>(
+                         fail(errc::malformed_data));
+    }
+    const std::uint64_t resident_pages =
+        static_cast<std::uint64_t>(proc->kp_vm_rssize);
+    const std::uint64_t page_bytes = static_cast<std::uint64_t>(page_size);
+    constexpr std::uint64_t max_u64 =
+        (std::numeric_limits<std::uint64_t>::max)();
+    if (resident_pages > max_u64 / page_bytes) {
+        return fail(errc::value_too_large);
     }
     process_common::memory_usage_snapshot snapshot;
-    if (ru.ru_maxrss < 0) {
-        return fail(errc::malformed_data);
-    }
-    snapshot.peak_resident_set_bytes =
-        static_cast<std::uint64_t>(ru.ru_maxrss) * 1024U;
-
-    int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, ::getpid()};
-    struct kinfo_proc proc {};
-    std::size_t size = sizeof(proc);
-    if (::sysctl(mib, 4, &proc, &size, nullptr, 0U) == 0 &&
-        size == sizeof(proc)) {
-        snapshot.resident_set_bytes =
-            static_cast<std::uint64_t>(proc.kp_vm_rssize) *
-            static_cast<std::uint64_t>(::getpagesize());
-        snapshot.virtual_memory_bytes =
-            static_cast<std::uint64_t>(proc.kp_vm_map_size);
-    }
+    snapshot.resident_bytes = resident_pages * page_bytes;
+    snapshot.virtual_bytes = static_cast<std::uint64_t>(proc->kp_vm_map_size);
     return snapshot;
 }
 
-inline result<std::int32_t> scheduling_priority() {
-    errno = 0;
-    const int priority = ::getpriority(PRIO_PROCESS, 0U);
-    if (errno != 0) {
-        return fail(std::error_code(errno, std::generic_category()));
+inline result<std::uint32_t> thread_count() {
+    const result<struct ::kinfo_proc> proc = query_kinfo_proc(::getpid());
+    if (!proc) {
+        return fail(proc.error());
     }
-    return priority;
+    if (proc->kp_nthreads <= 0) {
+        return fail(errc::malformed_data);
+    }
+    return static_cast<std::uint32_t>(proc->kp_nthreads);
 }
 
-inline result<std::uint32_t> thread_count() {
-    int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, ::getpid()};
-    struct kinfo_proc proc {};
-    std::size_t size = sizeof(proc);
-    if (::sysctl(mib, 4, &proc, &size, nullptr, 0U) == 0 &&
-        size == sizeof(proc)) {
-        if (proc.kp_nthreads > 0) {
-            return static_cast<std::uint32_t>(proc.kp_nthreads);
-        }
-    }
+inline result<int> priority() {
+    return process_posix::priority(-20, 20);
+}
+
+inline result<std::vector<std::uint32_t>> cpu_affinity() {
     return fail(errc::not_supported);
 }
 
-inline result<process_common::resource_limits> resource_limits() {
-    return posix_resource_limits();
+inline result<process_common::resource_limit_snapshot>
+resource_limit(process_common::limit_resource kind) {
+    return process_posix::resource_limit(kind);
 }
 
 } // namespace process_backend

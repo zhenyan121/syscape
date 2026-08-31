@@ -102,6 +102,29 @@ max_path_length(const std::string& path) {
     return pathconf_limit(path, _PC_PATH_MAX);
 }
 
+inline result<std::string> statfs_volume_id(const std::string& path) {
+    for (;;) {
+        struct ::statfs status {};
+        if (::statfs(path.c_str(), &status) == 0) {
+            static_assert(sizeof(status.f_fsid.val[0]) == sizeof(std::uint32_t),
+                          "The DragonFly BSD backend requires 32-bit "
+                          "filesystem identifier words");
+            std::uint32_t first = 0U;
+            std::uint32_t second = 0U;
+            std::memcpy(&first, &status.f_fsid.val[0], sizeof(first));
+            std::memcpy(&second, &status.f_fsid.val[1], sizeof(second));
+            return filesystem_common::render_hex_word_pair(first, second);
+        }
+        if (errno != EINTR) {
+            return fail(std::error_code(errno, std::generic_category()));
+        }
+    }
+}
+
+inline result<std::string> volume_id(const std::string& path) {
+    return statfs_volume_id(path);
+}
+
 } // namespace filesystem_backend
 } // namespace detail
 } // namespace syscape

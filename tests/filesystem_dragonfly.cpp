@@ -19,6 +19,10 @@ void test_filesystem_queries() {
 
     const auto root_space = syscape::filesystem::space("/");
     expect(root_space.has_value(), "root space query must succeed");
+
+    const auto root_volume_id = syscape::filesystem::volume_id("/");
+    expect(root_volume_id && root_volume_id->size() == 16U,
+           "root volume identifier must contain sixteen hexadecimal digits");
 }
 
 } // namespace
