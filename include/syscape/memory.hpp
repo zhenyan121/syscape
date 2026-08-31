@@ -89,9 +89,11 @@ inline result<std::uint64_t> physical_memory_bytes() {
 /// This is an estimate that the platform defines itself. Linux reports its
 /// MemAvailable calculation; macOS reports free and inactive pages, which
 /// already contain the kernel's volatile purgeable population; Windows
-/// reports currently available physical memory. The estimate excludes cached
-/// data that can be reclaimed on demand only where the platform says so. The
-/// value changes continuously with system load.
+/// reports currently available physical memory. NetBSD uses the expanded UVM
+/// snapshot's free and inactive page populations when available; its legacy
+/// UVM snapshot exposes only free pages. The estimate excludes cached data
+/// that can be reclaimed on demand only where the platform says so. The value
+/// changes continuously with system load.
 /// @return A byte count no greater than physical_memory_bytes(),
 /// not_supported when the platform does not expose such an estimate (for
 /// example kernels older than MemAvailable's introduction), malformed_data,

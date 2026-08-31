@@ -166,24 +166,18 @@ inline result<std::uint64_t> available_memory_bytes() {
     if (!uvm) {
         return fail(uvm.error());
     }
-    if (uvm->pagesize <= 0 || uvm->free < 0 || uvm->inactive < 0) {
+    if (uvm->pagesize <= 0 || uvm->free < 0) {
         return fail(errc::malformed_data);
     }
     const std::uint64_t free_pages = static_cast<std::uint64_t>(uvm->free);
-    const std::uint64_t inactive_pages =
-        static_cast<std::uint64_t>(uvm->inactive);
     const std::uint64_t page_size = static_cast<std::uint64_t>(uvm->pagesize);
 
     constexpr std::uint64_t max_u64 =
         (std::numeric_limits<std::uint64_t>::max)();
-    if (free_pages > max_u64 - inactive_pages) {
+    if (free_pages > max_u64 / page_size) {
         return fail(errc::value_too_large);
     }
-    const std::uint64_t avail_pages = free_pages + inactive_pages;
-    if (avail_pages > max_u64 / page_size) {
-        return fail(errc::value_too_large);
-    }
-    return avail_pages * page_size;
+    return free_pages * page_size;
 }
 
 inline result<memory_common::swap_usage> swap_status() {
