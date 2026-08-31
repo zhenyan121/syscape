@@ -359,10 +359,14 @@ inline result<std::vector<struct kinfo_proc2>> get_all_kinfo_proc2() {
             return std::vector<struct kinfo_proc2>();
         }
 
-        if (size % sizeof(struct kinfo_proc2) != 0U) {
-            return fail(errc::malformed_data);
-        }
+        // NetBSD adds KERN_PROCSLOP, expressed in legacy kinfo_proc bytes, to
+        // sizing queries.  That estimate need not be a multiple of
+        // kinfo_proc2, so round it up to an element capacity.  A successful
+        // data query below must still return a whole number of elements.
         std::size_t count = size / sizeof(struct kinfo_proc2);
+        if (size % sizeof(struct kinfo_proc2) != 0U) {
+            ++count;
+        }
         constexpr std::size_t padding = 16U;
         constexpr std::size_t maximum_count =
             (std::numeric_limits<std::size_t>::max)() /
