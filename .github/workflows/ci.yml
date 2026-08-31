@@ -196,3 +196,67 @@ jobs:
             ./build/examples/example_peripherals_multimedia >/dev/null
             ./build/examples/example_process_monitor >/dev/null
             ./build/examples/example_software_inventory >/dev/null
+
+  netbsd-gcc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test with GCC in NetBSD VM
+        uses: vmactions/netbsd-vm@v1
+        with:
+          release: "10.0"
+          sync-time: true
+          prepare: |
+            /usr/sbin/pkg_add -u cmake ninja-build
+          run: |
+            export CC=/usr/bin/gcc
+            export CXX=/usr/bin/g++
+            cmake -B build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER=/usr/bin/gcc \
+              -DCMAKE_CXX_COMPILER=/usr/bin/g++ \
+              -DSYSCAPE_BUILD_TESTS=ON \
+              -DSYSCAPE_BUILD_EXAMPLES=ON
+            cmake --build build -j
+            ctest --test-dir build --output-on-failure
+            ./build/examples/example_system_overview >/dev/null
+            ./build/examples/example_hardware_inventory >/dev/null
+            ./build/examples/example_network_overview >/dev/null
+            ./build/examples/example_filesystem_storage >/dev/null
+            ./build/examples/example_security_virtualization >/dev/null
+            ./build/examples/example_peripherals_multimedia >/dev/null
+            ./build/examples/example_process_monitor >/dev/null
+            ./build/examples/example_software_inventory >/dev/null
+
+  netbsd-clang:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test with Clang in NetBSD VM
+        uses: vmactions/netbsd-vm@v1
+        with:
+          release: "10.0"
+          sync-time: true
+          prepare: |
+            /usr/sbin/pkg_add -u cmake ninja-build clang
+          run: |
+            export CC=clang
+            export CXX=clang++
+            cmake -B build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER=clang \
+              -DCMAKE_CXX_COMPILER=clang++ \
+              -DSYSCAPE_BUILD_TESTS=ON \
+              -DSYSCAPE_BUILD_EXAMPLES=ON
+            cmake --build build -j
+            ctest --test-dir build --output-on-failure
+            ./build/examples/example_system_overview >/dev/null
+            ./build/examples/example_hardware_inventory >/dev/null
+            ./build/examples/example_network_overview >/dev/null
+            ./build/examples/example_filesystem_storage >/dev/null
+            ./build/examples/example_security_virtualization >/dev/null
+            ./build/examples/example_peripherals_multimedia >/dev/null
+            ./build/examples/example_process_monitor >/dev/null
+            ./build/examples/example_software_inventory >/dev/null

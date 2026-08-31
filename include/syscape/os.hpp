@@ -37,6 +37,8 @@
 #include <syscape/detail/os/freebsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
 #include <syscape/detail/os/openbsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__NetBSD__)
+#include <syscape/detail/os/netbsd.hpp>
 #else
 #include <syscape/detail/os/generic.hpp>
 #endif
@@ -93,7 +95,12 @@ inline result<std::chrono::milliseconds> uptime() {
     return detail::os_backend::uptime();
 }
 
-/// Returns the best available system-clock time point at which the system booted.
+/// Returns the best available system-clock time point at which the system
+/// booted.
+///
+/// A wall-clock correction after boot can make this historical instant later
+/// than the current system-clock time. Use uptime() for an elapsed-duration
+/// calculation that is independent of wall-clock adjustments.
 /// @return The boot time or an error when the platform source is unavailable.
 inline result<std::chrono::system_clock::time_point> boot_time() {
     return detail::os_backend::boot_time();

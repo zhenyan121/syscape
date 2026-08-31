@@ -130,6 +130,8 @@ struct process_entry {
 #include <syscape/detail/process_list/freebsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
 #include <syscape/detail/process_list/openbsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__NetBSD__)
+#include <syscape/detail/process_list/netbsd.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif
@@ -139,7 +141,9 @@ namespace process_list {
 
 /// Returns all observable processes currently active on the system.
 ///
-/// The resulting collection is sorted in natural ascending order by process ID (PID).
+/// The resulting collection is sorted in natural ascending order by process ID
+/// (PID). A successful empty collection means the current caller can observe no
+/// processes in its platform or sandbox scope.
 /// @return A vector of process_entry structures, or a platform error.
 inline result<std::vector<process_entry>> processes() {
     return detail::process_list_backend::processes();
@@ -147,8 +151,9 @@ inline result<std::vector<process_entry>> processes() {
 
 /// Returns the total number of observable live processes on the system.
 ///
-/// The count uses the same observability rules as processes(). Separate calls
-/// can differ because processes may start or exit between snapshots.
+/// The count uses the same observability rules as processes(); zero is valid
+/// when no processes are observable. Separate calls can differ because
+/// processes may start or exit between snapshots.
 /// @return A process count, or a platform error.
 inline result<std::uint32_t> process_count() {
     return detail::process_list_backend::process_count();

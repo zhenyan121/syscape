@@ -242,6 +242,8 @@ struct cgroup_info {
 #include <syscape/detail/virtualization/freebsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
 #include <syscape/detail/virtualization/openbsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__NetBSD__)
+#include <syscape/detail/virtualization/netbsd.hpp>
 #else
 #include <syscape/detail/virtualization/generic.hpp>
 #endif

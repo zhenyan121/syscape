@@ -121,6 +121,8 @@ struct audio_device {
 #include <syscape/detail/audio/freebsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
 #include <syscape/detail/audio/openbsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__NetBSD__)
+#include <syscape/detail/audio/netbsd.hpp>
 #else
 #include <syscape/detail/audio/generic.hpp>
 #endif
