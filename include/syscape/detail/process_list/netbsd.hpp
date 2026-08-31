@@ -269,29 +269,39 @@ make_entry_from_kinfo2(const struct kinfo_proc2& kp, std::uint64_t page_size) {
     }
 
     if (kp.p_uvalid != 0) {
+        // p_ustart_usec, p_uutime_usec, p_ustime_usec are uint32_t and may
+        // hold values >= 1000000 on certain kernel threads even when p_uvalid
+        // is set.  Treat these timing fields as best-effort: skip them rather
+        // than failing the entire process-list query.
         const auto st =
             timeval_to_time_point(static_cast<std::int64_t>(kp.p_ustart_sec),
                                   static_cast<std::int64_t>(kp.p_ustart_usec));
-        if (!st) {
+        if (st) {
+            entry.start_time = *st;
+        } else if (st.error() != errc::malformed_data &&
+                   st.error() != errc::value_too_large) {
             return fail(st.error());
         }
-        entry.start_time = *st;
 
         const auto ut =
             timeval_to_nanoseconds(static_cast<std::int64_t>(kp.p_uutime_sec),
                                    static_cast<std::int64_t>(kp.p_uutime_usec));
-        if (!ut) {
+        if (ut) {
+            entry.user_cpu_time = *ut;
+        } else if (ut.error() != errc::malformed_data &&
+                   ut.error() != errc::value_too_large) {
             return fail(ut.error());
         }
-        entry.user_cpu_time = *ut;
 
         const auto kt =
             timeval_to_nanoseconds(static_cast<std::int64_t>(kp.p_ustime_sec),
                                    static_cast<std::int64_t>(kp.p_ustime_usec));
-        if (!kt) {
+        if (kt) {
+            entry.kernel_cpu_time = *kt;
+        } else if (kt.error() != errc::malformed_data &&
+                   kt.error() != errc::value_too_large) {
             return fail(kt.error());
         }
-        entry.kernel_cpu_time = *kt;
     }
 
     const result<std::optional<std::string>> executable_path =

@@ -21,29 +21,6 @@ namespace syscape {
 namespace detail {
 namespace os_backend {
 
-inline result<std::chrono::system_clock::time_point>
-timeval_to_time_point(std::int64_t seconds, std::int64_t microseconds) {
-    if (seconds < 0 || microseconds < 0 || microseconds >= 1000000) {
-        return fail(errc::malformed_data);
-    }
-    using clock = std::chrono::system_clock;
-    const std::int64_t maximum_seconds =
-        std::chrono::duration_cast<std::chrono::seconds>(clock::duration::max())
-            .count();
-    if (seconds > maximum_seconds) {
-        return fail(errc::value_too_large);
-    }
-    const clock::duration whole = std::chrono::duration_cast<clock::duration>(
-        std::chrono::seconds(seconds));
-    const clock::duration fraction =
-        std::chrono::duration_cast<clock::duration>(
-            std::chrono::microseconds(microseconds));
-    if (fraction > clock::duration::max() - whole) {
-        return fail(errc::value_too_large);
-    }
-    return clock::time_point(whole + fraction);
-}
-
 inline result<std::string> sysctl_mib_string(const int* mib,
                                              unsigned int mib_len) {
     constexpr int maximum_attempts = 4;
@@ -135,18 +112,34 @@ inline result<std::string> host_name() {
 }
 
 inline result<std::chrono::system_clock::time_point> boot_time() {
+    // NetBSD KERN_BOOTTIME returns struct timespec (nanoseconds precision),
+    // unlike FreeBSD/macOS which return struct timeval (microseconds).
     int name[] = {CTL_KERN, KERN_BOOTTIME};
-    struct timeval value {};
+    struct timespec value {};
     std::size_t size = sizeof(value);
     if (::sysctl(name, 2U, &value, &size, nullptr, 0U) != 0) {
         return fail(std::error_code(errno, std::generic_category()));
     }
-    if (size != sizeof(value) || value.tv_sec < 0 || value.tv_usec < 0 ||
-        value.tv_usec >= 1000000) {
+    if (size != sizeof(value) || value.tv_sec < 0 || value.tv_nsec < 0 ||
+        value.tv_nsec >= 1000000000L) {
         return fail(errc::malformed_data);
     }
-    return timeval_to_time_point(static_cast<std::int64_t>(value.tv_sec),
-                                 static_cast<std::int64_t>(value.tv_usec));
+    using clock = std::chrono::system_clock;
+    const std::int64_t maximum_seconds =
+        std::chrono::duration_cast<std::chrono::seconds>(clock::duration::max())
+            .count();
+    if (static_cast<std::int64_t>(value.tv_sec) > maximum_seconds) {
+        return fail(errc::value_too_large);
+    }
+    const clock::duration whole = std::chrono::duration_cast<clock::duration>(
+        std::chrono::seconds(value.tv_sec));
+    const clock::duration fraction =
+        std::chrono::duration_cast<clock::duration>(
+            std::chrono::nanoseconds(value.tv_nsec));
+    if (fraction > clock::duration::max() - whole) {
+        return fail(errc::value_too_large);
+    }
+    return clock::time_point(whole + fraction);
 }
 
 inline result<std::chrono::milliseconds> uptime() {
