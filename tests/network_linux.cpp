@@ -391,6 +391,32 @@ void test_prefix_boundaries() {
            "A zero netmask legitimately yields prefix length 0");
 }
 
+void test_shortened_netmask_copy() {
+    const unsigned char compact_ipv6_mask[] = {
+        12U, 0U, 0U, 0U, 0U, 0U, 0U, 0U, 0xFFU, 0xFFU, 0xFFU, 0xFFU};
+    unsigned char copied[16];
+    syscape::detail::network_backend::copy_recorded_netmask_bytes(
+        compact_ipv6_mask, sizeof(compact_ipv6_mask), 8U, copied,
+        sizeof(copied));
+
+    bool trailing_zero = true;
+    for (std::size_t offset = 4U; offset < sizeof(copied); ++offset) {
+        trailing_zero = trailing_zero && copied[offset] == 0U;
+    }
+    expect(copied[0U] == 0xFFU && copied[1U] == 0xFFU && copied[2U] == 0xFFU &&
+               copied[3U] == 0xFFU && trailing_zero,
+           "A shortened BSD netmask is zero-filled after its recorded "
+           "bytes");
+
+    syscape::detail::network_backend::copy_recorded_netmask_bytes(
+        compact_ipv6_mask, 0U, 8U, copied, sizeof(copied));
+    bool all_zero = true;
+    for (const unsigned char byte : copied) {
+        all_zero = all_zero && byte == 0U;
+    }
+    expect(all_zero, "A zero-length BSD netmask represents an all-zero mask");
+}
+
 void test_non_contiguous_mask_is_malformed() {
     fake_index_api::reset();
     synthetic_chain chain;
@@ -1672,6 +1698,7 @@ int main() {
     test_grouping_and_order();
     test_state_classification();
     test_prefix_boundaries();
+    test_shortened_netmask_copy();
     test_non_contiguous_mask_is_malformed();
     test_mask_family_mismatch_is_malformed();
     test_missing_netmask_is_malformed();

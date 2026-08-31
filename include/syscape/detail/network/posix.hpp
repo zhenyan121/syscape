@@ -168,6 +168,41 @@ inline result<std::uint8_t> prefix_from_netmask(
     return prefix;
 }
 
+/// Copies the address portion of a possibly shortened native netmask.
+///
+/// BSD routing interfaces may omit trailing zero bytes from a sockaddr
+/// netmask. The destination is therefore cleared first and only bytes covered
+/// by the native record are copied.
+inline void copy_recorded_netmask_bytes(const unsigned char* source,
+                                        std::size_t recorded_size,
+                                        std::size_t address_offset,
+                                        unsigned char* destination,
+                                        std::size_t destination_size) noexcept {
+    std::memset(destination, 0, destination_size);
+    if (recorded_size <= address_offset) {
+        return;
+    }
+    const std::size_t available = recorded_size - address_offset;
+    const std::size_t copy_size =
+        available < destination_size ? available : destination_size;
+    std::memcpy(destination, source + address_offset, copy_size);
+}
+
+/// Extracts the address bytes from a POSIX netmask sockaddr.
+inline void copy_netmask_bytes(const ::sockaddr& netmask,
+                               std::size_t address_offset,
+                               unsigned char* destination,
+                               std::size_t destination_size) noexcept {
+    std::size_t recorded_size = address_offset + destination_size;
+#if defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__NetBSD__) ||     \
+    defined(__DragonFly__) || defined(__APPLE__)
+    recorded_size = static_cast<std::size_t>(netmask.sa_len);
+#endif
+    copy_recorded_netmask_bytes(
+        reinterpret_cast<const unsigned char*>(&netmask), recorded_size,
+        address_offset, destination, destination_size);
+}
+
 /// Returns the record for an interface name, creating it on first sight so
 /// that the platform enumeration order is preserved.
 inline network_common::interface_record* find_interface_by_name(
@@ -288,16 +323,15 @@ inline result<void> convert_ifaddrs_row(
         }
         const ::sockaddr_in* address =
             reinterpret_cast<const ::sockaddr_in*>(row.ifa_addr);
-        const unsigned char* netmask_bytes = nullptr;
+        unsigned char netmask_bytes[4] {};
         if (row.ifa_netmask != nullptr) {
-            const ::sockaddr_in* netmask =
-                reinterpret_cast<const ::sockaddr_in*>(row.ifa_netmask);
-            netmask_bytes =
-                reinterpret_cast<const unsigned char*>(&netmask->sin_addr);
+            copy_netmask_bytes(*row.ifa_netmask,
+                               offsetof(::sockaddr_in, sin_addr), netmask_bytes,
+                               sizeof(netmask_bytes));
         }
         result<network_common::unicast_record> record = make_ipv4_record(
             reinterpret_cast<const unsigned char*>(&address->sin_addr),
-            netmask_bytes);
+            row.ifa_netmask != nullptr ? netmask_bytes : nullptr);
         if (!record) { return fail(record.error()); }
         entry->addresses.push_back(std::move(*record));
         return {};
@@ -314,12 +348,11 @@ inline result<void> convert_ifaddrs_row(
         }
         const ::sockaddr_in6* address =
             reinterpret_cast<const ::sockaddr_in6*>(row.ifa_addr);
-        const unsigned char* netmask_bytes = nullptr;
+        unsigned char netmask_bytes[16] {};
         if (row.ifa_netmask != nullptr) {
-            const ::sockaddr_in6* netmask =
-                reinterpret_cast<const ::sockaddr_in6*>(row.ifa_netmask);
-            netmask_bytes =
-                reinterpret_cast<const unsigned char*>(&netmask->sin6_addr);
+            copy_netmask_bytes(*row.ifa_netmask,
+                               offsetof(::sockaddr_in6, sin6_addr),
+                               netmask_bytes, sizeof(netmask_bytes));
         }
         std::uint32_t scope_id = 0U;
 #if defined(SIN6_LEN) || defined(__OpenBSD__) || defined(__FreeBSD__) ||       \
@@ -338,7 +371,7 @@ inline result<void> convert_ifaddrs_row(
 #endif
         result<network_common::unicast_record> record = make_ipv6_record(
             reinterpret_cast<const unsigned char*>(&address->sin6_addr),
-            netmask_bytes, scope_id);
+            row.ifa_netmask != nullptr ? netmask_bytes : nullptr, scope_id);
         if (!record) { return fail(record.error()); }
         entry->addresses.push_back(std::move(*record));
         return {};
