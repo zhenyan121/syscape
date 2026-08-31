@@ -206,6 +206,7 @@ jobs:
         uses: vmactions/netbsd-vm@v1
         with:
           release: "10.0"
+          sync-time: true
           prepare: |
             /usr/sbin/pkg_add -u cmake ninja-build
           run: |
@@ -237,6 +238,7 @@ jobs:
         uses: vmactions/netbsd-vm@v1
         with:
           release: "10.0"
+          sync-time: true
           prepare: |
             /usr/sbin/pkg_add -u cmake ninja-build clang
           run: |

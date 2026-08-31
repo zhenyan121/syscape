@@ -335,7 +335,7 @@ inline result<std::vector<struct kinfo_proc2>> get_all_kinfo_proc2() {
                  KERN_PROC_ALL,
                  0,
                  static_cast<int>(sizeof(struct kinfo_proc2)),
-                 0};
+                 (std::numeric_limits<int>::max)()};
 
     for (int attempt = 0; attempt < maximum_attempts; ++attempt) {
         std::size_t size = 0U;
