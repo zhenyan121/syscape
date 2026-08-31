@@ -64,6 +64,8 @@
 #include <syscape/detail/network/freebsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
 #include <syscape/detail/network/openbsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__NetBSD__)
+#include <syscape/detail/network/netbsd.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif

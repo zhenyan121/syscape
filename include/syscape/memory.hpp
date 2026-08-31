@@ -49,6 +49,8 @@
 #include <syscape/detail/memory/freebsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
 #include <syscape/detail/memory/openbsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__NetBSD__)
+#include <syscape/detail/memory/netbsd.hpp>
 #else
 #include <syscape/detail/memory/generic.hpp>
 #endif
