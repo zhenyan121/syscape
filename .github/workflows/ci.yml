@@ -270,7 +270,7 @@ jobs:
         uses: vmactions/dragonflybsd-vm@v1
         with:
           usesh: true
-          release: "6.4.0"
+          release: "6.4.2"
           prepare: |
             pkg install -y cmake ninja
           run: |
@@ -288,4 +288,3 @@ jobs:
             ./build/examples/example_peripherals_multimedia >/dev/null
             ./build/examples/example_process_monitor >/dev/null
             ./build/examples/example_software_inventory >/dev/null
-
