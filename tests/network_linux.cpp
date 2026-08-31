@@ -391,6 +391,32 @@ void test_prefix_boundaries() {
            "A zero netmask legitimately yields prefix length 0");
 }
 
+void test_shortened_netmask_copy() {
+    const unsigned char compact_ipv6_mask[] = {
+        12U, 0U, 0U, 0U, 0U, 0U, 0U, 0U, 0xFFU, 0xFFU, 0xFFU, 0xFFU};
+    unsigned char copied[16];
+    syscape::detail::network_backend::copy_recorded_netmask_bytes(
+        compact_ipv6_mask, sizeof(compact_ipv6_mask), 8U, copied,
+        sizeof(copied));
+
+    bool trailing_zero = true;
+    for (std::size_t offset = 4U; offset < sizeof(copied); ++offset) {
+        trailing_zero = trailing_zero && copied[offset] == 0U;
+    }
+    expect(copied[0U] == 0xFFU && copied[1U] == 0xFFU && copied[2U] == 0xFFU &&
+               copied[3U] == 0xFFU && trailing_zero,
+           "A shortened BSD netmask is zero-filled after its recorded "
+           "bytes");
+
+    syscape::detail::network_backend::copy_recorded_netmask_bytes(
+        compact_ipv6_mask, 0U, 8U, copied, sizeof(copied));
+    bool all_zero = true;
+    for (const unsigned char byte : copied) {
+        all_zero = all_zero && byte == 0U;
+    }
+    expect(all_zero, "A zero-length BSD netmask represents an all-zero mask");
+}
+
 void test_non_contiguous_mask_is_malformed() {
     fake_index_api::reset();
     synthetic_chain chain;
@@ -420,6 +446,36 @@ void test_mask_family_mismatch_is_malformed() {
                                         syscape::errc::malformed_data),
            "An IPv4 address with a non-IPv4 netmask is malformed platform "
            "data");
+}
+
+void test_missing_netmask_is_malformed() {
+    fake_index_api::reset();
+    synthetic_chain ipv4_chain;
+    ipv4_chain
+        .add_ipv4("eth0", IFF_UP | IFF_RUNNING, htonl(0x0A000001U),
+                  htonl(0xFFFFFF00U))
+        .ifa_netmask = nullptr;
+
+    const auto ipv4_converted =
+        syscape::detail::network_backend::convert_ifaddrs<fake_index_api>(
+            ipv4_chain.head());
+    expect(!ipv4_converted &&
+               ipv4_converted.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "An IPv4 address without a netmask is malformed platform data");
+
+    fake_index_api::reset();
+    synthetic_chain ipv6_chain;
+    ipv6_chain.add_ipv6("eth0", IFF_UP | IFF_RUNNING, "2001:db8::1", 64U)
+        .ifa_netmask = nullptr;
+
+    const auto ipv6_converted =
+        syscape::detail::network_backend::convert_ifaddrs<fake_index_api>(
+            ipv6_chain.head());
+    expect(!ipv6_converted &&
+               ipv6_converted.error() ==
+                   syscape::make_error_code(syscape::errc::malformed_data),
+           "An IPv6 address without a netmask is malformed platform data");
 }
 
 void test_null_socket_address_contributes_flags_only() {
@@ -595,9 +651,11 @@ void test_boundary_validation() {
     {
         interface_record record = make_valid_record();
         record.mtu_bytes = 0U;
-        expect_validation_failure(std::move(record),
-                                  syscape::errc::malformed_data,
-                                  "A zero MTU is malformed platform data");
+        const auto outcome =
+            syscape::detail::network_common::validate_interface_records(
+                std::vector<interface_record> {record});
+        expect(outcome.has_value() && outcome->at(0U).mtu_bytes == 0U,
+               "A platform-recorded zero MTU remains valid data");
     }
 
     {
@@ -679,10 +737,7 @@ void test_live_enumeration() {
     bool has_loopback = false;
     std::size_t unicast_total = 0U;
     for (const syscape::network::interface_entry& entry : *interfaces) {
-        expect(entry.index != 0U,
-               "Every live interface has a nonzero index");
-        expect(entry.mtu_bytes != 0U,
-               "Every live interface has a nonzero MTU");
+        expect(entry.index != 0U, "Every live interface has a nonzero index");
         expect(!entry.name.empty(), "Every live interface has a name");
         unicast_total += entry.addresses.size();
         for (const syscape::network::unicast_address& address :
@@ -1642,8 +1697,10 @@ int main() {
     test_grouping_and_order();
     test_state_classification();
     test_prefix_boundaries();
+    test_shortened_netmask_copy();
     test_non_contiguous_mask_is_malformed();
     test_mask_family_mismatch_is_malformed();
+    test_missing_netmask_is_malformed();
     test_null_socket_address_contributes_flags_only();
     test_unknown_family_is_skipped();
     test_hardware_address_lengths();

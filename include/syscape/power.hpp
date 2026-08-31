@@ -138,6 +138,8 @@ enum class power_source_type : std::uint8_t {
 #include <syscape/detail/power/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/power/freebsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
+#include <syscape/detail/power/openbsd.hpp>
 #else
 #include <syscape/detail/power/generic.hpp>
 #endif

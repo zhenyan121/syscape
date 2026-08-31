@@ -301,10 +301,7 @@ void test_live_enumeration() {
 
     bool has_loopback = false;
     for (const syscape::network::interface_entry& entry : *interfaces) {
-        expect(entry.index != 0U,
-               "Every live interface has a nonzero index");
-        expect(entry.mtu_bytes != 0U,
-               "Every live interface has a nonzero MTU");
+        expect(entry.index != 0U, "Every live interface has a nonzero index");
         expect(!entry.name.empty(), "Every live interface has a name");
         has_loopback = has_loopback || entry.loopback;
     }

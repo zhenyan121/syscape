@@ -54,6 +54,8 @@
 #include <syscape/detail/ipc/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/ipc/freebsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
+#include <syscape/detail/ipc/openbsd.hpp>
 #else
 #include <syscape/detail/ipc/generic.hpp>
 #endif

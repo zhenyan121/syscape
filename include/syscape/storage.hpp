@@ -131,6 +131,8 @@ enum class drive_health_status : std::uint8_t {
 #include <syscape/detail/storage/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/storage/freebsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__OpenBSD__)
+#include <syscape/detail/storage/openbsd.hpp>
 #else
 #include <syscape/detail/storage/generic.hpp>
 #endif
