@@ -162,6 +162,8 @@ struct thermal_zone {
 #include <syscape/detail/sensor/openbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__NetBSD__)
 #include <syscape/detail/sensor/netbsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
+#include <syscape/detail/sensor/dragonfly.hpp>
 #else
 #include <syscape/detail/sensor/generic.hpp>
 #endif

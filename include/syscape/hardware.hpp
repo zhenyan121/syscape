@@ -318,6 +318,8 @@ struct memory_device {
 #include <syscape/detail/hardware/openbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__NetBSD__)
 #include <syscape/detail/hardware/netbsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
+#include <syscape/detail/hardware/dragonfly.hpp>
 #else
 #include <syscape/detail/hardware/generic.hpp>
 #endif

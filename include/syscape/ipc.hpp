@@ -58,6 +58,8 @@
 #include <syscape/detail/ipc/openbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__NetBSD__)
 #include <syscape/detail/ipc/netbsd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
+#include <syscape/detail/ipc/dragonfly.hpp>
 #else
 #include <syscape/detail/ipc/generic.hpp>
 #endif
