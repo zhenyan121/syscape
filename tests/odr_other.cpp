@@ -188,7 +188,9 @@ bool other_resource_backend_callable() {
     static_cast<void>(loads);
     static_cast<void>(handles);
     return (processes && *processes > 0U) ||
-           processes.error() == std::errc::operation_not_supported;
+           processes.error() == std::errc::operation_not_supported ||
+           processes.error() == syscape::errc::permission_denied ||
+           processes.error() == syscape::errc::temporarily_unavailable;
 }
 
 bool other_power_backend_callable() {
@@ -285,7 +287,9 @@ bool other_hardware_backend_callable() {
     static_cast<void>(usb);
     static_cast<void>(mem);
     return manufacturer.has_value() ||
-           manufacturer.error() == std::errc::operation_not_supported;
+           manufacturer.error() == std::errc::operation_not_supported ||
+           manufacturer.error() == syscape::errc::not_found ||
+           manufacturer.error() == syscape::errc::permission_denied;
 }
 
 bool other_virtualization_backend_callable() {
