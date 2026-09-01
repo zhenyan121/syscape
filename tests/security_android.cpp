@@ -16,8 +16,10 @@ void expect(bool condition, const char* message) {
 void test_security_queries() {
     const auto aslr_mode = syscape::security::aslr();
     expect(aslr_mode.has_value() ||
-               aslr_mode.error() == syscape::errc::not_supported,
-           "aslr query must succeed or report not_supported");
+               aslr_mode.error() == syscape::errc::not_supported ||
+               aslr_mode.error() == syscape::errc::permission_denied,
+           "aslr query must succeed, report not_supported, or report "
+           "permission_denied");
 
     const auto privileges = syscape::security::privileges();
     expect(privileges.has_value() ||

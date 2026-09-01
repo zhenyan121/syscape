@@ -22,5 +22,9 @@ adb shell "$remote_executable" "$@"
 test_status=$?
 set -e
 
+if [[ $test_status -ne 0 ]]; then
+    echo "FAIL: $(basename "$host_executable") exited with status $test_status" >&2
+fi
+
 adb shell rm -f "$remote_executable"
 exit "$test_status"

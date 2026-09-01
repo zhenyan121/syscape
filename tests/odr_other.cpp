@@ -204,7 +204,8 @@ bool other_power_backend_callable() {
     static_cast<void>(powered);
     return listed.has_value() ||
            listed.error() == std::errc::operation_not_supported ||
-           listed.error() == syscape::errc::not_found;
+           listed.error() == syscape::errc::not_found ||
+           listed.error() == syscape::errc::permission_denied;
 }
 
 bool other_environment_backend_callable() {
@@ -268,7 +269,8 @@ bool other_storage_backend_callable() {
     static_cast<void>(single_health);
     static_cast<void>(all_health);
     return listed.has_value() ||
-           listed.error() == std::errc::operation_not_supported;
+           listed.error() == std::errc::operation_not_supported ||
+           listed.error() == syscape::errc::permission_denied;
 }
 
 bool other_hardware_backend_callable() {

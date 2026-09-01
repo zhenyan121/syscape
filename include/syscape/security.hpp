@@ -332,7 +332,9 @@ inline result<bool> is_sip_enabled() {
 /// Windows queries GetProcessMitigationPolicy(ProcessASLRPolicy).
 /// macOS currently reports not_supported.
 ///
-/// @return The aslr_mode enum; not_supported when unavailable.
+/// @return The aslr_mode enum; not_supported when unavailable,
+/// permission_denied when a sandbox or platform policy blocks the source, or
+/// another platform read error.
 inline result<aslr_mode> aslr() {
     return detail::security_backend::aslr();
 }
