@@ -99,17 +99,7 @@ jobs:
           api-level: 35
           arch: x86_64
           ndk: 27.3.13750724
-          script: |
-            cmake -B build-android -G Ninja \
-              -DCMAKE_BUILD_TYPE=Debug \
-              -DCMAKE_TOOLCHAIN_FILE="$ANDROID_SDK_ROOT/ndk/27.3.13750724/build/cmake/android.toolchain.cmake" \
-              -DANDROID_ABI=x86_64 \
-              -DANDROID_PLATFORM=android-21 \
-              -DCMAKE_CROSSCOMPILING_EMULATOR="bash;$GITHUB_WORKSPACE/.github/scripts/android-ctest-runner.sh" \
-              -DSYSCAPE_BUILD_TESTS=ON \
-              -DSYSCAPE_BUILD_EXAMPLES=OFF
-            cmake --build build-android -j
-            ctest --test-dir build-android --output-on-failure
+          script: bash .github/scripts/android-ci.sh
 
   windows-msvc:
     runs-on: windows-latest
