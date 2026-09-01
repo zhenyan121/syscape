@@ -78,22 +78,25 @@ inline result<::syscape::security::aslr_mode> aslr() {
     return fail(errc::not_supported);
 }
 
-inline result<std::vector<::syscape::security::cpu_mitigation>>
-cpu_mitigations() {
+inline result<std::vector<::syscape::security::cpu_vulnerability_entry>>
+cpu_vulnerabilities() {
     return fail(errc::not_supported);
 }
 
-inline result<std::vector<::syscape::security::process_capability>>
-current_process_capabilities() {
+inline result<::syscape::security::process_capabilities> capabilities() {
     return fail(errc::not_supported);
 }
 
-inline result<std::vector<::syscape::security::token_privilege>>
-current_token_privileges() {
+inline result<std::vector<::syscape::security::privilege_entry>> privileges() {
     return fail(errc::not_supported);
 }
 
-inline result<std::vector<::syscape::security::volume_encryption_status>>
+inline result<::syscape::security::volume_encryption_info>
+volume_encryption(std::string_view) {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<::syscape::security::volume_encryption_info>>
 encrypted_volumes() {
     return fail(errc::not_supported);
 }

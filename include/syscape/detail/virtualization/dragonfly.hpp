@@ -85,7 +85,8 @@ inline result<std::string> read_sysctl_by_name(const char* name) {
 
 inline result<std::string> read_kenv_value(const char* name) {
     char buffer[256] = {};
-    const int ret = ::kenv(KENV_GET, name, buffer, sizeof(buffer));
+    const int ret =
+        ::kenv(KENV_GET, name, buffer, static_cast<int>(sizeof(buffer)));
     if (ret < 0) {
         if (errno == ENOENT) {
             return fail(errc::not_found);
@@ -248,39 +249,100 @@ inline result<sandbox_info> detect_sandbox() {
     return info;
 }
 
-inline result<virtualization::hypervisor_detection> hypervisor() {
-    auto res = detect_hypervisor();
-    if (!res) {
-        return fail(res.error());
+inline result<bool> is_hypervisor_present() {
+    const result<hypervisor_info> info = detect_hypervisor();
+    if (!info) {
+        return fail(info.error());
     }
-    virtualization::hypervisor_detection det;
-    det.present = res->present;
-    det.type = res->vendor;
-    det.name = res->name;
-    return det;
+    return info->present;
 }
 
-inline result<virtualization::container_detection> container() {
-    auto res = detect_container();
-    if (!res) {
-        return fail(res.error());
+inline result<virtualization_common::hypervisor_type> hypervisor() {
+    const result<hypervisor_info> info = detect_hypervisor();
+    if (!info) {
+        return fail(info.error());
     }
-    virtualization::container_detection det;
-    det.present = res->present;
-    det.type = res->runtime;
-    det.name = res->name;
-    return det;
+    return info->vendor;
 }
 
-inline result<virtualization::sandbox_detection> sandbox() {
-    auto res = detect_sandbox();
-    if (!res) {
-        return fail(res.error());
+inline result<std::string> hypervisor_name() {
+    const result<hypervisor_info> info = detect_hypervisor();
+    if (!info) {
+        return fail(info.error());
     }
-    virtualization::sandbox_detection det;
-    det.sandboxed = res->is_sandboxed;
-    det.type = res->type;
-    return det;
+    if (!info->present || info->name.empty()) {
+        return fail(errc::not_found);
+    }
+    return info->name;
+}
+
+inline result<bool> is_container() {
+    const result<container_info> info = detect_container();
+    if (!info) {
+        return fail(info.error());
+    }
+    return info->present;
+}
+
+inline result<virtualization_common::container_type> container() {
+    const result<container_info> info = detect_container();
+    if (!info) {
+        return fail(info.error());
+    }
+    return info->runtime;
+}
+
+inline result<std::string> container_name() {
+    const result<container_info> info = detect_container();
+    if (!info) {
+        return fail(info.error());
+    }
+    if (!info->present || info->name.empty()) {
+        return fail(errc::not_found);
+    }
+    return info->name;
+}
+
+inline result<bool> is_wsl() {
+    return false;
+}
+
+inline result<std::uint32_t> wsl_version() {
+    return fail(errc::not_found);
+}
+
+inline result<bool> is_sandboxed() {
+    const result<sandbox_info> info = detect_sandbox();
+    if (!info) {
+        return fail(info.error());
+    }
+    return info->is_sandboxed;
+}
+
+inline result<virtualization_common::sandbox_type> sandbox() {
+    const result<sandbox_info> info = detect_sandbox();
+    if (!info) {
+        return fail(info.error());
+    }
+    return info->type;
+}
+
+inline result<virtualization_common::cgroup_version_type>
+cgroup_hierarchy_version() {
+    return fail(errc::not_supported);
+}
+
+inline result<virtualization_common::cgroup_record> current_cgroup() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<virtualization_common::namespace_record>>
+namespaces() {
+    return fail(errc::not_supported);
+}
+
+inline result<bool> is_namespace_isolated() {
+    return fail(errc::not_supported);
 }
 
 } // namespace virtualization_backend

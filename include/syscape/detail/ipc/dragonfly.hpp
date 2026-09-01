@@ -129,7 +129,7 @@ query_sysctl_uint64(const char* name) {
 
 } // namespace dragonfly_impl
 
-inline result<::syscape::ipc::ipc_limits> system_limits() {
+inline result<::syscape::ipc::ipc_limits> limits() {
     auto shmmax = dragonfly_impl::query_sysctl_uint64("kern.ipc.shmmax");
     if (!shmmax)
         return fail(shmmax.error());
@@ -192,8 +192,7 @@ inline result<std::vector<::syscape::ipc::semaphore_set>> semaphore_sets() {
     return fail(errc::not_supported);
 }
 
-inline result<std::vector<::syscape::ipc::unix_domain_socket>>
-unix_domain_sockets() {
+inline result<std::vector<::syscape::ipc::local_socket>> local_sockets() {
     return fail(errc::not_supported);
 }
 

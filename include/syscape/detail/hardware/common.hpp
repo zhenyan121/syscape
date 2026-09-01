@@ -437,8 +437,9 @@ inline bool compare_memory_devices(const ::syscape::hardware::memory_device& a,
 
 /// Reads one little-endian 16-bit SMBIOS field without host-endian assumptions.
 inline std::uint16_t read_le_u16(const std::uint8_t* value) noexcept {
-    return static_cast<std::uint16_t>(value[0]) |
-        static_cast<std::uint16_t>(static_cast<std::uint16_t>(value[1]) << 8U);
+    return static_cast<std::uint16_t>(
+        static_cast<std::uint16_t>(value[0]) |
+        static_cast<std::uint16_t>(static_cast<std::uint16_t>(value[1]) << 8U));
 }
 
 /// Reads one little-endian 32-bit SMBIOS field without host-endian assumptions.

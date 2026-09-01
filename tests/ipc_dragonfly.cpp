@@ -17,6 +17,10 @@ void test_ipc_queries() {
     const auto lim = syscape::ipc::limits();
     expect(lim.has_value() || lim.error() == syscape::errc::not_supported,
            "IPC system limits query must succeed or report not_supported");
+
+    const auto sockets = syscape::ipc::local_sockets();
+    expect(!sockets && sockets.error() == syscape::errc::not_supported,
+           "local sockets must report not_supported on DragonFly BSD");
 }
 
 } // namespace

@@ -23,6 +23,47 @@ void test_virtualization_queries() {
     expect(is_cont.has_value() ||
                is_cont.error() == syscape::errc::not_supported,
            "is_container query must succeed or report not_supported");
+
+    const auto hv = syscape::virtualization::hypervisor();
+    expect(hv.has_value(), "hypervisor classification query must succeed");
+
+    const auto hv_name = syscape::virtualization::hypervisor_name();
+    expect(hv_name.has_value() || hv_name.error() == syscape::errc::not_found,
+           "hypervisor name must succeed or report not_found");
+
+    const auto container = syscape::virtualization::container();
+    expect(container.has_value(),
+           "container classification query must succeed");
+
+    const auto container_name = syscape::virtualization::container_name();
+    expect(container_name.has_value() ||
+               container_name.error() == syscape::errc::not_found,
+           "container name must succeed or report not_found");
+
+    const auto wsl = syscape::virtualization::is_wsl();
+    expect(wsl && !*wsl, "WSL presence must be false on DragonFly BSD");
+
+    const auto wsl_version = syscape::virtualization::wsl_version();
+    expect(!wsl_version && wsl_version.error() == syscape::errc::not_found,
+           "WSL version must report not_found on DragonFly BSD");
+
+    const auto sandboxed = syscape::virtualization::is_sandboxed();
+    expect(sandboxed.has_value(), "sandbox presence query must succeed");
+
+    const auto sandbox = syscape::virtualization::sandbox();
+    expect(sandbox.has_value(), "sandbox classification query must succeed");
+
+    const auto cgroup = syscape::virtualization::current_cgroup();
+    expect(!cgroup && cgroup.error() == syscape::errc::not_supported,
+           "cgroup query must report not_supported on DragonFly BSD");
+
+    const auto namespaces = syscape::virtualization::namespaces();
+    expect(!namespaces && namespaces.error() == syscape::errc::not_supported,
+           "namespace query must report not_supported on DragonFly BSD");
+
+    const auto isolated = syscape::virtualization::is_namespace_isolated();
+    expect(!isolated && isolated.error() == syscape::errc::not_supported,
+           "namespace isolation must report not_supported on DragonFly BSD");
 }
 
 } // namespace

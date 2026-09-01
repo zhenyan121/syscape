@@ -123,7 +123,7 @@ inline result<std::uint64_t> seconds_until_empty() {
     if (*time_mins < 0) {
         return fail(errc::not_found);
     }
-    return static_cast<std::uint64_t>(*time_mins) * 60ULL;
+    return static_cast<std::uint64_t>(*time_mins) * std::uint64_t {60U};
 }
 
 } // namespace power_backend
