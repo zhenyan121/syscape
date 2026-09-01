@@ -81,6 +81,36 @@ jobs:
           ./build-asan/examples/example_process_monitor >/dev/null
           ./build-asan/examples/example_software_inventory >/dev/null
 
+  android-ndk-emulator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Build and test on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          ndk: 27.3.13750724
+          script: |
+            cmake -B build-android -G Ninja \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DCMAKE_TOOLCHAIN_FILE="$ANDROID_SDK_ROOT/ndk/27.3.13750724/build/cmake/android.toolchain.cmake" \
+              -DANDROID_ABI=x86_64 \
+              -DANDROID_PLATFORM=android-21 \
+              -DCMAKE_CROSSCOMPILING_EMULATOR="bash;$GITHUB_WORKSPACE/.github/scripts/android-ctest-runner.sh" \
+              -DSYSCAPE_BUILD_TESTS=ON \
+              -DSYSCAPE_BUILD_EXAMPLES=OFF
+            cmake --build build-android -j
+            ctest --test-dir build-android --output-on-failure
+
   windows-msvc:
     runs-on: windows-latest
     defaults:

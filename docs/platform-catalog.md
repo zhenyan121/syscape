@@ -90,7 +90,7 @@ strict language mode and library facilities required by its intended profile.
 
 | Platform family | Representative architectures | Intended profile | State |
 | --- | --- | --- | --- |
-| Android | Arm, Arm64, x86, x86-64 | Sandboxed/Restricted | Implemented (compile-tested; physical device verification pending) |
+| Android | Arm, Arm64, x86, x86-64 | Sandboxed/Restricted | Implemented (compile-tested; x86-64 emulator runtime CI configured; physical device verification pending) |
 | iOS | Arm64 | Sandboxed/Restricted | Not started |
 | iPadOS | Arm64 | Sandboxed/Restricted | Not started |
 | visionOS | Arm64 | Sandboxed/Restricted | Not started |
