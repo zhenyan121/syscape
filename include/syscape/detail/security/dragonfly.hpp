@@ -62,7 +62,7 @@ inline result<::syscape::security::aslr_mode> aslr() {
             return ::syscape::security::aslr_mode::disabled;
         }
         if (*aslr_val == 1) {
-            return ::syscape::security::aslr_mode::conservative;
+            return ::syscape::security::aslr_mode::partial;
         }
         if (*aslr_val >= 2) {
             return ::syscape::security::aslr_mode::full;

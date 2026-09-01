@@ -131,9 +131,9 @@ inline result<edid_facts> parse_edid_block(const std::uint8_t* data, std::size_t
     // 1. Manufacturer ID at bytes 8-9 (big-endian 16-bit with 5-bit character packing)
     const std::uint16_t mfg_raw = static_cast<std::uint16_t>(
         (static_cast<std::uint16_t>(data[8]) << 8U) | static_cast<std::uint16_t>(data[9]));
-    const char c1 = static_cast<char>(((mfg_raw >> 10U) & 0x1FU) + 'A' - 1);
-    const char c2 = static_cast<char>(((mfg_raw >> 5U) & 0x1FU) + 'A' - 1);
-    const char c3 = static_cast<char>((mfg_raw & 0x1FU) + 'A' - 1);
+    const char c1 = static_cast<char>(((mfg_raw >> 10U) & 0x1F) + 'A' - 1);
+    const char c2 = static_cast<char>(((mfg_raw >> 5U) & 0x1F) + 'A' - 1);
+    const char c3 = static_cast<char>((mfg_raw & 0x1F) + 'A' - 1);
     if (c1 >= 'A' && c1 <= 'Z' && c2 >= 'A' && c2 <= 'Z' && c3 >= 'A' && c3 <= 'Z') {
         std::string mfg;
         mfg.reserve(3U);
