@@ -14,6 +14,8 @@
 /// indeterminable. FreeBSD uses its POSIX locale facilities and documented
 /// zoneinfo layout, while language preferences and region codes report
 /// not_supported. Other targets use the generic not-supported fallback.
+/// On Android, text_encoding() requires API level 26 or later and reports
+/// not_supported on earlier API levels.
 /// @note On Windows the preference queries require _WIN32_WINNT and WINVER
 /// declarations of at least 0x0600 (Windows Vista); a lower setting is
 /// rejected with a diagnostic. When absent, the internal SDK include boundary

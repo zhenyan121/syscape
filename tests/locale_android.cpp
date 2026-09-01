@@ -16,6 +16,11 @@ void expect(bool condition, const char* message) {
 void test_locale_queries() {
     const auto loc = syscape::locale::current_locale();
     expect(loc && !loc->empty(), "current locale identifier must be nonempty");
+
+    const auto encoding = syscape::locale::text_encoding();
+    expect((encoding && !encoding->empty()) ||
+               encoding.error() == syscape::errc::not_supported,
+           "text encoding must be nonempty or report not_supported");
 }
 
 } // namespace

@@ -20,6 +20,9 @@
 /// Hosted Full domains. FreeBSD reads resolv.conf and getifaddrs traffic
 /// statistics, and reports routes and gateways as unsupported. Other targets
 /// use the generic not-supported fallback.
+/// @note Android interface enumeration requires API level 24 or later and
+/// reports not_supported on earlier API levels. Opening the AF_INET socket
+/// used for MTU queries may require android.permission.INTERNET.
 /// @note The implemented network slices expose interface names, indices,
 /// operational state, loopback classification, link-layer (hardware)
 /// addresses, MTU values, and unicast IPv4/IPv6 addresses with prefix lengths

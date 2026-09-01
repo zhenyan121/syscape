@@ -15,6 +15,9 @@
 /// logged_in_users()).
 /// @note Linux, macOS, and FreeBSD share a POSIX backend querying passwd,
 /// groups, getlogin_r, and utmpx.
+/// @note On Android, login_name() requires API level 28 or later; earlier API
+/// levels report not_supported while the remaining implemented identity
+/// queries continue to use older Bionic interfaces.
 /// @note Windows provides a native backend querying GetUserNameW,
 /// SHGetKnownFolderPath, process token elevation (Advapi32.lib), and Terminal
 /// Services session enumeration (Wtsapi32.lib).

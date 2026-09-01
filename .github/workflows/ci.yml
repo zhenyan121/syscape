@@ -225,10 +225,10 @@ jobs:
       - name: Build and test with GCC in NetBSD VM
         uses: vmactions/netbsd-vm@v1
         with:
-          release: "10.0"
+          release: "10.1"
           sync-time: true
           prepare: |
-            /usr/sbin/pkg_add -u cmake ninja-build
+            /usr/sbin/pkg_add cmake ninja-build
           run: |
             export CC=/usr/bin/gcc
             export CXX=/usr/bin/g++
@@ -257,10 +257,10 @@ jobs:
       - name: Build and test with Clang in NetBSD VM
         uses: vmactions/netbsd-vm@v1
         with:
-          release: "10.0"
+          release: "10.1"
           sync-time: true
           prepare: |
-            /usr/sbin/pkg_add -u cmake ninja-build clang
+            /usr/sbin/pkg_add cmake ninja-build clang
           run: |
             export CC=clang
             export CXX=clang++

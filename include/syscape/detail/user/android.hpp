@@ -172,9 +172,13 @@ inline result<std::string> lookup_login_with_growth(LoginOperation login) {
 }
 
 inline result<std::string> login_name() {
+#if __ANDROID_API__ >= 28
     return lookup_login_with_growth([](char* buffer, std::size_t size) {
         return ::getlogin_r(buffer, size);
     });
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::vector<user_common::session_info>> sessions() {

@@ -14,6 +14,13 @@ void expect(bool condition, const char* message) {
 }
 
 void test_user_queries() {
+    const auto login = syscape::user::login_name();
+    expect((login && !login->empty()) ||
+               login.error() == syscape::errc::not_found ||
+               login.error() == syscape::errc::not_supported,
+           "login name must be nonempty, report not_found, or report "
+           "not_supported");
+
     const auto name = syscape::user::user_name();
     expect(name.has_value() || name.error() == syscape::errc::not_found ||
                name.error() == syscape::errc::not_supported,

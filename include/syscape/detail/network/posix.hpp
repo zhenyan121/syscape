@@ -30,6 +30,7 @@ namespace detail {
 namespace network_backend {
 
 /// Owns a getifaddrs list and releases it with freeifaddrs.
+#if !defined(__ANDROID__) || __ANDROID_API__ >= 24
 class ifaddrs_guard {
 public:
     explicit ifaddrs_guard(::ifaddrs* value) noexcept : value_(value) {}
@@ -44,6 +45,7 @@ public:
 private:
     ::ifaddrs* value_;
 };
+#endif
 
 /// Owns the socket used for read-only interface ioctls.
 class socket_guard {
@@ -447,12 +449,16 @@ inline result<std::vector<network_common::interface_record>> convert_ifaddrs(
 /// Returns a snapshot of the platform's network interfaces and their
 /// unicast addresses through the documented getifaddrs interface.
 inline result<std::vector<network_common::interface_record>> interfaces() {
+#if defined(__ANDROID__) && __ANDROID_API__ < 24
+    return fail(errc::not_supported);
+#else
     ::ifaddrs* list = nullptr;
     if (::getifaddrs(&list) != 0) {
         return fail(std::error_code(errno, std::generic_category()));
     }
     const ifaddrs_guard guard(list);
     return convert_ifaddrs<native_interface_api>(list);
+#endif
 }
 
 } // namespace network_backend
