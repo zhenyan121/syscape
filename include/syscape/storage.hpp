@@ -20,8 +20,10 @@
 /// macOS implements queries through the DiskArbitration framework and
 /// IOKit media registry entries, resolving partition media to qualifying
 /// non-virtual whole disks, and reading SMART Status and IORegistry statistics.
-/// Other targets use the not-supported fallback.
-/// @note Windows callers that use drives(), partitions(), or health queries must link Setupapi.lib.
+/// Android implements drive queries through the sysfs block interface under
+/// /sys/block. Other targets use the not-supported fallback.
+/// @note Windows callers that use drives(), partitions(), or health queries
+/// must link Setupapi.lib.
 
 #include <syscape/detail/config.hpp>
 
@@ -137,6 +139,8 @@ enum class drive_health_status : std::uint8_t {
 #include <syscape/detail/storage/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/storage/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/storage/android.hpp>
 #else
 #include <syscape/detail/storage/generic.hpp>
 #endif

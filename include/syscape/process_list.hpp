@@ -8,14 +8,18 @@
 /// - Enumeration of all observable processes on the system (processes()).
 /// - Total count of observable live processes (process_count()).
 /// - Lookup of process metadata by PID (find_process(pid)).
-/// - Lookup of processes by command/executable name (find_processes_by_name(name)).
+/// - Lookup of processes by command/executable name
+/// (find_processes_by_name(name)).
 /// - Process lifecycle execution state (running, sleeping, stopped, zombie).
 /// - Essential process attributes (PID, PPID, UID, GID, username, comm name,
 ///   executable path, command-line arguments, working directory, start time,
-///   user and system CPU times, resident and virtual memory, thread count, priority).
+///   user and system CPU times, resident and virtual memory, thread count,
+///   priority).
 /// @note Linux queries procfs (/proc/[pid]/...).
-/// @note Windows queries Toolhelp32 snapshots and Process APIs (tlhelp32.h, psapi.h).
+/// @note Windows queries Toolhelp32 snapshots and Process APIs (tlhelp32.h,
+/// psapi.h).
 /// @note macOS queries sysctl (KERN_PROC_ALL) and libproc APIs.
+/// @note Android queries procfs (/proc/[pid]/...).
 /// @note Processes and their metadata change continuously. Queries do not cache
 /// results. Unprivileged callers gracefully receive partial observable metadata
 /// for restricted processes rather than failing the enumeration.
@@ -134,6 +138,8 @@ struct process_entry {
 #include <syscape/detail/process_list/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/process_list/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/process_list/android.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif

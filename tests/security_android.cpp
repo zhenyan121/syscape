@@ -1,0 +1,33 @@
+#include <iostream>
+
+#include <syscape/security.hpp>
+
+namespace {
+
+int failures = 0;
+
+void expect(bool condition, const char* message) {
+    if (!condition) {
+        std::cerr << "FAIL: " << message << '\n';
+        ++failures;
+    }
+}
+
+void test_security_queries() {
+    const auto aslr_mode = syscape::security::aslr();
+    expect(aslr_mode.has_value() ||
+               aslr_mode.error() == syscape::errc::not_supported,
+           "aslr query must succeed or report not_supported");
+
+    const auto privileges = syscape::security::privileges();
+    expect(privileges.has_value() ||
+               privileges.error() == syscape::errc::not_supported,
+           "privileges must succeed or report not_supported");
+}
+
+} // namespace
+
+int main() {
+    test_security_queries();
+    return failures == 0 ? 0 : 1;
+}

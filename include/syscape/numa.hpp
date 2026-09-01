@@ -47,6 +47,8 @@
 #include <syscape/detail/numa/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/numa/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/numa/android.hpp>
 #else
 #include <syscape/detail/numa/generic.hpp>
 #endif

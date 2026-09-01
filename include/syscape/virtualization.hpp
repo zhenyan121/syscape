@@ -246,6 +246,8 @@ struct cgroup_info {
 #include <syscape/detail/virtualization/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/virtualization/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/virtualization/android.hpp>
 #else
 #include <syscape/detail/virtualization/generic.hpp>
 #endif

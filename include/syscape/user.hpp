@@ -59,6 +59,8 @@
 #include <syscape/detail/user/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/user/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/user/android.hpp>
 #else
 #include <syscape/detail/user/generic.hpp>
 #endif

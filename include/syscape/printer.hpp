@@ -152,6 +152,8 @@ struct printer_info {
 #include <syscape/detail/printer/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/printer/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/printer/android.hpp>
 #else
 #include <syscape/detail/printer/generic.hpp>
 #endif

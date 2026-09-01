@@ -20,8 +20,9 @@
 /// Apple's formal documentation set and are used because no stronger
 /// documented source exists on that platform. FreeBSD implements load average,
 /// process count, open-file count, and the system file limit; scheduler entity,
-/// thread, and handle totals report not_supported. All other targets use the
-/// not-supported fallback.
+/// thread, and handle totals report not_supported. Android implements load
+/// average, process count, and system file descriptor limits through /proc
+/// and sysconf. All other targets use the not-supported fallback.
 /// @note Every count is an instantaneous snapshot observed during the call;
 /// values change continuously with system activity and must never be
 /// assumed stable after a query returns.
@@ -60,6 +61,8 @@
 #include <syscape/detail/resource/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/resource/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/resource/android.hpp>
 #else
 #include <syscape/detail/resource/generic.hpp>
 #endif

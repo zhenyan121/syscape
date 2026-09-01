@@ -13,8 +13,9 @@
 /// resolves queried paths to their real volume mount point through
 /// GetVolumePathNameW, and queries capacity through GetDiskFreeSpaceExW;
 /// network shares without drive letters and other non-drive-letter volumes
-/// are not enumerated by this slice. Other targets use the generic
-/// not-supported fallback.
+/// are not enumerated by this slice. Android enumerates mounts from
+/// /proc/self/mounts and queries capacity through statvfs. Other targets
+/// use the generic not-supported fallback.
 /// @note Path-limit queries use POSIX pathconf on Linux, macOS, and FreeBSD.
 /// Windows reads the documented MaximumComponentLength record of
 /// GetVolumeInformationW after resolving a path to its volume, and reports
@@ -59,6 +60,8 @@
 #include <syscape/detail/filesystem/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/filesystem/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/filesystem/android.hpp>
 #else
 #include <syscape/detail/filesystem/generic.hpp>
 #endif

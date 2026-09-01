@@ -68,6 +68,8 @@
 #include <syscape/detail/network/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/network/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/network/android.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif
@@ -195,6 +197,10 @@ struct gateway_entry {
 /// table. If an interface disappears or is renamed during that interval,
 /// the native lookup failure is returned rather than publishing a partial
 /// snapshot.
+///
+/// On Android, opening a socket for MTU ioctl resolution requires the
+/// application to hold android.permission.INTERNET; queries without that
+/// permission report permission_denied or operation_not_permitted.
 ///
 /// @return A list with at least one entry on any running hosted system,
 /// invalid_encoding when a name is not valid UTF-8, malformed_data for

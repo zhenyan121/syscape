@@ -5,11 +5,13 @@
 /// @brief Hosted hardware sensors, thermal zones, temperatures, and fan speeds.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note This module exposes:
-/// - Hardware temperature sensors from hwmon, ACPI, or platform monitoring (temperatures()).
+/// - Hardware temperature sensors from hwmon, ACPI, or platform monitoring
+/// (temperatures()).
 /// - Hardware fan speed sensors in RPM (fans()).
 /// - Operating-system thermal zones and cooling trip points (thermal_zones()).
 /// @note Linux queries /sys/class/hwmon and /sys/class/thermal.
-/// @note Windows and macOS currently report not_supported because no stable,
+/// Android queries /sys/class/thermal for thermal zones and temperature
+/// sensors. Windows and macOS currently report not_supported because no stable,
 /// public backend has been implemented for these queries.
 
 #include <syscape/detail/config.hpp>
@@ -164,6 +166,8 @@ struct thermal_zone {
 #include <syscape/detail/sensor/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/sensor/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/sensor/android.hpp>
 #else
 #include <syscape/detail/sensor/generic.hpp>
 #endif

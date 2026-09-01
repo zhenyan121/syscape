@@ -2,25 +2,35 @@
 #define SYSCAPE_SECURITY_HPP
 
 /// @file
-/// @brief Hosted security, Secure Boot, TPM, LSM, ASLR, vulnerability mitigations,
-/// process capabilities, privileges, and volume encryption queries.
+/// @brief Hosted security, Secure Boot, TPM, LSM, ASLR, vulnerability
+/// mitigations, process capabilities, privileges, and volume encryption
+/// queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note This module exposes:
-/// - UEFI / platform Secure Boot enablement state (secure_boot(), is_secure_boot_enabled()).
+/// - UEFI / platform Secure Boot enablement state (secure_boot(),
+/// is_secure_boot_enabled()).
 /// - Trusted Platform Module presence and specification version (tpm()).
-/// - Active Linux Security Modules and kernel security frameworks (security_modules()).
+/// - Active Linux Security Modules and kernel security frameworks
+/// (security_modules()).
 /// - Linux kernel lockdown protection level (lockdown()).
 /// - macOS System Integrity Protection status (is_sip_enabled()).
 /// - Address Space Layout Randomization policy level (aslr()).
-/// - Operating system and CPU hardware vulnerability mitigations (cpu_vulnerabilities()).
+/// - Operating system and CPU hardware vulnerability mitigations
+/// (cpu_vulnerabilities()).
 /// - POSIX process capabilities across capability sets (capabilities()).
 /// - Observable process token privileges and enabled flags (privileges()).
-/// - Storage volume and filesystem encryption state visibility (volume_encryption(), encrypted_volumes()).
-/// @note Linux queries sysfs efivars (/sys/firmware/efi/efivars), sysfs TPM (/sys/class/tpm),
-/// securityfs (/sys/kernel/security), /proc/sys/kernel/randomize_va_space,
-/// /sys/devices/system/cpu/vulnerabilities, /proc/self/status, and device-mapper sysfs.
-/// @note Windows queries GetFirmwareEnvironmentVariableW, TPM Base Services (tbs.dll),
-/// GetProcessMitigationPolicy, OpenProcessToken, and TokenPrivileges.
+/// - Storage volume and filesystem encryption state visibility
+/// (volume_encryption(), encrypted_volumes()).
+/// @note Linux queries sysfs efivars (/sys/firmware/efi/efivars), sysfs TPM
+/// (/sys/class/tpm), securityfs (/sys/kernel/security),
+/// /proc/sys/kernel/randomize_va_space,
+/// /sys/devices/system/cpu/vulnerabilities, /proc/self/status, and
+/// device-mapper sysfs.
+/// @note Windows queries GetFirmwareEnvironmentVariableW, TPM Base Services
+/// (tbs.dll), GetProcessMitigationPolicy, OpenProcessToken, and
+/// TokenPrivileges.
+/// @note Android queries Verified Boot properties and randomize_va_space for
+/// ASLR.
 /// @note macOS reports full ASLR, SIP status, and fallback security properties.
 
 #include <syscape/detail/config.hpp>
@@ -238,6 +248,8 @@ struct tpm_info {
 #include <syscape/detail/security/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/security/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/security/android.hpp>
 #else
 #include <syscape/detail/security/generic.hpp>
 #endif
