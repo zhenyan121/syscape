@@ -509,8 +509,8 @@ constexpr std::uint32_t CUPS_PRINTER_PDF = 0x20000;
 /// Appends a 16-bit big-endian integer to a byte buffer.
 inline void append_uint16(std::vector<std::uint8_t>& buf,
                           std::uint16_t val) {
-    buf.push_back(static_cast<std::uint8_t>((val >> 8) & 0xFFU));
-    buf.push_back(static_cast<std::uint8_t>(val & 0xFFU));
+    buf.push_back(static_cast<std::uint8_t>((val >> 8U) & 0xFF));
+    buf.push_back(static_cast<std::uint8_t>(val & 0xFF));
 }
 
 /// Appends a 32-bit big-endian integer to a byte buffer.

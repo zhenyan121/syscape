@@ -79,8 +79,10 @@ inline result<std::vector<software_common::driver_record>> loaded_drivers() {
             drv.size_bytes = static_cast<std::uint64_t>(stat.size);
             drv.use_count = static_cast<std::uint32_t>(stat.refs);
             drv.state = software_common::driver_state::loaded;
-            if (stat.pathname[0] != '\0') {
-                drv.path = stat.pathname;
+            const std::size_t separator = drv.name.find_last_of('/');
+            if (separator != std::string::npos) {
+                drv.path = drv.name;
+                drv.name.erase(0U, separator + 1U);
             }
             drivers.push_back(std::move(drv));
         }
