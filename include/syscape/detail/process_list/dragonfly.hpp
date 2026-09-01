@@ -175,11 +175,11 @@ make_entry_from_kinfo(const struct kinfo_proc& kp, long page_size) {
 }
 
 inline result<std::vector<struct kinfo_proc>> get_all_kinfo_procs() {
-    int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0};
+    int mib[3] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
     constexpr int max_attempts = 8;
     for (int attempt = 0; attempt < max_attempts; ++attempt) {
         std::size_t size = 0U;
-        if (::sysctl(mib, 4, nullptr, &size, nullptr, 0U) != 0) {
+        if (::sysctl(mib, 3U, nullptr, &size, nullptr, 0U) != 0) {
             if (errno == EACCES || errno == EPERM) {
                 return fail(errc::permission_denied);
             }
@@ -192,7 +192,7 @@ inline result<std::vector<struct kinfo_proc>> get_all_kinfo_procs() {
         std::vector<struct kinfo_proc> buffer(size / sizeof(struct kinfo_proc) +
                                               16U);
         size = buffer.size() * sizeof(struct kinfo_proc);
-        if (::sysctl(mib, 4, buffer.data(), &size, nullptr, 0U) != 0) {
+        if (::sysctl(mib, 3U, buffer.data(), &size, nullptr, 0U) != 0) {
             if (errno == ENOMEM) {
                 continue;
             }
@@ -200,6 +200,9 @@ inline result<std::vector<struct kinfo_proc>> get_all_kinfo_procs() {
                 return fail(errc::permission_denied);
             }
             return fail(std::error_code(errno, std::generic_category()));
+        }
+        if (size % sizeof(struct kinfo_proc) != 0U) {
+            return fail(errc::malformed_data);
         }
         buffer.resize(size / sizeof(struct kinfo_proc));
         return buffer;

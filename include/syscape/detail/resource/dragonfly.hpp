@@ -82,11 +82,11 @@ inline result<resource_common::entity_counts> scheduler_entities() {
 }
 
 inline result<std::uint64_t> process_count() {
-    int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0};
+    int mib[3] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
     constexpr int max_attempts = 8;
     for (int attempt = 0; attempt < max_attempts; ++attempt) {
         std::size_t size = 0U;
-        if (::sysctl(mib, 4, nullptr, &size, nullptr, 0U) != 0) {
+        if (::sysctl(mib, 3U, nullptr, &size, nullptr, 0U) != 0) {
             if (errno == EACCES || errno == EPERM) {
                 return fail(errc::permission_denied);
             }
@@ -98,7 +98,7 @@ inline result<std::uint64_t> process_count() {
         std::vector<struct ::kinfo_proc> procs(
             size / sizeof(struct ::kinfo_proc) + 16U);
         size = procs.size() * sizeof(struct ::kinfo_proc);
-        if (::sysctl(mib, 4, procs.data(), &size, nullptr, 0U) != 0) {
+        if (::sysctl(mib, 3U, procs.data(), &size, nullptr, 0U) != 0) {
             if (errno == ENOMEM) {
                 continue;
             }
@@ -106,6 +106,9 @@ inline result<std::uint64_t> process_count() {
                 return fail(errc::permission_denied);
             }
             return fail(native_error());
+        }
+        if (size % sizeof(struct ::kinfo_proc) != 0U) {
+            return fail(errc::malformed_data);
         }
         return static_cast<std::uint64_t>(size / sizeof(struct ::kinfo_proc));
     }

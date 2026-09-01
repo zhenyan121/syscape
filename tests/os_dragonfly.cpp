@@ -26,8 +26,9 @@ void test_runtime_queries() {
                            "kernel name must be nonempty");
     expect_nonempty_string(syscape::os::kernel_version(),
                            "kernel version must be nonempty");
-    expect_nonempty_string(syscape::os::host_name(),
-                           "host name must be nonempty");
+    const auto host = syscape::os::host_name();
+    expect((host && !host->empty()) || host.error() == syscape::errc::not_found,
+           "host name must be nonempty or report not_found");
 
     const auto elapsed = syscape::os::uptime();
     expect(elapsed && elapsed->count() >= 0,

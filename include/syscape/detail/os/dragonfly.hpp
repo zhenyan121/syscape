@@ -122,6 +122,9 @@ inline result<std::string> host_name() {
                 ++end;
             }
             if (end < buffer.size()) {
+                if (end == 0U) {
+                    return fail(errc::not_found);
+                }
                 return std::string(buffer.data(), end);
             }
             buffer.resize(buffer.size() * 2U);
