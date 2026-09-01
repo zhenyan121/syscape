@@ -7,8 +7,9 @@
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note Linux, macOS, and FreeBSD use their documented POSIX and platform
 /// directory facilities; Windows provides a native Win32/Shell known-folder
-/// backend. Android, Apple mobile platforms, and other targets use the generic
-/// fallback.
+/// backend; Android provides environment variables and working directory
+/// queries with honest directory fallbacks. Apple mobile platforms and other
+/// targets use the generic fallback.
 /// @note All returned paths and strings are UTF-8 encoded.
 /// @note Thread-safety: queries observe the process environment without
 /// modifying it. C and POSIX environment mutation APIs do not provide a
@@ -73,6 +74,8 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
 #include <syscape/detail/environment/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/environment/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/environment/android.hpp>
 #else
 #include <syscape/detail/environment/generic.hpp>
 #endif

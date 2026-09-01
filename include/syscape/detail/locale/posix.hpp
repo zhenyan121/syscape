@@ -74,8 +74,12 @@ inline result<std::string> current_locale() {
 /// immediately. An empty recording is rejected by the public boundary as
 /// malformed platform data.
 inline result<std::string> text_encoding() {
+#if defined(__ANDROID__) && __ANDROID_API__ < 26
+    return fail(errc::not_supported);
+#else
     const char* const name = ::nl_langinfo(CODESET);
     return name != nullptr ? std::string(name) : std::string();
+#endif
 }
 
 /// Returns the local time zone's UTC offset in effect right now.

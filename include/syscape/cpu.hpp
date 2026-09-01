@@ -26,7 +26,9 @@
 /// without the other facts also report not_supported. FreeBSD implements model,
 /// topology counts, frequency, and cumulative usage queries through documented
 /// sysctl values; vendor, cache, and instruction-set queries report
-/// not_supported. All other targets use
+/// not_supported. Android implements core count, SOC vendor and model,
+/// frequency bounds, and cumulative utilization through sysconf, system
+/// properties, /sys/devices/system/cpu, and /proc/stat. All other targets use
 /// the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
@@ -83,6 +85,8 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/detail/cpu/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/cpu/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/cpu/android.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif

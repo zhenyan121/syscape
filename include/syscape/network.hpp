@@ -20,6 +20,9 @@
 /// Hosted Full domains. FreeBSD reads resolv.conf and getifaddrs traffic
 /// statistics, and reports routes and gateways as unsupported. Other targets
 /// use the generic not-supported fallback.
+/// @note Android interface enumeration requires API level 24 or later and
+/// reports not_supported on earlier API levels. Opening the AF_INET socket
+/// used for MTU queries may require android.permission.INTERNET.
 /// @note The implemented network slices expose interface names, indices,
 /// operational state, loopback classification, link-layer (hardware)
 /// addresses, MTU values, and unicast IPv4/IPv6 addresses with prefix lengths
@@ -68,6 +71,8 @@
 #include <syscape/detail/network/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/network/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/network/android.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif
@@ -195,6 +200,10 @@ struct gateway_entry {
 /// table. If an interface disappears or is renamed during that interval,
 /// the native lookup failure is returned rather than publishing a partial
 /// snapshot.
+///
+/// On Android, opening a socket for MTU ioctl resolution requires the
+/// application to hold android.permission.INTERNET; queries without that
+/// permission report permission_denied or operation_not_permitted.
 ///
 /// @return A list with at least one entry on any running hosted system,
 /// invalid_encoding when a name is not valid UTF-8, malformed_data for

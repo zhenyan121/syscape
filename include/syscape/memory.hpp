@@ -17,8 +17,10 @@
 /// the vm.swapusage sysctl; Darwin exposes no public commit, huge-page, or
 /// pressure source. FreeBSD implements page size, physical and available
 /// memory, swap, and memory load through sysconf and documented sysctl values;
-/// commit, huge-page, and pressure queries report not_supported. Other targets
-/// use the not-supported fallback.
+/// commit, huge-page, and pressure queries report not_supported. Android
+/// implements page size, physical and available memory, swap, and memory load
+/// through sysconf and /proc/meminfo. Other targets use the not-supported
+/// fallback.
 /// @note The Windows commit query uses GetPerformanceInfo declared in
 /// <psapi.h>, which maps to Kernel32.lib on Windows 7 or later SDKs and may
 /// require Psapi.lib with older declarations.
@@ -53,6 +55,8 @@
 #include <syscape/detail/memory/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/memory/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/memory/android.hpp>
 #else
 #include <syscape/detail/memory/generic.hpp>
 #endif

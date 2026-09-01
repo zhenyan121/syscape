@@ -16,8 +16,10 @@
 /// name; the platform exposes no cycle accounting through that interface.
 /// macOS implements the queries through the documented IOKit power-sources
 /// interfaces (declared in <IOKit/ps/IOPowerSources.h>), which require
-/// linking the IOKit and CoreFoundation frameworks on Apple targets. Other
-/// targets use the not-supported fallback.
+/// linking the IOKit and CoreFoundation frameworks on Apple targets.
+/// Android implements battery state and external-power online presence
+/// through /sys/class/power_supply. Other targets use the not-supported
+/// fallback.
 
 #include <syscape/detail/config.hpp>
 
@@ -144,6 +146,8 @@ enum class power_source_type : std::uint8_t {
 #include <syscape/detail/power/netbsd.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__DragonFly__)
 #include <syscape/detail/power/dragonfly.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
+#include <syscape/detail/power/android.hpp>
 #else
 #include <syscape/detail/power/generic.hpp>
 #endif

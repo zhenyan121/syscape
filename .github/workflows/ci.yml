@@ -81,6 +81,26 @@ jobs:
           ./build-asan/examples/example_process_monitor >/dev/null
           ./build-asan/examples/example_software_inventory >/dev/null
 
+  android-ndk-emulator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Build and test on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          ndk: 27.3.13750724
+          script: bash .github/scripts/android-ci.sh
+
   windows-msvc:
     runs-on: windows-latest
     defaults:
@@ -205,10 +225,10 @@ jobs:
       - name: Build and test with GCC in NetBSD VM
         uses: vmactions/netbsd-vm@v1
         with:
-          release: "10.0"
+          release: "10.1"
           sync-time: true
           prepare: |
-            /usr/sbin/pkg_add -u cmake ninja-build
+            /usr/sbin/pkg_add cmake ninja-build
           run: |
             export CC=/usr/bin/gcc
             export CXX=/usr/bin/g++
@@ -237,10 +257,10 @@ jobs:
       - name: Build and test with Clang in NetBSD VM
         uses: vmactions/netbsd-vm@v1
         with:
-          release: "10.0"
+          release: "10.1"
           sync-time: true
           prepare: |
-            /usr/sbin/pkg_add -u cmake ninja-build clang
+            /usr/sbin/pkg_add cmake ninja-build clang
           run: |
             export CC=clang
             export CXX=clang++
