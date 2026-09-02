@@ -21,6 +21,7 @@ void expect_nonempty_string(const syscape::result<std::string>& value,
 }
 
 void test_timespec_conversion() {
+    using syscape::detail::os_backend::boot_time_from_clocks;
     using syscape::detail::os_backend::timespec_to_time_point;
     using syscape::detail::os_backend::timespec_to_uptime;
 
@@ -48,6 +49,17 @@ void test_timespec_conversion() {
     expect(!invalid_uptime &&
                invalid_uptime.error() == syscape::errc::malformed_data,
            "negative uptime must be malformed");
+
+    const auto derived = boot_time_from_clocks(100, 100000000, 2, 300000000);
+    expect(derived && derived->time_since_epoch() ==
+                          std::chrono::seconds(97) +
+                              std::chrono::nanoseconds(800000000),
+           "clock subtraction must normalize negative nanoseconds");
+
+    const auto inconsistent = boot_time_from_clocks(1, 0, 2, 0);
+    expect(!inconsistent &&
+               inconsistent.error() == syscape::errc::malformed_data,
+           "uptime later than realtime must be malformed");
 }
 
 void test_runtime_queries() {
@@ -66,6 +78,10 @@ void test_runtime_queries() {
            "uptime must be a nonnegative duration");
 
     const auto started = syscape::os::boot_time();
+    if (!started) {
+        std::cerr << "boot time error: " << started.error().value() << " ("
+                  << started.error().message() << ")\n";
+    }
     expect(started.has_value(), "boot time query must succeed");
 }
 

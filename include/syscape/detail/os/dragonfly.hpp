@@ -65,6 +65,29 @@ timespec_to_uptime(std::int64_t seconds, std::int64_t nanoseconds) {
     return whole + fraction;
 }
 
+inline result<std::chrono::system_clock::time_point> boot_time_from_clocks(
+    std::int64_t realtime_seconds, std::int64_t realtime_nanoseconds,
+    std::int64_t uptime_seconds, std::int64_t uptime_nanoseconds) {
+    if (realtime_seconds < 0 || realtime_nanoseconds < 0 ||
+        realtime_nanoseconds >= 1000000000 || uptime_seconds < 0 ||
+        uptime_nanoseconds < 0 || uptime_nanoseconds >= 1000000000) {
+        return fail(errc::malformed_data);
+    }
+    if (uptime_seconds > realtime_seconds ||
+        (uptime_seconds == realtime_seconds &&
+         uptime_nanoseconds > realtime_nanoseconds)) {
+        return fail(errc::malformed_data);
+    }
+
+    std::int64_t seconds = realtime_seconds - uptime_seconds;
+    std::int64_t nanoseconds = realtime_nanoseconds - uptime_nanoseconds;
+    if (nanoseconds < 0) {
+        --seconds;
+        nanoseconds += 1000000000;
+    }
+    return timespec_to_time_point(seconds, nanoseconds);
+}
+
 inline result<std::string> sysctl_string(const char* name) {
     constexpr int maximum_attempts = 4;
     for (int attempt = 0; attempt < maximum_attempts; ++attempt) {
@@ -183,20 +206,18 @@ inline result<std::chrono::system_clock::time_point> boot_time() {
         }
     }
 
-    const auto elapsed = monotonic_uptime();
-    if (!elapsed) {
-        return fail(elapsed.error());
+    struct timespec realtime {};
+    if (::clock_gettime(CLOCK_REALTIME, &realtime) != 0) {
+        return fail(std::error_code(errno, std::generic_category()));
     }
-    const auto now = std::chrono::system_clock::now();
-    const auto now_milliseconds =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            now.time_since_epoch());
-    if (*elapsed > now_milliseconds) {
-        return fail(errc::malformed_data);
+    struct timespec elapsed {};
+    if (::clock_gettime(CLOCK_UPTIME, &elapsed) != 0) {
+        return fail(std::error_code(errno, std::generic_category()));
     }
-    return std::chrono::system_clock::time_point(
-        std::chrono::duration_cast<std::chrono::system_clock::duration>(
-            now_milliseconds - *elapsed));
+    return boot_time_from_clocks(static_cast<std::int64_t>(realtime.tv_sec),
+                                 static_cast<std::int64_t>(realtime.tv_nsec),
+                                 static_cast<std::int64_t>(elapsed.tv_sec),
+                                 static_cast<std::int64_t>(elapsed.tv_nsec));
 }
 
 inline result<std::chrono::milliseconds> uptime() {
