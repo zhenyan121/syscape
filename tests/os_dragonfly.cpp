@@ -78,11 +78,8 @@ void test_runtime_queries() {
            "uptime must be a nonnegative duration");
 
     const auto started = syscape::os::boot_time();
-    if (!started) {
-        std::cerr << "boot time error: " << started.error().value() << " ("
-                  << started.error().message() << ")\n";
-    }
-    expect(started.has_value(), "boot time query must succeed");
+    expect(started || started.error() == syscape::errc::malformed_data,
+           "boot time must succeed or reject inconsistent platform clocks");
 }
 
 } // namespace
