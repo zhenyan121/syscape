@@ -13,10 +13,13 @@
 /// rows and macOS/Apple mobile/FreeBSD through AF_LINK rows. Windows enumerates
 /// adapters through GetAdaptersAddresses. Linux obtains routes from
 /// NETLINK_ROUTE, Windows from GetIpForwardTable2 with
-/// GetUnicastIpAddressTable context, and macOS/Apple mobile from a PF_ROUTE
-/// NET_RT_DUMP2 sysctl. Interface traffic and error
+/// GetUnicastIpAddressTable context, and macOS from a PF_ROUTE NET_RT_DUMP2
+/// sysctl. Interface traffic and error
 /// statistics query /proc/net/dev and sysfs on Linux, GetIfTable2 / GetIfEntry2
-/// on Windows, and a PF_ROUTE NET_RT_IFLIST2 sysctl on macOS/Apple mobile.
+/// on Windows, and a PF_ROUTE NET_RT_IFLIST2 sysctl on macOS. Apple mobile
+/// public SDKs do not expose the routing definitions required by those macOS
+/// sources, so route, gateway, DNS, and interface-statistics queries report
+/// not_supported there.
 /// The Windows sources require Windows Vista or later. Applications that use
 /// this header on Windows must link the Iphlpapi import library;
 /// applications using this header on Solaris link -lsocket -lnsl;
