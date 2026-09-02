@@ -6,10 +6,10 @@
 /// device inventory queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17
 /// (Sandboxed/Restricted on Apple mobile platforms and Android).
-/// @note Apple mobile platforms provide manufacturer, model, device-family,
-/// and chassis classifications from compile-target facts and public sysctl
-/// values. Firmware version and release date, hardware UUIDs, and PCI, USB,
-/// and memory device inventories report not_supported.
+/// @note Apple mobile platforms provide manufacturer and model information
+/// from public sysctl values. Chassis classification, firmware version and
+/// release date, hardware UUIDs, and PCI, USB, and memory device inventories
+/// report not_supported.
 /// @note This module exposes the platform-recorded identity of the system,
 /// its motherboard, and its firmware, the chassis form factor, the
 /// firmware-recorded hardware UUID, as well as hardware device inventory:

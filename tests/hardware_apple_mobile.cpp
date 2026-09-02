@@ -21,7 +21,8 @@ void test_hardware_queries() {
     expect(model && !model->empty(), "system model must be nonempty");
 
     const auto chassis = syscape::hardware::chassis_form_factor();
-    expect(chassis.has_value(), "chassis form factor query must succeed");
+    expect(chassis.error() == syscape::errc::not_supported,
+           "chassis form factor must report not_supported");
 }
 
 } // namespace

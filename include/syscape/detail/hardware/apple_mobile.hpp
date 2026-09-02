@@ -114,19 +114,7 @@ inline result<std::string> firmware_release_date() {
 }
 
 inline result<hardware_common::chassis_classification> chassis_form_factor() {
-#if defined(TARGET_OS_MACCATALYST) && TARGET_OS_MACCATALYST
     return fail(errc::not_supported);
-#elif defined(TARGET_OS_VISION) && TARGET_OS_VISION
-    return hardware_common::chassis_classification::wearable;
-#elif defined(TARGET_OS_WATCH) && TARGET_OS_WATCH
-    return hardware_common::chassis_classification::wearable;
-#elif defined(TARGET_OS_TV) && TARGET_OS_TV
-    return hardware_common::chassis_classification::set_top_box;
-#elif defined(TARGET_OS_IOS) && TARGET_OS_IOS
-    return hardware_common::chassis_classification::hand_held;
-#else
-    return fail(errc::not_supported);
-#endif
 }
 
 inline result<std::string> hardware_uuid() {
