@@ -14,7 +14,7 @@ void expect(bool condition, const char* message) {
 }
 
 void test_environment_queries() {
-    const auto vars = syscape::environment::variables();
+    const auto vars = syscape::environment::environment_variables();
     expect(vars.has_value(), "environment variables query must succeed");
 
     const auto tmp = syscape::environment::temp_directory();

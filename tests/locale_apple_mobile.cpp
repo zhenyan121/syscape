@@ -14,10 +14,10 @@ void expect(bool condition, const char* message) {
 }
 
 void test_locale_queries() {
-    const auto loc = syscape::locale::system_locale();
+    const auto loc = syscape::locale::current_locale();
     expect(loc.has_value(), "system locale query must succeed");
 
-    const auto enc = syscape::locale::preferred_encoding();
+    const auto enc = syscape::locale::text_encoding();
     expect(enc && !enc->empty(), "preferred encoding must be nonempty");
 }
 

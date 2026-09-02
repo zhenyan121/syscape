@@ -52,7 +52,7 @@ void test_process_queries() {
            "cpu affinity query must succeed or report not_supported");
 
     const auto lim = syscape::process::resource_limit(
-        syscape::process::limit_resource::open_files);
+        syscape::process::resource_kind::open_files);
     expect(lim.has_value() || lim.error() == syscape::errc::not_supported,
            "resource limit query must succeed or report not_supported");
 }

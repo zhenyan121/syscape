@@ -19,7 +19,7 @@ void test_filesystem_queries() {
            "mounts query must return at least one mount");
 
     const auto space = syscape::filesystem::space("/");
-    expect(space && space->total_bytes > 0U,
+    expect(space && space->capacity_bytes > 0U,
            "root filesystem total bytes must be positive");
 
     const auto name_len = syscape::filesystem::max_component_length("/");
