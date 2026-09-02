@@ -19,9 +19,10 @@ if [[ ! -e "${sources[0]}" ]]; then
     exit 1
 fi
 
+status=0
 for source in "${sources[@]}"; do
     echo "Compiling ${source#"$repository_root"/} for $target"
-    "$compiler" \
+    if ! "$compiler" \
         -target "$target" \
         -isysroot "$sdk_path" \
         -std=c++17 \
@@ -34,5 +35,9 @@ for source in "${sources[@]}"; do
         -Wconversion \
         -Wsign-conversion \
         -Werror \
-        "$source"
+        "$source"; then
+        status=1
+    fi
 done
+
+exit "$status"

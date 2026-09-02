@@ -164,16 +164,20 @@ time_value_to_nanoseconds(integer_t seconds, integer_t microseconds) {
     if (seconds < 0 || microseconds < 0 || microseconds >= 1000000) {
         return fail(errc::malformed_data);
     }
-    const auto max_seconds = std::chrono::duration_cast<std::chrono::seconds>(
-                                 (std::chrono::nanoseconds::max)())
-                                 .count();
-    if (seconds > max_seconds) {
+    const std::int64_t seconds_value = static_cast<std::int64_t>(seconds);
+    const std::int64_t microseconds_value =
+        static_cast<std::int64_t>(microseconds);
+    const std::int64_t max_seconds =
+        std::chrono::duration_cast<std::chrono::seconds>(
+            (std::chrono::nanoseconds::max)())
+            .count();
+    if (seconds_value > max_seconds) {
         return fail(errc::value_too_large);
     }
     const auto whole = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::seconds(seconds));
+        std::chrono::seconds(seconds_value));
     const auto fraction = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::microseconds(microseconds));
+        std::chrono::microseconds(microseconds_value));
     if (fraction > (std::chrono::nanoseconds::max)() - whole) {
         return fail(errc::value_too_large);
     }
