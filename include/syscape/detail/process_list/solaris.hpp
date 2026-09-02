@@ -258,6 +258,9 @@ inline result<std::uint32_t> process_count() {
 
 inline result<process_list::process_entry> find_process(std::uint32_t pid) {
 #if defined(SYSCAPE_HAS_PROCFS)
+    if (pid == 0U) {
+        return fail(errc::not_found);
+    }
     return read_proc_entry(pid);
 #else
     static_cast<void>(pid);

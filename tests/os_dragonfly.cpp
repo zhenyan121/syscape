@@ -20,22 +20,22 @@ void expect_nonempty_string(const syscape::result<std::string>& value,
     expect(value && !value->empty(), message);
 }
 
-void test_timespec_conversion() {
-    using syscape::detail::os_backend::timespec_to_time_point;
+void test_timeval_conversion() {
+    using syscape::detail::os_backend::timeval_to_time_point;
 
-    const auto converted = timespec_to_time_point(2, 345678901);
-    expect(converted && converted->time_since_epoch() ==
-                            std::chrono::seconds(2) +
-                                std::chrono::nanoseconds(345678901),
-           "timespec conversion must preserve nanosecond precision");
+    const auto converted = timeval_to_time_point(2, 345678);
+    expect(converted &&
+               converted->time_since_epoch() ==
+                   std::chrono::seconds(2) + std::chrono::microseconds(345678),
+           "timeval conversion must preserve microsecond precision");
 
-    const auto invalid_fraction = timespec_to_time_point(0, 1000000000);
+    const auto invalid_fraction = timeval_to_time_point(0, 1000000);
     expect(!invalid_fraction &&
                invalid_fraction.error() == syscape::errc::malformed_data,
-           "out-of-range timespec fractions must be malformed");
+           "out-of-range timeval fractions must be malformed");
 
     const auto overflow =
-        timespec_to_time_point((std::numeric_limits<std::int64_t>::max)(), 0);
+        timeval_to_time_point((std::numeric_limits<std::int64_t>::max)(), 0);
     expect(!overflow && overflow.error() == syscape::errc::value_too_large,
            "unrepresentable boot times must report value_too_large");
 }
@@ -62,7 +62,7 @@ void test_runtime_queries() {
 } // namespace
 
 int main() {
-    test_timespec_conversion();
+    test_timeval_conversion();
     test_runtime_queries();
     return failures == 0 ? 0 : 1;
 }

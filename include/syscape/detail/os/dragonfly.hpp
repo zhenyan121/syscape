@@ -21,8 +21,8 @@ namespace detail {
 namespace os_backend {
 
 inline result<std::chrono::system_clock::time_point>
-timespec_to_time_point(std::int64_t seconds, std::int64_t nanoseconds) {
-    if (seconds < 0 || nanoseconds < 0 || nanoseconds >= 1000000000) {
+timeval_to_time_point(std::int64_t seconds, std::int64_t microseconds) {
+    if (seconds < 0 || microseconds < 0 || microseconds >= 1000000) {
         return fail(errc::malformed_data);
     }
     using clock = std::chrono::system_clock;
@@ -36,7 +36,7 @@ timespec_to_time_point(std::int64_t seconds, std::int64_t nanoseconds) {
         std::chrono::seconds(seconds));
     const clock::duration fraction =
         std::chrono::duration_cast<clock::duration>(
-            std::chrono::nanoseconds(nanoseconds));
+            std::chrono::microseconds(microseconds));
     if (fraction > clock::duration::max() - whole) {
         return fail(errc::value_too_large);
     }
@@ -140,17 +140,17 @@ inline result<std::string> host_name() {
 
 inline result<std::chrono::system_clock::time_point> boot_time() {
     int name[] = {CTL_KERN, KERN_BOOTTIME};
-    struct timespec value {};
+    struct timeval value {};
     std::size_t size = sizeof(value);
     if (::sysctl(name, 2U, &value, &size, nullptr, 0U) != 0) {
         return fail(std::error_code(errno, std::generic_category()));
     }
-    if (size != sizeof(value) || value.tv_sec < 0 || value.tv_nsec < 0 ||
-        value.tv_nsec >= 1000000000) {
+    if (size != sizeof(value) || value.tv_sec < 0 || value.tv_usec < 0 ||
+        value.tv_usec >= 1000000) {
         return fail(errc::malformed_data);
     }
-    return timespec_to_time_point(static_cast<std::int64_t>(value.tv_sec),
-                                  static_cast<std::int64_t>(value.tv_nsec));
+    return timeval_to_time_point(static_cast<std::int64_t>(value.tv_sec),
+                                 static_cast<std::int64_t>(value.tv_usec));
 }
 
 inline result<std::chrono::milliseconds> uptime() {
