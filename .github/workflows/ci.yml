@@ -318,7 +318,7 @@ jobs:
         uses: vmactions/openindiana-vm@v1
         with:
           prepare: |
-            pkg install -y cmake ninja gcc-13
+            pkg install --accept cmake ninja gcc-13
           run: |
             cmake -B build -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
