@@ -148,6 +148,9 @@ enum class power_source_type : std::uint8_t {
 #include <syscape/detail/power/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/power/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/power/solaris.hpp>
 #else
 #include <syscape/detail/power/generic.hpp>
 #endif

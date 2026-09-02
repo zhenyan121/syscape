@@ -4,9 +4,9 @@
 /// @file
 /// @brief Hosted operating-system identity and boot information queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note Linux, Windows, macOS, Android, FreeBSD, OpenBSD, NetBSD, and
-/// DragonFly BSD have native backends. Other targets use the generic
-/// not-supported fallback.
+/// @note Linux, Windows, macOS, Android, FreeBSD, OpenBSD, NetBSD,
+/// DragonFly BSD, and Solaris have native backends. Other targets use the
+/// generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows Vista or later SDK declarations.
@@ -44,6 +44,9 @@
 #include <syscape/detail/os/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/os/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/os/solaris.hpp>
 #else
 #include <syscape/detail/os/generic.hpp>
 #endif

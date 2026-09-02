@@ -5,16 +5,18 @@
 /// @brief Hosted locale, text-encoding, language-preference, and time-zone
 /// queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note Linux, macOS, and FreeBSD share a POSIX backend for locale identity
-/// and UTC offset; Windows provides a native backend. Language preferences and
-/// region codes use native backends on Windows and macOS. Time-zone
-/// identifiers use the documented localtime configuration on Linux and
-/// dynamic time-zone information on Windows. macOS reports not_supported
-/// because CoreFoundation silently substitutes GMT when the system zone is
-/// indeterminable. FreeBSD uses its POSIX locale facilities and documented
-/// zoneinfo layout, while language preferences and region codes report
-/// not_supported. Other targets use the generic not-supported fallback.
-/// On Android, text_encoding() requires API level 26 or later and reports
+/// @note Linux, macOS, FreeBSD, and Solaris share POSIX backends for locale
+/// identity, text encoding, and UTC offset; Windows provides a native backend.
+/// Language preferences and region codes use native backends on Windows and
+/// macOS. Time-zone identifiers use the documented localtime configuration on
+/// Linux and dynamic time-zone information on Windows. macOS reports
+/// not_supported because CoreFoundation silently substitutes GMT when the
+/// system zone is indeterminable. FreeBSD uses its POSIX locale facilities and
+/// documented zoneinfo layout, while language preferences and region codes
+/// report not_supported. Solaris reads /etc/timezone and zoneinfo files for
+/// time zones, reporting language preferences and region codes as
+/// not_supported. Other targets use the generic not-supported fallback. On
+/// Android, text_encoding() requires API level 26 or later and reports
 /// not_supported on earlier API levels.
 /// @note On Windows the preference queries require _WIN32_WINNT and WINVER
 /// declarations of at least 0x0600 (Windows Vista); a lower setting is
@@ -63,6 +65,9 @@
 #include <syscape/detail/locale/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/locale/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/locale/solaris.hpp>
 #else
 #include <syscape/detail/locale/generic.hpp>
 #endif

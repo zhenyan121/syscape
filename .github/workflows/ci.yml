@@ -308,3 +308,29 @@ jobs:
             ./build/examples/example_peripherals_multimedia >/dev/null
             ./build/examples/example_process_monitor >/dev/null
             ./build/examples/example_software_inventory >/dev/null
+
+  openindiana-gcc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test in OpenIndiana (illumos) VM
+        uses: vmactions/openindiana-vm@v1
+        with:
+          prepare: |
+            pkg install --accept cmake ninja gcc-13
+          run: |
+            cmake -B build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DSYSCAPE_BUILD_TESTS=ON \
+              -DSYSCAPE_BUILD_EXAMPLES=ON
+            cmake --build build -j
+            ctest --test-dir build --output-on-failure
+            ./build/examples/example_system_overview >/dev/null
+            ./build/examples/example_hardware_inventory >/dev/null
+            ./build/examples/example_network_overview >/dev/null
+            ./build/examples/example_filesystem_storage >/dev/null
+            ./build/examples/example_security_virtualization >/dev/null
+            ./build/examples/example_peripherals_multimedia >/dev/null
+            ./build/examples/example_process_monitor >/dev/null
+            ./build/examples/example_software_inventory >/dev/null

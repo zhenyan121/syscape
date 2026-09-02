@@ -1,6 +1,10 @@
 #ifndef SYSCAPE_DETAIL_USER_POSIX_HPP
 #define SYSCAPE_DETAIL_USER_POSIX_HPP
 
+#if (defined(__sun) || defined(__sun__)) && !defined(_POSIX_PTHREAD_SEMANTICS)
+#define _POSIX_PTHREAD_SEMANTICS 1
+#endif
+
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
@@ -19,6 +23,7 @@
 #include <pwd.h>
 
 #include <syscape/detail/posix/passwd.hpp>
+#include <syscape/detail/posix/utmpx.hpp>
 #include <syscape/detail/user/common.hpp>
 #include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
@@ -154,13 +159,12 @@ inline result<std::vector<user_common::session_info>> parse_utmpx_entries(
 }
 
 inline std::mutex& utmpx_mutex() {
-    static std::mutex instance;
-    return instance;
+    return posix_utmpx::mutex();
 }
 
 /// Returns all active user login sessions from the POSIX utmpx database.
 inline result<std::vector<user_common::session_info>> sessions() {
-    std::lock_guard<std::mutex> lock(utmpx_mutex());
+    std::lock_guard<std::mutex> lock(posix_utmpx::mutex());
     ::setutxent();
     struct utmpx_cleanup {
         ~utmpx_cleanup() { ::endutxent(); }
@@ -384,10 +388,17 @@ inline result<std::string> lookup_login_with_growth(LoginOperation login) {
 
 /// Returns the login name recorded for the calling process's session.
 inline result<std::string> login_name() {
-    return lookup_login_with_growth(
-        [](char* buffer, std::size_t size) {
-            return ::getlogin_r(buffer, size);
-        });
+    return lookup_login_with_growth([](char* buffer, std::size_t size) {
+#if defined(__sun) || defined(__sun__)
+        if (size >
+            static_cast<std::size_t>((std::numeric_limits<int>::max)())) {
+            return ERANGE;
+        }
+        return ::getlogin_r(buffer, static_cast<int>(size));
+#else
+        return ::getlogin_r(buffer, size);
+#endif
+    });
 }
 
 } // namespace user_backend

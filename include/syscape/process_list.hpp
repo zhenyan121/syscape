@@ -20,6 +20,7 @@
 /// psapi.h).
 /// @note macOS queries sysctl (KERN_PROC_ALL) and libproc APIs.
 /// @note Android queries procfs (/proc/[pid]/...).
+/// @note Solaris queries procfs (/proc/[pid]/psinfo, /proc/[pid]/path).
 /// @note Processes and their metadata change continuously. Queries do not cache
 /// results. Unprivileged callers gracefully receive partial observable metadata
 /// for restricted processes rather than failing the enumeration.
@@ -140,6 +141,9 @@ struct process_entry {
 #include <syscape/detail/process_list/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/process_list/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/process_list/solaris.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif

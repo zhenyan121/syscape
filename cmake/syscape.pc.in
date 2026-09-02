@@ -5,3 +5,4 @@ Name: syscape
 Description: Zero-dependency, header-only C++ library for querying platform, hardware, and runtime system information
 Version: @PROJECT_VERSION@
 Cflags: -I${includedir}
+Libs: @SYSCAPE_PKGCONFIG_LIBS@

@@ -21,8 +21,8 @@ namespace detail {
 namespace os_backend {
 
 inline result<std::chrono::system_clock::time_point>
-timeval_to_time_point(std::int64_t seconds, std::int64_t microseconds) {
-    if (seconds < 0 || microseconds < 0 || microseconds >= 1000000) {
+timespec_to_time_point(std::int64_t seconds, std::int64_t nanoseconds) {
+    if (seconds < 0 || nanoseconds < 0 || nanoseconds >= 1000000000) {
         return fail(errc::malformed_data);
     }
     using clock = std::chrono::system_clock;
@@ -36,11 +36,56 @@ timeval_to_time_point(std::int64_t seconds, std::int64_t microseconds) {
         std::chrono::seconds(seconds));
     const clock::duration fraction =
         std::chrono::duration_cast<clock::duration>(
-            std::chrono::microseconds(microseconds));
+            std::chrono::nanoseconds(nanoseconds));
     if (fraction > clock::duration::max() - whole) {
         return fail(errc::value_too_large);
     }
     return clock::time_point(whole + fraction);
+}
+
+inline result<std::chrono::milliseconds>
+timespec_to_uptime(std::int64_t seconds, std::int64_t nanoseconds) {
+    if (seconds < 0 || nanoseconds < 0 || nanoseconds >= 1000000000) {
+        return fail(errc::malformed_data);
+    }
+    const std::int64_t maximum_seconds =
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::milliseconds::max())
+            .count();
+    if (seconds > maximum_seconds) {
+        return fail(errc::value_too_large);
+    }
+    const auto whole = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::seconds(seconds));
+    const auto fraction = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::nanoseconds(nanoseconds));
+    if (fraction > std::chrono::milliseconds::max() - whole) {
+        return fail(errc::value_too_large);
+    }
+    return whole + fraction;
+}
+
+inline result<std::chrono::system_clock::time_point> boot_time_from_clocks(
+    std::int64_t realtime_seconds, std::int64_t realtime_nanoseconds,
+    std::int64_t uptime_seconds, std::int64_t uptime_nanoseconds) {
+    if (realtime_seconds < 0 || realtime_nanoseconds < 0 ||
+        realtime_nanoseconds >= 1000000000 || uptime_seconds < 0 ||
+        uptime_nanoseconds < 0 || uptime_nanoseconds >= 1000000000) {
+        return fail(errc::malformed_data);
+    }
+    if (uptime_seconds > realtime_seconds ||
+        (uptime_seconds == realtime_seconds &&
+         uptime_nanoseconds > realtime_nanoseconds)) {
+        return fail(errc::malformed_data);
+    }
+
+    std::int64_t seconds = realtime_seconds - uptime_seconds;
+    std::int64_t nanoseconds = realtime_nanoseconds - uptime_nanoseconds;
+    if (nanoseconds < 0) {
+        --seconds;
+        nanoseconds += 1000000000;
+    }
+    return timespec_to_time_point(seconds, nanoseconds);
 }
 
 inline result<std::string> sysctl_string(const char* name) {
@@ -138,31 +183,45 @@ inline result<std::string> host_name() {
     return fail(errc::value_too_large);
 }
 
-inline result<std::chrono::system_clock::time_point> boot_time() {
-    int name[] = {CTL_KERN, KERN_BOOTTIME};
-    struct timeval value {};
-    std::size_t size = sizeof(value);
-    if (::sysctl(name, 2U, &value, &size, nullptr, 0U) != 0) {
+inline result<std::chrono::milliseconds> monotonic_uptime() {
+    struct timespec value {};
+    if (::clock_gettime(CLOCK_UPTIME, &value) != 0) {
         return fail(std::error_code(errno, std::generic_category()));
     }
-    if (size != sizeof(value) || value.tv_sec < 0 || value.tv_usec < 0 ||
-        value.tv_usec >= 1000000) {
-        return fail(errc::malformed_data);
+    return timespec_to_uptime(static_cast<std::int64_t>(value.tv_sec),
+                              static_cast<std::int64_t>(value.tv_nsec));
+}
+
+inline result<std::chrono::system_clock::time_point> boot_time() {
+    int name[] = {CTL_KERN, KERN_BOOTTIME};
+    struct timespec value {};
+    std::size_t size = sizeof(value);
+    if (::sysctl(name, 2U, &value, &size, nullptr, 0U) == 0 &&
+        size == sizeof(value)) {
+        const auto converted =
+            timespec_to_time_point(static_cast<std::int64_t>(value.tv_sec),
+                                   static_cast<std::int64_t>(value.tv_nsec));
+        if (converted) {
+            return converted;
+        }
     }
-    return timeval_to_time_point(static_cast<std::int64_t>(value.tv_sec),
-                                 static_cast<std::int64_t>(value.tv_usec));
+
+    struct timespec realtime {};
+    if (::clock_gettime(CLOCK_REALTIME, &realtime) != 0) {
+        return fail(std::error_code(errno, std::generic_category()));
+    }
+    struct timespec elapsed {};
+    if (::clock_gettime(CLOCK_UPTIME, &elapsed) != 0) {
+        return fail(std::error_code(errno, std::generic_category()));
+    }
+    return boot_time_from_clocks(static_cast<std::int64_t>(realtime.tv_sec),
+                                 static_cast<std::int64_t>(realtime.tv_nsec),
+                                 static_cast<std::int64_t>(elapsed.tv_sec),
+                                 static_cast<std::int64_t>(elapsed.tv_nsec));
 }
 
 inline result<std::chrono::milliseconds> uptime() {
-    const result<std::chrono::system_clock::time_point> started = boot_time();
-    if (!started) {
-        return fail(started.error());
-    }
-    const auto elapsed = std::chrono::system_clock::now() - *started;
-    if (elapsed < std::chrono::system_clock::duration::zero()) {
-        return fail(errc::malformed_data);
-    }
-    return std::chrono::duration_cast<std::chrono::milliseconds>(elapsed);
+    return monotonic_uptime();
 }
 
 inline result<std::string> boot_identifier() {
