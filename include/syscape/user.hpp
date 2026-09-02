@@ -3,7 +3,8 @@
 
 /// @file
 /// @brief Hosted user identity and active login session queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
 /// @note This module exposes:
 /// - Real and effective user and group numeric identifiers (real_user_id(),
 /// effective_user_id(), real_group_id(), effective_group_id()).
@@ -13,8 +14,9 @@
 /// user_name(), home_directory(), shell()).
 /// - Active user login sessions and logged-in user names (sessions(),
 /// logged_in_users()).
-/// @note Linux, macOS, and FreeBSD share a POSIX backend querying passwd,
-/// groups, getlogin_r, and utmpx.
+/// @note Linux, macOS, Apple mobile platforms (iOS, iPadOS, tvOS, watchOS,
+/// visionOS, and Mac Catalyst), and FreeBSD share a POSIX backend querying
+/// passwd, groups, getlogin_r, and utmpx / sandbox directories.
 /// @note On Android, login_name() requires API level 28 or later; earlier API
 /// levels report not_supported while the remaining implemented identity
 /// queries continue to use older Bionic interfaces.
@@ -48,11 +50,10 @@
 #include <syscape/detail/user/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/user/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/user/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/user/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/user/freebsd.hpp>

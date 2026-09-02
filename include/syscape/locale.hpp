@@ -4,12 +4,15 @@
 /// @file
 /// @brief Hosted locale, text-encoding, language-preference, and time-zone
 /// queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note Linux, macOS, FreeBSD, and Solaris share POSIX backends for locale
-/// identity, text encoding, and UTC offset; Windows provides a native backend.
-/// Language preferences and region codes use native backends on Windows and
-/// macOS. Time-zone identifiers use the documented localtime configuration on
-/// Linux and dynamic time-zone information on Windows. macOS reports
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Linux, macOS, Apple mobile platforms (iOS, iPadOS, tvOS, watchOS,
+/// visionOS, and Mac Catalyst), FreeBSD, and Solaris share POSIX backends for
+/// locale identity, text encoding, and UTC offset; Windows provides a native
+/// backend. Language preferences and region codes use native backends on
+/// Windows, macOS, and Apple mobile platforms (via CoreFoundation). Time-zone
+/// identifiers use the documented localtime configuration on Linux and dynamic
+/// time-zone information on Windows. macOS and Apple mobile platforms report
 /// not_supported because CoreFoundation silently substitutes GMT when the
 /// system zone is indeterminable. FreeBSD uses its POSIX locale facilities and
 /// documented zoneinfo layout, while language preferences and region codes
@@ -49,11 +52,10 @@
 #include <syscape/detail/locale/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/locale/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/locale/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/locale/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/locale/freebsd.hpp>

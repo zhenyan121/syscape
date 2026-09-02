@@ -4,12 +4,17 @@
 /// @file
 /// @brief Hosted printer enumeration, queue status, connection, and capability
 /// queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Apple mobile platforms expose no permitted public installed-printer
+/// inventory source to this C++ interface, so all queries report
+/// not_supported.
 /// @note This module exposes:
 /// - Enumeration of installed and discoverable printers (printers()).
 /// - Total installed printer count (printer_count()).
 /// - System default printer query (default_printer()).
-/// - Lookup of an installed printer by queue name or display name (find_printer()).
+/// - Lookup of an installed printer by queue name or display name
+/// (find_printer()).
 /// - Operational state (idle, processing, stopped).
 /// - Connection and device classification (local, network, virtual).
 /// - Queue status (accepting jobs, shared state, queued job count).
@@ -142,7 +147,10 @@ struct printer_info {
 #include <syscape/detail/printer/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/printer/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/printer/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/printer/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/printer/freebsd.hpp>

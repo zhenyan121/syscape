@@ -162,6 +162,58 @@ jobs:
           ./build/examples/example_process_monitor >/dev/null
           ./build/examples/example_software_inventory >/dev/null
 
+  apple-mobile-sdk:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: iOS
+            sdk: iphoneos
+            target: arm64-apple-ios15.0
+          - platform: tvOS
+            sdk: appletvos
+            target: arm64-apple-tvos15.0
+          - platform: watchOS
+            sdk: watchos
+            target: arm64-apple-watchos8.0
+          - platform: visionOS
+            sdk: xros
+            target: arm64-apple-xros1.0
+          - platform: Mac Catalyst
+            sdk: macosx
+            target: arm64-apple-ios15.0-macabi
+    name: Apple Mobile SDK (${{ matrix.platform }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode and SDK versions
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+
+      - name: Strictly compile Apple Mobile tests
+        run: |
+          bash .github/scripts/apple-mobile-ci.sh \
+            "${{ matrix.sdk }}" \
+            "${{ matrix.target }}"
+
+      - name: Configure iOS Simulator CMake project
+        if: matrix.platform == 'iOS'
+        run: |
+          cmake -S . -B build-ios -G Xcode \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphonesimulator \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=OFF
+
+      - name: Build iOS Simulator CMake project
+        if: matrix.platform == 'iOS'
+        run: cmake --build build-ios --config Debug --parallel
+
   freebsd-clang:
     runs-on: ubuntu-latest
     steps:

@@ -4,7 +4,11 @@
 /// @file
 /// @brief Hosted camera devices, webcam enumeration, and non-invasive
 /// capability inspection.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Apple mobile platforms expose no permitted public non-invasive camera
+/// inventory source to this C++ interface, so all queries report
+/// not_supported.
 /// @note This module exposes:
 /// - Enumeration of camera / video capture devices (devices(),
 /// capture_devices()).
@@ -155,12 +159,7 @@ struct camera_device {
 #include <syscape/detail/camera/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/camera/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) &&         \
-    defined(__MACH__) &&                                                       \
-    !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) &&                \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) &&                 \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) &&                    \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/camera/macos.hpp>
 #else
 #include <syscape/detail/camera/generic.hpp>

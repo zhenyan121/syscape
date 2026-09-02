@@ -2,15 +2,23 @@
 #define SYSCAPE_AUDIO_HPP
 
 /// @file
-/// @brief Hosted audio devices, playback/capture endpoints, capabilities, and default devices.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @brief Hosted audio devices, playback/capture endpoints, capabilities, and
+/// default devices.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Apple mobile platforms expose no permitted public in-process audio
+/// inventory source to this C++ interface, so all queries report
+/// not_supported.
 /// @note This module exposes:
-/// - Enumeration of audio endpoints/devices (devices(), playback_devices(), capture_devices()).
-/// - Identification of default playback and capture devices (default_playback_device(), default_capture_device()).
+/// - Enumeration of audio endpoints/devices (devices(), playback_devices(),
+/// capture_devices()).
+/// - Identification of default playback and capture devices
+/// (default_playback_device(), default_capture_device()).
 /// - Total audio device count (device_count()).
 /// - Stream direction (playback, capture, duplex).
 /// - Channel counts, sample rates, sound card and driver associations.
-/// @note Linux queries ALSA kernel interfaces (/proc/asound/cards, /proc/asound/pcm, /sys/class/sound).
+/// @note Linux queries ALSA kernel interfaces (/proc/asound/cards,
+/// /proc/asound/pcm, /sys/class/sound).
 /// @note Windows queries Win32 Core Audio MMDevice interfaces.
 /// @note macOS queries Darwin CoreAudio HAL interfaces.
 
@@ -111,11 +119,10 @@ struct audio_device {
 #include <syscape/detail/audio/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/audio/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/audio/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/audio/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/audio/freebsd.hpp>

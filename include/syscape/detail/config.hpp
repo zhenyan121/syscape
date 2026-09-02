@@ -5,6 +5,36 @@
 #define _POSIX_PTHREAD_SEMANTICS 1
 #endif
 
+#if defined(__APPLE__) && defined(__MACH__)
+#if defined(__has_include)
+#if __has_include(<TargetConditionals.h>)
+#include <TargetConditionals.h>
+#endif
+#endif
+#if !defined(TARGET_OS_IPHONE)
+#if defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) ||                 \
+    defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) ||                  \
+    defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) ||                     \
+    defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#define TARGET_OS_IPHONE 1
+#else
+#define TARGET_OS_IPHONE 0
+#endif
+#endif
+#if !defined(TARGET_OS_OSX)
+#if TARGET_OS_IPHONE
+#define TARGET_OS_OSX 0
+#else
+#define TARGET_OS_OSX 1
+#endif
+#endif
+#if defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
+#define SYSCAPE_TARGET_APPLE_MOBILE 1
+#else
+#define SYSCAPE_TARGET_MACOS 1
+#endif
+#endif
+
 #if defined(_MSVC_LANG)
 #define SYSCAPE_DETAIL_CPLUSPLUS _MSVC_LANG
 #else

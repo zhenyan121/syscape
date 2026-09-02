@@ -3,15 +3,21 @@
 
 /// @file
 /// @brief Hosted GPU, graphics adapter, and video controller queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Apple mobile platforms expose no permitted public GPU inventory
+/// source to this C++ interface, so all queries report not_supported.
 /// @note This module exposes:
-/// - Enumeration of installed GPU devices (devices()) and adapter counts (device_count()).
+/// - Enumeration of installed GPU devices (devices()) and adapter counts
+/// (device_count()).
 /// - Identification of the primary boot / display adapter (primary_device()).
 /// - Classified vendor identification (syscape::gpu::gpu_vendor).
 /// - Classified vendor names, model descriptions, and driver names.
 /// - PCI vendor ID and device ID where available.
-/// - Dedicated video memory (VRAM) capacity in bytes where exposed by the OS/driver.
-/// @note Linux queries sysfs DRM interfaces (/sys/class/drm) and PCI devices (/sys/bus/pci/devices).
+/// - Dedicated video memory (VRAM) capacity in bytes where exposed by the
+/// OS/driver.
+/// @note Linux queries sysfs DRM interfaces (/sys/class/drm) and PCI devices
+/// (/sys/bus/pci/devices).
 /// @note Windows queries Win32 display device interfaces.
 /// @note macOS queries IOKit registry classes (IOPCIDevice, IOAccelerator).
 
@@ -101,11 +107,7 @@ struct gpu_device {
 #include <syscape/detail/gpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/gpu/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/gpu/macos.hpp>
 #else
 #include <syscape/detail/gpu/generic.hpp>

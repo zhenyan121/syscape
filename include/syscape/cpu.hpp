@@ -4,7 +4,8 @@
 /// @file
 /// @brief Hosted CPU identity, topology, frequency, utilization, cache, and
 /// instruction-set queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
 /// @note Linux implements identity through kernel-documented interfaces,
 /// topology and cache instances through the documented testing sysfs ABI
 /// interface under /sys/devices/system/cpu, recorded frequency bounds and
@@ -22,12 +23,16 @@
 /// hw.cpufrequency sysctl values, collects the documented feature renderings,
 /// and folds the host_processor_info scheduler ticks into cumulative
 /// utilization. Darwin's documented cache sysctls do not identify distinct
-/// sharing sets, so the cache-instance query reports not_supported. Platforms
-/// without the other facts also report not_supported. FreeBSD implements model,
-/// topology counts, frequency, and cumulative usage queries through documented
-/// sysctl values; vendor, cache, and instruction-set queries report
-/// not_supported. Android implements core count, SOC vendor and model,
-/// frequency bounds, and cumulative utilization through sysconf, system
+/// sharing sets, so the cache-instance query reports not_supported. Apple
+/// mobile platforms (iOS, iPadOS, tvOS, watchOS, visionOS, and Mac Catalyst)
+/// implement core counts, model names (hw.model), recorded frequency bounds
+/// (hw.cpufrequency_min/max), and cumulative processor usage using Mach
+/// host_processor_info(); cache, vendor, and instruction-set queries report
+/// not_supported. Platforms without the other facts also report not_supported.
+/// FreeBSD implements model, topology counts, frequency, and cumulative usage
+/// queries through documented sysctl values; vendor, cache, and instruction-set
+/// queries report not_supported. Android implements core count, SOC vendor and
+/// model, frequency bounds, and cumulative utilization through sysconf, system
 /// properties, /sys/devices/system/cpu, and /proc/stat. Solaris implements
 /// core counts, vendor identifiers, model names, and cumulative utilization
 /// through sysconf and kstat, and instruction-set features through getisax;
@@ -75,11 +80,10 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/detail/cpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/cpu/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/cpu/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/cpu/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/cpu/freebsd.hpp>

@@ -3,26 +3,37 @@
 
 /// @file
 /// @brief Hosted network connection and socket inventory queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Apple mobile sandboxes do not permit system-wide socket ownership
+/// inventory through the public interfaces used here, so all queries report
+/// not_supported.
 /// @note This module exposes:
-/// - Enumeration of all visible network connections and sockets (connections()).
+/// - Enumeration of all visible network connections and sockets
+/// (connections()).
 /// - Active and listening TCP connections (tcp_connections()).
 /// - Visible UDP endpoints (udp_endpoints()).
 /// - Listening endpoints (listening_endpoints()).
-/// - Connections owned by a specific process (find_connections_by_process(pid)).
+/// - Connections owned by a specific process
+/// (find_connections_by_process(pid)).
 /// - Transport protocol (TCP or UDP).
-/// - Bound local endpoint and remote endpoint (IPv4 / IPv6 addresses and ports).
-/// - TCP connection lifecycle state (listen, established, time_wait, close_wait, etc.).
-/// - Owning process identifier (PID), user identifier (UID), and Linux socket inode.
+/// - Bound local endpoint and remote endpoint (IPv4 / IPv6 addresses and
+/// ports).
+/// - TCP connection lifecycle state (listen, established, time_wait,
+/// close_wait, etc.).
+/// - Owning process identifier (PID), user identifier (UID), and Linux socket
+/// inode.
 /// - Kernel transmit (TX) and receive (RX) buffer queue occupancy in bytes.
-/// @note Linux parses /proc/net/{tcp,tcp6,udp,udp6} and correlates socket inodes to PIDs
-/// via /proc/[pid]/fd without spawning external utilities.
-/// @note Windows queries GetExtendedTcpTable and GetExtendedUdpTable from iphlpapi.h.
-/// Applications that call these queries on Windows must link Iphlpapi.lib. The supplied
-/// CMake tests demonstrate this SDK linkage without imposing it on unrelated modules.
+/// @note Linux parses /proc/net/{tcp,tcp6,udp,udp6} and correlates socket
+/// inodes to PIDs via /proc/[pid]/fd without spawning external utilities.
+/// @note Windows queries GetExtendedTcpTable and GetExtendedUdpTable from
+/// iphlpapi.h. Applications that call these queries on Windows must link
+/// Iphlpapi.lib. The supplied CMake tests demonstrate this SDK linkage without
+/// imposing it on unrelated modules.
 /// @note macOS queries Darwin libproc socket inspection APIs.
 /// @note Network connections change continuously. Queries do not cache results.
-/// Unprivileged callers receive partial observable metadata without failing the whole snapshot.
+/// Unprivileged callers receive partial observable metadata without failing the
+/// whole snapshot.
 
 #include <syscape/detail/config.hpp>
 
@@ -45,11 +56,10 @@
 #include <syscape/detail/connection/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/connection/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/connection/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/connection/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/connection/freebsd.hpp>

@@ -4,10 +4,15 @@
 /// @file
 /// @brief Hosted process identity, execution-context, scheduling, and
 /// resource-limit queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note Linux, Windows, macOS, Android, FreeBSD, and Solaris have native
-/// backends. The FreeBSD and Solaris backends report CPU affinity as
-/// unsupported. Other targets use the generic not-supported fallback.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Linux, Windows, macOS, Apple mobile platforms (iOS, iPadOS, tvOS,
+/// watchOS, visionOS, and Mac Catalyst), Android, FreeBSD, and Solaris have
+/// native backends. Apple mobile platforms implement self-process PID, parent
+/// PID, executable path (_NSGetExecutablePath), working directory, CPU time,
+/// memory usage (mach_task_basic_info), and thread count (task_threads) using
+/// public Mach and POSIX APIs; CPU affinity reports unsupported. Other targets
+/// use the generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows 7 or later SDK declarations.
@@ -38,11 +43,10 @@
 #include <syscape/detail/process/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/process/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/process/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/process/freebsd.hpp>
