@@ -12,6 +12,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#if defined(__sun) || defined(__sun__)
+#include <sys/sockio.h>
+#endif
 #include <net/if.h>
 #include <netinet/in.h>
 #include <ifaddrs.h>
@@ -124,12 +127,12 @@ struct native_interface_api {
 /// An interface that is administratively up but not running (for example a
 /// disconnected cable) is neither plainly up nor plainly down, so it is
 /// reported as unknown rather than forced into either value.
-inline network_common::interface_state classify_state(
-    unsigned int flags) noexcept {
-    if ((flags & IFF_UP) == 0U) {
+template <typename Flags>
+inline network_common::interface_state classify_state(Flags flags) noexcept {
+    if ((flags & static_cast<Flags>(IFF_UP)) == static_cast<Flags>(0)) {
         return network_common::interface_state::down;
     }
-    if ((flags & IFF_RUNNING) != 0U) {
+    if ((flags & static_cast<Flags>(IFF_RUNNING)) != static_cast<Flags>(0)) {
         return network_common::interface_state::up;
     }
     return network_common::interface_state::unknown;
@@ -303,9 +306,11 @@ inline result<void> convert_ifaddrs_row(
         entry = &interfaces.back();
     }
 
-    const unsigned int flags = row.ifa_flags;
+    using flags_type = decltype(row.ifa_flags);
+    const flags_type flags = row.ifa_flags;
     entry->state = classify_state(flags);
-    entry->loopback = (flags & IFF_LOOPBACK) != 0U;
+    entry->loopback = (flags & static_cast<flags_type>(IFF_LOOPBACK)) !=
+                      static_cast<flags_type>(0);
 
     if (row.ifa_addr == nullptr) {
         // A row without a socket address contributes only flags.

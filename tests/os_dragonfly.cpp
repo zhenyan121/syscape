@@ -1,4 +1,5 @@
 #include <iostream>
+#include <limits>
 #include <string>
 
 #include <syscape/os.hpp>
@@ -17,6 +18,26 @@ void expect(bool condition, const char* message) {
 void expect_nonempty_string(const syscape::result<std::string>& value,
                             const char* message) {
     expect(value && !value->empty(), message);
+}
+
+void test_timespec_conversion() {
+    using syscape::detail::os_backend::timespec_to_time_point;
+
+    const auto converted = timespec_to_time_point(2, 345678901);
+    expect(converted && converted->time_since_epoch() ==
+                            std::chrono::seconds(2) +
+                                std::chrono::nanoseconds(345678901),
+           "timespec conversion must preserve nanosecond precision");
+
+    const auto invalid_fraction = timespec_to_time_point(0, 1000000000);
+    expect(!invalid_fraction &&
+               invalid_fraction.error() == syscape::errc::malformed_data,
+           "out-of-range timespec fractions must be malformed");
+
+    const auto overflow =
+        timespec_to_time_point((std::numeric_limits<std::int64_t>::max)(), 0);
+    expect(!overflow && overflow.error() == syscape::errc::value_too_large,
+           "unrepresentable boot times must report value_too_large");
 }
 
 void test_runtime_queries() {
@@ -41,6 +62,7 @@ void test_runtime_queries() {
 } // namespace
 
 int main() {
+    test_timespec_conversion();
     test_runtime_queries();
     return failures == 0 ? 0 : 1;
 }

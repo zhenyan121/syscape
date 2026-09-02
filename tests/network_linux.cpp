@@ -367,6 +367,12 @@ void test_state_classification() {
                    item.flags) == item.expected,
                item.message);
     }
+    const std::uint64_t wide_flags = (std::uint64_t {1} << 40U) |
+                                     static_cast<std::uint64_t>(IFF_UP) |
+                                     static_cast<std::uint64_t>(IFF_RUNNING);
+    expect(syscape::detail::network_backend::classify_state(wide_flags) ==
+               interface_state::up,
+           "Interface state classification preserves wider native flags");
 }
 
 void test_prefix_boundaries() {

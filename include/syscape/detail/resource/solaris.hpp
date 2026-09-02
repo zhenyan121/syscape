@@ -5,8 +5,8 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <dirent.h>
+#include <sys/loadavg.h>
 #include <system_error>
 #include <sys/resource.h>
 #include <unistd.h>
