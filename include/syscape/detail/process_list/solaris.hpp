@@ -153,10 +153,10 @@ inline result<process_list::process_entry> read_proc_entry(std::uint32_t pid) {
     }
 
     // Priority
-    entry.priority = static_cast<int>(info.pr_pri);
+    entry.priority = static_cast<int>(info.pr_lwp.pr_pri);
 
     // State
-    if (info.pr_zomb != 0 || info.pr_lwp.pr_sname == 'Z') {
+    if (info.pr_lwp.pr_sname == 'Z') {
         entry.state = process_list::process_state::zombie;
     } else {
         switch (info.pr_lwp.pr_sname) {
