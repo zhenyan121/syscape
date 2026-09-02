@@ -4,16 +4,19 @@
 /// @file
 /// @brief Hosted network interface, address, route, gateway, and statistics
 /// queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note Linux, macOS, and FreeBSD enumerate interfaces through the documented
-/// getifaddrs interface, resolving interface indices through POSIX
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Linux, macOS, Apple mobile platforms (iOS, iPadOS, tvOS, watchOS,
+/// visionOS, and Mac Catalyst), and FreeBSD enumerate interfaces through the
+/// documented getifaddrs interface, resolving interface indices through POSIX
 /// if_nametoindex; Linux exposes link-layer addresses through AF_PACKET
-/// rows and macOS and FreeBSD through AF_LINK rows. Windows enumerates adapters
-/// through GetAdaptersAddresses. Linux obtains routes from NETLINK_ROUTE,
-/// Windows from GetIpForwardTable2 with GetUnicastIpAddressTable context, and
-/// macOS from a PF_ROUTE NET_RT_DUMP2 sysctl. Interface traffic and error
+/// rows and macOS/Apple mobile/FreeBSD through AF_LINK rows. Windows enumerates
+/// adapters through GetAdaptersAddresses. Linux obtains routes from
+/// NETLINK_ROUTE, Windows from GetIpForwardTable2 with
+/// GetUnicastIpAddressTable context, and macOS/Apple mobile from a PF_ROUTE
+/// NET_RT_DUMP2 sysctl. Interface traffic and error
 /// statistics query /proc/net/dev and sysfs on Linux, GetIfTable2 / GetIfEntry2
-/// on Windows, and a PF_ROUTE NET_RT_IFLIST2 sysctl on macOS.
+/// on Windows, and a PF_ROUTE NET_RT_IFLIST2 sysctl on macOS/Apple mobile.
 /// The Windows sources require Windows Vista or later. Applications that use
 /// this header on Windows must link the Iphlpapi import library;
 /// applications using this header on Solaris link -lsocket -lnsl;
@@ -58,11 +61,10 @@
 #include <syscape/detail/network/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/network/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/network/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/network/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/network/freebsd.hpp>

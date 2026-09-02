@@ -2,16 +2,27 @@
 #define SYSCAPE_INPUT_HPP
 
 /// @file
-/// @brief Hosted input devices, keyboards, pointing devices, touch, and game controllers.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @brief Hosted input devices, keyboards, pointing devices, touch, and game
+/// controllers.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Apple mobile platforms expose no permitted public input-device
+/// inventory source to this C++ interface, so all queries report
+/// not_supported.
 /// @note This module exposes:
-/// - Enumeration of input devices (devices(), keyboards(), mice(), touch_devices(), gamepads()).
+/// - Enumeration of input devices (devices(), keyboards(), mice(),
+/// touch_devices(), gamepads()).
 /// - Total input device count (device_count()).
-/// - Device classification (keyboard, mouse, touchpad, touchscreen, joystick, gamepad, tablet, switch).
-/// - Hardware bus classification (USB, Bluetooth, I2C, PCI, ISA/serio, virtual).
-/// - Vendor, product, version IDs, physical location, sysfs nodes, and handler bindings.
-/// @note Linux queries kernel interfaces (/proc/bus/input/devices, /sys/class/input).
-/// @note Windows queries Win32 Raw Input interfaces (GetRawInputDeviceList, GetRawInputDeviceInfoW).
+/// - Device classification (keyboard, mouse, touchpad, touchscreen, joystick,
+/// gamepad, tablet, switch).
+/// - Hardware bus classification (USB, Bluetooth, I2C, PCI, ISA/serio,
+/// virtual).
+/// - Vendor, product, version IDs, physical location, sysfs nodes, and handler
+/// bindings.
+/// @note Linux queries kernel interfaces (/proc/bus/input/devices,
+/// /sys/class/input).
+/// @note Windows queries Win32 Raw Input interfaces (GetRawInputDeviceList,
+/// GetRawInputDeviceInfoW).
 /// @note macOS queries Darwin IOKit / IOHIDManager interfaces.
 
 #include <syscape/detail/config.hpp>
@@ -129,11 +140,7 @@ struct input_device {
 #include <syscape/detail/input/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/input/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/input/macos.hpp>
 #else
 #include <syscape/detail/input/generic.hpp>

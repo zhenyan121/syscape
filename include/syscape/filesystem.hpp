@@ -3,11 +3,13 @@
 
 /// @file
 /// @brief Hosted mounted-filesystem and volume-capacity queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
 /// @note Linux enumerates mounts from the kernel-documented
 /// /proc/self/mounts interface and queries capacity through POSIX statvfs.
-/// macOS and FreeBSD enumerate mounts through the documented getfsstat
-/// interface and query capacity through statvfs. Windows enumerates
+/// macOS, Apple mobile platforms (iOS, iPadOS, tvOS, watchOS, visionOS, and Mac
+/// Catalyst), and FreeBSD enumerate mounts through the documented getfsstat
+/// interface and query capacity through statvfs / statfs. Windows enumerates
 /// drive-letter volumes
 /// through GetLogicalDrives, QueryDosDeviceW, and GetVolumeInformationW,
 /// resolves queried paths to their real volume mount point through
@@ -17,7 +19,8 @@
 /// /proc/self/mounts and queries capacity through statvfs. Solaris enumerates
 /// mounts from /etc/mnttab and queries capacity through POSIX statvfs.
 /// Other targets use the generic not-supported fallback.
-/// @note Path-limit queries use POSIX pathconf on Linux, macOS, and FreeBSD.
+/// @note Path-limit queries use POSIX pathconf on Linux, macOS, Apple mobile
+/// platforms, and FreeBSD.
 /// Windows reads the documented MaximumComponentLength record of
 /// GetVolumeInformationW after resolving a path to its volume, and reports
 /// no per-volume maximum complete-path length because the platform bounds
@@ -47,11 +50,10 @@
 #include <syscape/detail/filesystem/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/filesystem/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/filesystem/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/filesystem/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/filesystem/freebsd.hpp>

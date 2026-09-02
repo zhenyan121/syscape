@@ -2,27 +2,37 @@
 #define SYSCAPE_SOFTWARE_HPP
 
 /// @file
-/// @brief Hosted system software, service, driver, update, package, and runtime queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @brief Hosted system software, service, driver, update, package, and runtime
+/// queries.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Apple mobile sandboxes expose no acceptable system-wide service,
+/// driver, package, update, or runtime inventory source to this interface, so
+/// all queries report not_supported.
 /// @note This module exposes:
 /// - Enumeration of system services and daemons (services()).
 /// - Lookup of a specific system service by name (find_service(name)).
 /// - Enumeration of loaded kernel drivers and modules (loaded_drivers()).
 /// - Lookup of a specific loaded kernel driver by name (find_driver(name)).
-/// - Enumeration of installed software packages and applications (installed_packages()).
+/// - Enumeration of installed software packages and applications
+/// (installed_packages()).
 /// - Lookup of an installed software package by name (find_package(name)).
 /// - Enumeration of observable system update state (system_updates()).
-/// - Enumeration of installed execution and development runtimes (installed_runtimes()).
-/// @note Linux parses systemd unit files, /proc/modules, pacman/dpkg/apk databases,
-/// and freedesktop application entries in-process without spawning subprocesses.
+/// - Enumeration of installed execution and development runtimes
+/// (installed_runtimes()).
+/// @note Linux parses systemd unit files, /proc/modules, pacman/dpkg/apk
+/// databases, and freedesktop application entries in-process without spawning
+/// subprocesses.
 /// @note Windows queries the Service Control Manager (SCM), Psapi driver APIs,
 /// Uninstall and runtime registry catalogs, and CBS update state
 /// (requires linking Advapi32.lib and Psapi.lib).
-/// @note macOS parses LaunchDaemons, LaunchAgents, and .app bundles using CoreFoundation
-/// together with update metadata and runtime installation files
-/// (requires linking -framework CoreFoundation). loaded_drivers() returns not_supported on
-/// macOS as Darwin provides no unprivileged in-process public API for loaded kernel modules.
-/// @note Software and service states change dynamically. Queries query on demand without caching.
+/// @note macOS parses LaunchDaemons, LaunchAgents, and .app bundles using
+/// CoreFoundation together with update metadata and runtime installation files
+/// (requires linking -framework CoreFoundation). loaded_drivers() returns
+/// not_supported on macOS as Darwin provides no unprivileged in-process public
+/// API for loaded kernel modules.
+/// @note Software and service states change dynamically. Queries query on
+/// demand without caching.
 
 #include <syscape/detail/config.hpp>
 
@@ -46,11 +56,10 @@
 #include <syscape/detail/software/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/software/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/software/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/software/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/software/freebsd.hpp>

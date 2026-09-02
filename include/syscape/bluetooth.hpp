@@ -4,7 +4,11 @@
 /// @file
 /// @brief Hosted Bluetooth adapters, radio state, capabilities, and device
 /// queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Apple mobile platforms expose no permitted public in-process
+/// Bluetooth inventory source to this C++ interface, so all queries report
+/// not_supported.
 /// @note This module exposes:
 /// - Enumeration of local Bluetooth host adapters (adapters()).
 /// - Total Bluetooth adapter count (adapter_count()).
@@ -183,12 +187,7 @@ struct device_info {
 #include <syscape/detail/bluetooth/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/bluetooth/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) &&         \
-    defined(__MACH__) &&                                                       \
-    !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) &&                \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) &&                 \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) &&                    \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/bluetooth/macos.hpp>
 #else
 #include <syscape/detail/bluetooth/generic.hpp>

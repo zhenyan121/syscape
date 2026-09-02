@@ -4,7 +4,12 @@
 /// @file
 /// @brief Hosted virtualization, hypervisor, container, WSL, and sandbox
 /// queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Apple mobile platforms report only affirmative hypervisor or sandbox
+/// evidence exposed by public sysctl values or the application-sandbox
+/// environment. Queries without definitive evidence, along with container,
+/// cgroup, and namespace queries, report not_supported.
 /// @note This module exposes:
 /// - Hypervisor presence and classified vendor identity (e.g. KVM, QEMU,
 /// VMware,
@@ -238,11 +243,10 @@ struct cgroup_info {
 #include <syscape/detail/virtualization/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/virtualization/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/virtualization/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/virtualization/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/virtualization/freebsd.hpp>

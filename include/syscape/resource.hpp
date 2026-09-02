@@ -3,7 +3,8 @@
 
 /// @file
 /// @brief Hosted system-wide resource and capacity queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
 /// @note Linux implements most queries through kernel-documented /proc
 /// interfaces and reports not_supported for the open-handle total because
 /// the platform documents no source for that population. Windows reports
@@ -18,14 +19,18 @@
 /// count and open-file count from the long-stable XNU sysctl values
 /// kern.num_threads and kern.num_files; those sysctls are not described in
 /// Apple's formal documentation set and are used because no stronger
-/// documented source exists on that platform. FreeBSD implements load average,
-/// process count, open-file count, and the system file limit; scheduler entity,
-/// thread, and handle totals report not_supported. Android implements load
-/// average, process count, and system file descriptor limits through /proc
-/// and sysconf. Solaris implements load average through getloadavg and process
-/// count through /proc; entity, thread, open-file, handle, and descriptor-limit
-/// queries report not_supported. All other targets use the not-supported
-/// fallback.
+/// documented source exists on that platform. Apple mobile platforms (iOS,
+/// iPadOS, tvOS, watchOS, visionOS, and Mac Catalyst) implement load average
+/// through getloadavg and system file descriptor limits / counts through
+/// sysctl (kern.maxfiles, kern.num_files); process and thread enumerations
+/// return not_supported or permission_denied due to sandbox isolation.
+/// FreeBSD implements load average, process count, open-file count, and the
+/// system file limit; scheduler entity, thread, and handle totals report
+/// not_supported. Android implements load average, process count, and system
+/// file descriptor limits through /proc and sysconf. Solaris implements load
+/// average through getloadavg and process count through /proc; entity, thread,
+/// open-file, handle, and descriptor-limit queries report not_supported. All
+/// other targets use the not-supported fallback.
 /// @note Every count is an instantaneous snapshot observed during the call;
 /// values change continuously with system activity and must never be
 /// assumed stable after a query returns.
@@ -50,11 +55,10 @@
 #include <syscape/detail/resource/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/resource/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/resource/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/resource/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/resource/freebsd.hpp>

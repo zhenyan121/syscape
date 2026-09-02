@@ -5,7 +5,12 @@
 /// @brief Hosted security, Secure Boot, TPM, LSM, ASLR, vulnerability
 /// mitigations, process capabilities, privileges, and volume encryption
 /// queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Apple mobile platforms report the absence of a TPM as data and report
+/// not_supported for Secure Boot, ASLR policy, platform security modules,
+/// privileges, vulnerabilities, and volume-encryption discovery because no
+/// verified permitted source is available to this interface.
 /// @note This module exposes:
 /// - UEFI / platform Secure Boot enablement state (secure_boot(),
 /// is_secure_boot_enabled()).
@@ -45,6 +50,8 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include <syscape/detail/utf8.hpp>
 
 namespace syscape {
 namespace security {
@@ -234,11 +241,10 @@ struct tpm_info {
 #include <syscape/detail/security/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/security/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/security/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/security/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/security/freebsd.hpp>
@@ -383,6 +389,15 @@ inline result<std::vector<privilege_entry>> privileges() {
 /// @return volume_encryption_info; invalid_argument for empty or invalid paths;
 /// not_found if path does not exist; not_supported when unavailable.
 inline result<volume_encryption_info> volume_encryption(std::string_view path) {
+    if (path.empty()) {
+        return fail(errc::invalid_argument);
+    }
+    if (!detail::is_valid_utf8(path)) {
+        return fail(errc::invalid_encoding);
+    }
+    if (path.find('\0') != std::string_view::npos) {
+        return fail(errc::invalid_argument);
+    }
     return detail::security_backend::volume_encryption(path);
 }
 

@@ -3,7 +3,8 @@
 
 /// @file
 /// @brief Hosted process enumeration and observable metadata queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
 /// @note This module exposes:
 /// - Enumeration of all observable processes on the system (processes()).
 /// - Total count of observable live processes (process_count()).
@@ -19,6 +20,9 @@
 /// @note Windows queries Toolhelp32 snapshots and Process APIs (tlhelp32.h,
 /// psapi.h).
 /// @note macOS queries sysctl (KERN_PROC_ALL) and libproc APIs.
+/// @note Apple mobile platforms (iOS, iPadOS, tvOS, watchOS, visionOS, and
+/// Mac Catalyst) report permission_denied for system-wide process enumeration
+/// under application sandbox rules; find_process(0) reports not_found.
 /// @note Android queries procfs (/proc/[pid]/...).
 /// @note Solaris queries procfs (/proc/[pid]/psinfo, /proc/[pid]/path).
 /// @note Processes and their metadata change continuously. Queries do not cache
@@ -124,12 +128,10 @@ struct process_entry {
 #include <syscape/detail/process_list/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process_list/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) &&         \
-    defined(__MACH__) &&                                                       \
-    !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) &&                \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) &&                 \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) &&                   \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/process_list/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/process_list/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/process_list/freebsd.hpp>

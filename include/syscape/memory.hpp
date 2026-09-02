@@ -4,7 +4,8 @@
 /// @file
 /// @brief Hosted system memory capacity, commit accounting, huge pages,
 /// utilization, and pressure-stall usage queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
 /// @note Linux implements every query through the kernel-documented
 /// /proc/meminfo interface, POSIX sysconf values, and the kernel-documented
 /// /proc/pressure/memory records. Windows implements the capacity, commit,
@@ -15,14 +16,19 @@
 /// sysctl, available memory and the load estimate through documented Mach
 /// host statistics, and swap through the binary struct xsw_usage reported by
 /// the vm.swapusage sysctl; Darwin exposes no public commit, huge-page, or
-/// pressure source. FreeBSD implements page size, physical and available
-/// memory, swap, and memory load through sysconf and documented sysctl values;
-/// commit, huge-page, and pressure queries report not_supported. Android
-/// implements page size, physical and available memory, swap, and memory load
-/// through sysconf and /proc/meminfo. Solaris implements page size, physical
-/// and available memory, and memory load through sysconf, and swap capacity
-/// through swapctl (SC_GETNSWP and SC_LIST); commit, huge-page, and pressure
-/// queries report not_supported. Other targets use the not-supported fallback.
+/// pressure source. Apple mobile platforms (iOS, iPadOS, tvOS, watchOS,
+/// visionOS, and Mac Catalyst) implement page size, physical memory, available
+/// memory, memory load, and swap capacity through Mach host statistics,
+/// sysctl (hw.memsize, vm.swapusage), and host_page_size(); commit, huge-page,
+/// and pressure queries report not_supported. FreeBSD implements page size,
+/// physical and available memory, swap, and memory load through sysconf and
+/// documented sysctl values; commit, huge-page, and pressure queries report
+/// not_supported. Android implements page size, physical and available memory,
+/// swap, and memory load through sysconf and /proc/meminfo. Solaris implements
+/// page size, physical and available memory, and memory load through sysconf,
+/// and swap capacity through swapctl (SC_GETNSWP and SC_LIST); commit,
+/// huge-page, and pressure queries report not_supported. Other targets use
+/// the not-supported fallback.
 /// @note The Windows commit query uses GetPerformanceInfo declared in
 /// <psapi.h>, which maps to Kernel32.lib on Windows 7 or later SDKs and may
 /// require Psapi.lib with older declarations.
@@ -43,11 +49,10 @@
 #include <syscape/detail/memory/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/memory/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_APPLE_MOBILE)
+#include <syscape/detail/memory/apple_mobile.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/memory/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__FreeBSD__)
 #include <syscape/detail/memory/freebsd.hpp>

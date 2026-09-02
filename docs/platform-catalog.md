@@ -91,15 +91,21 @@ strict language mode and library facilities required by its intended profile.
 | Platform family | Representative architectures | Intended profile | State |
 | --- | --- | --- | --- |
 | Android | Arm, Arm64, x86, x86-64 | Sandboxed/Restricted | Implemented (compile-tested; x86-64 emulator runtime CI configured; physical device verification pending) |
-| iOS | Arm64 | Sandboxed/Restricted | Not started |
-| iPadOS | Arm64 | Sandboxed/Restricted | Not started |
-| visionOS | Arm64 | Sandboxed/Restricted | Not started |
-| watchOS | Arm64-family Apple targets | Sandboxed/Restricted | Not started |
-| tvOS | Arm64 | Sandboxed/Restricted | Not started |
+| iOS | Arm64 | Sandboxed/Restricted | In progress (Mach/sysctl/POSIX backends implemented across 23 modules using public APIs; standalone test suite created; Apple mobile SDK build and physical device verification pending) |
+| iPadOS | Arm64 | Sandboxed/Restricted | In progress (Mach/sysctl/POSIX backends implemented across 23 modules using public APIs; standalone test suite created; Apple mobile SDK build and physical device verification pending) |
+| Mac Catalyst | x86-64, Arm64 | Sandboxed/Restricted | In progress (Mach/sysctl/POSIX Apple mobile backends implemented across 23 modules; recognizes macOS product name with sandbox restrictions; SDK build verification pending) |
+| visionOS | Arm64 | Sandboxed/Restricted | In progress (Mach/sysctl/POSIX backends implemented across 23 modules using public APIs; standalone test suite created; Apple mobile SDK build and physical device verification pending) |
+| watchOS | Arm64-family Apple targets | Sandboxed/Restricted | In progress (Mach/sysctl/POSIX backends implemented across 23 modules using public APIs; standalone test suite created; Apple mobile SDK build and physical device verification pending) |
+| tvOS | Arm64 | Sandboxed/Restricted | In progress (Mach/sysctl/POSIX backends implemented across 23 modules using public APIs; standalone test suite created; Apple mobile SDK build and physical device verification pending) |
 | HarmonyOS and OpenHarmony | Arm, Arm64, x86-family, and supported device ports | Sandboxed/Restricted or RTOS/Constrained depending on product | Not started |
 | KaiOS | Product-dependent Arm targets using a web-oriented Linux-derived stack | Sandboxed/Restricted | Not started |
 | Tizen | Arm, Arm64, x86-family depending on product | Sandboxed/Restricted | Not started |
 | Sailfish OS | Arm and x86-family depending on product | Sandboxed/Restricted | Not started |
+
+Building the visionOS targets through the repository's CMake project requires
+CMake 3.28 or later, the first CMake release with `visionOS`, `xros`, and
+`xrsimulator` platform support. The repository-wide CMake 3.15 minimum remains
+valid for targets supported by that release.
 
 ## WebAssembly Environments
 

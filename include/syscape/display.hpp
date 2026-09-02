@@ -3,19 +3,25 @@
 
 /// @file
 /// @brief Hosted display, monitor, screen geometry, and resolution queries.
-/// @note Minimum compatibility profile: Hosted Full with C++17.
+/// @note Minimum compatibility profile: Hosted Full with C++17
+/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// @note Apple mobile platforms expose no permitted public display inventory
+/// source to this C++ interface, so all queries report not_supported.
 /// @note This module exposes:
-/// - Enumeration of display devices and monitors (displays()) and monitor counts (display_count()).
+/// - Enumeration of display devices and monitors (displays()) and monitor
+/// counts (display_count()).
 /// - Identification of the primary display (primary_display()).
 /// - Desktop coordinate bounds, work area, and resolution dimensions.
-/// - Operating refresh rate in Hz, color depth in bits per pixel, and display orientation.
+/// - Operating refresh rate in Hz, color depth in bits per pixel, and display
+/// orientation.
 /// - Physical screen dimensions in millimeters from EDID or OS properties.
-/// - Internal/built-in screen classification (e.g. laptop panels) and connection state.
+/// - Internal/built-in screen classification (e.g. laptop panels) and
+/// connection state.
 /// - Enumeration of supported display resolution and refresh modes.
-/// @note Linux queries sysfs DRM interfaces (/sys/class/drm) and parses VESA EDID binary blocks.
-/// Connector sysfs does not expose compositor-owned current mode, desktop layout,
-/// scale, orientation, work area, or primary-display selection, so those Linux
-/// fields remain absent.
+/// @note Linux queries sysfs DRM interfaces (/sys/class/drm) and parses VESA
+/// EDID binary blocks. Connector sysfs does not expose compositor-owned current
+/// mode, desktop layout, scale, orientation, work area, or primary-display
+/// selection, so those Linux fields remain absent.
 /// @note Windows queries Win32 display monitor and device mode interfaces.
 /// @note macOS queries CoreGraphics display management interfaces.
 
@@ -148,11 +154,7 @@ struct display_info {
 #include <syscape/detail/display/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/display/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__APPLE__) && \
-    defined(__MACH__) && !defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) && \
-    !defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
 #include <syscape/detail/display/macos.hpp>
 #else
 #include <syscape/detail/display/generic.hpp>
