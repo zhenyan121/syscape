@@ -43,14 +43,6 @@ timespec_to_time_point(std::int64_t seconds, std::int64_t nanoseconds) {
     return clock::time_point(whole + fraction);
 }
 
-inline result<std::chrono::system_clock::time_point>
-timeval_to_time_point(std::int64_t seconds, std::int64_t microseconds) {
-    if (microseconds < 0 || microseconds >= 1000000) {
-        return fail(errc::malformed_data);
-    }
-    return timespec_to_time_point(seconds, microseconds * 1000);
-}
-
 inline result<std::chrono::milliseconds>
 timespec_to_uptime(std::int64_t seconds, std::int64_t nanoseconds) {
     if (seconds < 0 || nanoseconds < 0 || nanoseconds >= 1000000000) {
@@ -202,13 +194,13 @@ inline result<std::chrono::milliseconds> monotonic_uptime() {
 
 inline result<std::chrono::system_clock::time_point> boot_time() {
     int name[] = {CTL_KERN, KERN_BOOTTIME};
-    struct timeval value {};
+    struct timespec value {};
     std::size_t size = sizeof(value);
     if (::sysctl(name, 2U, &value, &size, nullptr, 0U) == 0 &&
         size == sizeof(value)) {
         const auto converted =
-            timeval_to_time_point(static_cast<std::int64_t>(value.tv_sec),
-                                  static_cast<std::int64_t>(value.tv_usec));
+            timespec_to_time_point(static_cast<std::int64_t>(value.tv_sec),
+                                   static_cast<std::int64_t>(value.tv_nsec));
         if (converted) {
             return converted;
         }
