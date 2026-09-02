@@ -388,10 +388,17 @@ inline result<std::string> lookup_login_with_growth(LoginOperation login) {
 
 /// Returns the login name recorded for the calling process's session.
 inline result<std::string> login_name() {
-    return lookup_login_with_growth(
-        [](char* buffer, std::size_t size) {
-            return ::getlogin_r(buffer, size);
-        });
+    return lookup_login_with_growth([](char* buffer, std::size_t size) {
+#if defined(__sun) || defined(__sun__)
+        if (size >
+            static_cast<std::size_t>((std::numeric_limits<int>::max)())) {
+            return ERANGE;
+        }
+        return ::getlogin_r(buffer, static_cast<int>(size));
+#else
+        return ::getlogin_r(buffer, size);
+#endif
+    });
 }
 
 } // namespace user_backend

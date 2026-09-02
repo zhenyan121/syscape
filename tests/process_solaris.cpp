@@ -1,4 +1,5 @@
 #include <iostream>
+#include <limits>
 
 #include <syscape/process.hpp>
 
@@ -11,6 +12,28 @@ void expect(bool condition, const char* message) {
         std::cerr << "FAIL: " << message << '\n';
         ++failures;
     }
+}
+
+void test_timeval_conversion() {
+    using syscape::detail::process_backend::timeval_to_nanoseconds;
+
+    const auto converted = timeval_to_nanoseconds(2, 345678);
+    expect(converted && converted->count() == 2345678000LL,
+           "timeval conversion must preserve seconds and microseconds");
+
+    const auto invalid_fraction = timeval_to_nanoseconds(0, 1000000);
+    expect(!invalid_fraction &&
+               invalid_fraction.error() == syscape::errc::malformed_data,
+           "out-of-range timeval fractions must be malformed");
+
+    const auto negative = timeval_to_nanoseconds(-1, 0);
+    expect(!negative && negative.error() == syscape::errc::malformed_data,
+           "negative CPU time must be malformed");
+
+    const auto overflow =
+        timeval_to_nanoseconds((std::numeric_limits<std::int64_t>::max)(), 0);
+    expect(!overflow && overflow.error() == syscape::errc::value_too_large,
+           "unrepresentable CPU time must report value_too_large");
 }
 
 void test_process_queries() {
@@ -57,6 +80,7 @@ void test_process_queries() {
 } // namespace
 
 int main() {
+    test_timeval_conversion();
     test_process_queries();
     return failures == 0 ? 0 : 1;
 }

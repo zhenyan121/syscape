@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fcntl.h>
+#include <limits>
 #include <string>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -30,6 +31,25 @@
 namespace syscape {
 namespace detail {
 namespace process_backend {
+
+inline result<std::chrono::nanoseconds>
+timeval_to_nanoseconds(std::int64_t seconds, std::int64_t microseconds) {
+    if (seconds < 0 || microseconds < 0 || microseconds >= 1000000) {
+        return fail(errc::malformed_data);
+    }
+    constexpr std::uint64_t nanoseconds_per_second = 1000000000U;
+    constexpr std::uint64_t nanoseconds_per_microsecond = 1000U;
+    const std::uint64_t whole = static_cast<std::uint64_t>(seconds);
+    const std::uint64_t fraction =
+        static_cast<std::uint64_t>(microseconds) * nanoseconds_per_microsecond;
+    const std::uint64_t maximum =
+        static_cast<std::uint64_t>((std::chrono::nanoseconds::max)().count());
+    if (whole > maximum / nanoseconds_per_second ||
+        whole * nanoseconds_per_second > maximum - fraction) {
+        return fail(errc::value_too_large);
+    }
+    return std::chrono::nanoseconds(whole * nanoseconds_per_second + fraction);
+}
 
 inline result<std::uint32_t> process_id() {
     return static_cast<std::uint32_t>(::getpid());
@@ -131,16 +151,21 @@ inline result<process_common::cpu_time_usage> cpu_time() {
     if (::getrusage(RUSAGE_SELF, &ru) != 0) {
         return fail(std::error_code(errno, std::generic_category()));
     }
-    process_common::cpu_time_usage usage {};
-    const auto user_sec = std::chrono::seconds(ru.ru_utime.tv_sec);
-    const auto user_usec = std::chrono::microseconds(ru.ru_utime.tv_usec);
-    usage.user_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        user_sec + user_usec);
-
-    const auto sys_sec = std::chrono::seconds(ru.ru_stime.tv_sec);
-    const auto sys_usec = std::chrono::microseconds(ru.ru_stime.tv_usec);
-    usage.system_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        sys_sec + sys_usec);
+    const result<std::chrono::nanoseconds> user =
+        timeval_to_nanoseconds(static_cast<std::int64_t>(ru.ru_utime.tv_sec),
+                               static_cast<std::int64_t>(ru.ru_utime.tv_usec));
+    if (!user) {
+        return fail(user.error());
+    }
+    const result<std::chrono::nanoseconds> system =
+        timeval_to_nanoseconds(static_cast<std::int64_t>(ru.ru_stime.tv_sec),
+                               static_cast<std::int64_t>(ru.ru_stime.tv_usec));
+    if (!system) {
+        return fail(system.error());
+    }
+    process_common::cpu_time_usage usage;
+    usage.user = *user;
+    usage.system = *system;
     return usage;
 }
 
