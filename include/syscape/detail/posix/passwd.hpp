@@ -3,6 +3,7 @@
 
 #include <cerrno>
 #include <cstddef>
+#include <limits>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -23,6 +24,43 @@ struct fields {
     std::string directory;
     std::string shell;
 };
+
+/// Invokes a getpwuid_r interface using a size_t buffer length.
+///
+inline int invoke_getpwuid_r(int (*function)(::uid_t, ::passwd*, char*,
+                                             std::size_t, ::passwd**),
+                             ::uid_t uid, ::passwd* entry, char* buffer,
+                             std::size_t size, ::passwd** pointer) {
+    return function(uid, entry, buffer, size, pointer);
+}
+
+/// Invokes a getpwuid_r interface using an int buffer length.
+inline int invoke_getpwuid_r(int (*function)(::uid_t, ::passwd*, char*, int,
+                                             ::passwd**),
+                             ::uid_t uid, ::passwd* entry, char* buffer,
+                             std::size_t size, ::passwd** pointer) {
+    if (size > static_cast<std::size_t>((std::numeric_limits<int>::max)())) {
+        return ERANGE;
+    }
+    return function(uid, entry, buffer, static_cast<int>(size), pointer);
+}
+
+/// Adapts the four-argument Solaris POSIX.1c Draft 6 getpwuid_r interface.
+///
+/// Selecting an overload from the declaration already supplied by <pwd.h>
+/// avoids changing feature-test macros in a public header and remains correct
+/// when an application included that platform header before Syscape.
+inline int invoke_getpwuid_r(::passwd* (*function)(::uid_t, ::passwd*, char*,
+                                                   int),
+                             ::uid_t uid, ::passwd* entry, char* buffer,
+                             std::size_t size, ::passwd** pointer) {
+    if (size > static_cast<std::size_t>((std::numeric_limits<int>::max)())) {
+        return ERANGE;
+    }
+    errno = 0;
+    *pointer = function(uid, entry, buffer, static_cast<int>(size));
+    return *pointer == nullptr ? errno : 0;
+}
 
 /// Performs a reentrant passwd lookup with bounded buffer growth.
 template <typename LookupOperation>
@@ -63,14 +101,18 @@ inline result<fields> lookup_with_growth(LookupOperation lookup) {
     }
 }
 
+/// Looks up the passwd entry for a specific user ID.
+inline result<fields> entry_by_uid(::uid_t uid) {
+    return lookup_with_growth([uid](::passwd& entry, char* buffer,
+                                    std::size_t size, ::passwd** pointer) {
+        return invoke_getpwuid_r(&::getpwuid_r, uid, &entry, buffer, size,
+                                 pointer);
+    });
+}
+
 /// Looks up the passwd entry for the calling process's effective user.
 inline result<fields> current_entry() {
-    const ::uid_t uid = ::geteuid();
-    return lookup_with_growth(
-        [uid](::passwd& entry, char* buffer, std::size_t size,
-              ::passwd** pointer) {
-            return ::getpwuid_r(uid, &entry, buffer, size, pointer);
-        });
+    return entry_by_uid(::geteuid());
 }
 
 } // namespace posix_passwd

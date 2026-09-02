@@ -49,6 +49,9 @@
 #include <syscape/detail/numa/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/numa/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/numa/solaris.hpp>
 #else
 #include <syscape/detail/numa/generic.hpp>
 #endif

@@ -20,6 +20,13 @@ add_library(syscape::hosted ALIAS syscape_hosted)
 target_link_libraries(syscape_hosted INTERFACE syscape::syscape)
 target_compile_features(syscape_hosted INTERFACE cxx_std_17)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
+    target_compile_definitions(syscape INTERFACE _POSIX_PTHREAD_SEMANTICS)
+    target_compile_definitions(syscape_hosted INTERFACE _POSIX_PTHREAD_SEMANTICS)
+    target_link_libraries(syscape_hosted INTERFACE kstat socket nsl)
+    set(SYSCAPE_PKGCONFIG_LIBS "-lkstat -lsocket -lnsl")
+endif()
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     option(SYSCAPE_BUILD_TESTS "Build Syscape tests" ON)
     option(SYSCAPE_BUILD_EXAMPLES "Build Syscape examples" ON)

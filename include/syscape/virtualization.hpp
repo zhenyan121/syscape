@@ -2,10 +2,12 @@
 #define SYSCAPE_VIRTUALIZATION_HPP
 
 /// @file
-/// @brief Hosted virtualization, hypervisor, container, WSL, and sandbox queries.
+/// @brief Hosted virtualization, hypervisor, container, WSL, and sandbox
+/// queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
 /// @note This module exposes:
-/// - Hypervisor presence and classified vendor identity (e.g. KVM, QEMU, VMware,
+/// - Hypervisor presence and classified vendor identity (e.g. KVM, QEMU,
+/// VMware,
 ///   Hyper-V, VirtualBox, Xen, bhyve, Parallels, Apple Hypervisor, ACRN, QNX).
 /// - Container runtime detection (e.g. Docker, Podman, LXC, LXD, containerd,
 ///   Kubernetes, systemd-nspawn, OpenVZ, WSL, Appbox).
@@ -17,20 +19,24 @@
 /// - Linux namespace enumeration, inode IDs, and isolation classification
 ///   (PID, Mount, Net, User, IPC, UTS, Cgroup, Time).
 /// @note Linux implements hypervisor queries through CPUID instruction leaves
-/// (leaf 1 ECX hypervisor bit and leaf 0x40000000 signature), DMI sysfs attributes
-/// under /sys/class/dmi/id, and /sys/hypervisor/type. Container queries inspect
-/// /run/systemd/container, /.dockerenv, /.containerenv, cgroup path hierarchies,
-/// and /proc/vz. WSL queries inspect WSL interop endpoints and kernel release
-/// strings. Sandbox queries inspect Flatpak and Snap environment indicators.
-/// Cgroup queries inspect /proc/self/cgroup and /sys/fs/cgroup. Namespace queries
-/// inspect /proc/self/ns/* symlinks and /proc/1/ns/* root references.
+/// (leaf 1 ECX hypervisor bit and leaf 0x40000000 signature), DMI sysfs
+/// attributes under /sys/class/dmi/id, and /sys/hypervisor/type. Container
+/// queries inspect /run/systemd/container, /.dockerenv, /.containerenv, cgroup
+/// path hierarchies, and /proc/vz. WSL queries inspect WSL interop endpoints
+/// and kernel release strings. Sandbox queries inspect Flatpak and Snap
+/// environment indicators. Cgroup queries inspect /proc/self/cgroup and
+/// /sys/fs/cgroup. Namespace queries inspect /proc/self/ns/* symlinks and
+/// /proc/1/ns/* root references.
 /// @note Windows implements hypervisor queries through CPUID instruction leaves
 /// and raw SMBIOS table inspection. Sandbox queries inspect process token
-/// AppContainer classifications. Cgroup and namespace queries return not_supported.
-/// @note macOS implements hypervisor queries through sysctl kern.hv_vmm_present,
-/// machdep.cpu.features VMM flags, and IOKit platform expert device matching.
-/// Sandbox queries inspect the Apple sandbox environment. Cgroup and namespace
-/// queries return not_supported.
+/// AppContainer classifications. Cgroup and namespace queries return
+/// not_supported.
+/// @note macOS implements hypervisor queries through sysctl
+/// kern.hv_vmm_present, machdep.cpu.features VMM flags, and IOKit platform
+/// expert device matching. Sandbox queries inspect the Apple sandbox
+/// environment. Cgroup and namespace queries return not_supported.
+/// @note Solaris implements container queries through getzoneid() and
+/// getzonenamebyid().
 
 #include <syscape/detail/config.hpp>
 
@@ -248,6 +254,9 @@ struct cgroup_info {
 #include <syscape/detail/virtualization/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/virtualization/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/virtualization/solaris.hpp>
 #else
 #include <syscape/detail/virtualization/generic.hpp>
 #endif

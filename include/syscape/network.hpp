@@ -16,6 +16,7 @@
 /// on Windows, and a PF_ROUTE NET_RT_IFLIST2 sysctl on macOS.
 /// The Windows sources require Windows Vista or later. Applications that use
 /// this header on Windows must link the Iphlpapi import library;
+/// applications using this header on Solaris link -lsocket -lnsl;
 /// Syscape itself stays header-only and does not add linkage for unrelated
 /// Hosted Full domains. FreeBSD reads resolv.conf and getifaddrs traffic
 /// statistics, and reports routes and gateways as unsupported. Other targets
@@ -73,6 +74,9 @@
 #include <syscape/detail/network/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/network/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/network/solaris.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif

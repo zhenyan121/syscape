@@ -322,6 +322,9 @@ struct memory_device {
 #include <syscape/detail/hardware/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/hardware/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/hardware/solaris.hpp>
 #else
 #include <syscape/detail/hardware/generic.hpp>
 #endif

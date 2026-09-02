@@ -28,8 +28,12 @@
 /// sysctl values; vendor, cache, and instruction-set queries report
 /// not_supported. Android implements core count, SOC vendor and model,
 /// frequency bounds, and cumulative utilization through sysconf, system
-/// properties, /sys/devices/system/cpu, and /proc/stat. All other targets use
-/// the not-supported fallback.
+/// properties, /sys/devices/system/cpu, and /proc/stat. Solaris implements
+/// core counts, vendor identifiers, model names, and cumulative utilization
+/// through sysconf and kstat, and instruction-set features through getisax;
+/// frequency queries and cache descriptors report not_supported.
+/// Applications using this header on Solaris link -lkstat. All other targets
+/// use the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
 
@@ -87,6 +91,9 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/detail/cpu/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/cpu/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/cpu/solaris.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif

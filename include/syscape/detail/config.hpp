@@ -1,6 +1,10 @@
 #ifndef SYSCAPE_DETAIL_CONFIG_HPP
 #define SYSCAPE_DETAIL_CONFIG_HPP
 
+#if (defined(__sun) || defined(__sun__)) && !defined(_POSIX_PTHREAD_SEMANTICS)
+#define _POSIX_PTHREAD_SEMANTICS 1
+#endif
+
 #if defined(_MSVC_LANG)
 #define SYSCAPE_DETAIL_CPLUSPLUS _MSVC_LANG
 #else

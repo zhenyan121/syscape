@@ -19,8 +19,10 @@
 /// memory, swap, and memory load through sysconf and documented sysctl values;
 /// commit, huge-page, and pressure queries report not_supported. Android
 /// implements page size, physical and available memory, swap, and memory load
-/// through sysconf and /proc/meminfo. Other targets use the not-supported
-/// fallback.
+/// through sysconf and /proc/meminfo. Solaris implements page size, physical
+/// and available memory, and memory load through sysconf, and swap capacity
+/// through swapctl (SC_GETNSWP and SC_LIST); commit, huge-page, and pressure
+/// queries report not_supported. Other targets use the not-supported fallback.
 /// @note The Windows commit query uses GetPerformanceInfo declared in
 /// <psapi.h>, which maps to Kernel32.lib on Windows 7 or later SDKs and may
 /// require Psapi.lib with older declarations.
@@ -57,6 +59,9 @@
 #include <syscape/detail/memory/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/memory/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/memory/solaris.hpp>
 #else
 #include <syscape/detail/memory/generic.hpp>
 #endif

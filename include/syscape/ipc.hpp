@@ -62,6 +62,9 @@
 #include <syscape/detail/ipc/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/ipc/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/ipc/solaris.hpp>
 #else
 #include <syscape/detail/ipc/generic.hpp>
 #endif

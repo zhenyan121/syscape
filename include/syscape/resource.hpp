@@ -22,7 +22,10 @@
 /// process count, open-file count, and the system file limit; scheduler entity,
 /// thread, and handle totals report not_supported. Android implements load
 /// average, process count, and system file descriptor limits through /proc
-/// and sysconf. All other targets use the not-supported fallback.
+/// and sysconf. Solaris implements load average through getloadavg and process
+/// count through /proc; entity, thread, open-file, handle, and descriptor-limit
+/// queries report not_supported. All other targets use the not-supported
+/// fallback.
 /// @note Every count is an instantaneous snapshot observed during the call;
 /// values change continuously with system activity and must never be
 /// assumed stable after a query returns.
@@ -63,6 +66,9 @@
 #include <syscape/detail/resource/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/resource/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/resource/solaris.hpp>
 #else
 #include <syscape/detail/resource/generic.hpp>
 #endif

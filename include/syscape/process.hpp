@@ -5,9 +5,9 @@
 /// @brief Hosted process identity, execution-context, scheduling, and
 /// resource-limit queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17.
-/// @note Linux, Windows, macOS, Android, and FreeBSD have native backends. The
-/// FreeBSD backend reports CPU affinity as unsupported. Other targets use the
-/// generic not-supported fallback.
+/// @note Linux, Windows, macOS, Android, FreeBSD, and Solaris have native
+/// backends. The FreeBSD and Solaris backends report CPU affinity as
+/// unsupported. Other targets use the generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows 7 or later SDK declarations.
@@ -54,6 +54,9 @@
 #include <syscape/detail/process/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/process/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/process/solaris.hpp>
 #else
 #include <syscape/detail/process/generic.hpp>
 #endif

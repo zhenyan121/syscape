@@ -250,6 +250,9 @@ struct tpm_info {
 #include <syscape/detail/security/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/security/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/security/solaris.hpp>
 #else
 #include <syscape/detail/security/generic.hpp>
 #endif

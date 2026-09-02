@@ -106,7 +106,7 @@ error, string, or runtime-query layer.
 
 | Platform family | Intended scope | Current status |
 | --- | --- | --- |
-| illumos and Solaris | Hosted C++17 environments using POSIX and documented native interfaces | Not started |
+| illumos and Solaris | Hosted C++17 environments using POSIX and documented native interfaces | Implemented across core OS, CPU, memory, process, process list, user, filesystem, network, environment, resource, locale, virtualization (Solaris Zones), and hardware modules; audio, printer, NUMA, connection, software, storage, security, sensor, and power return unsupported fallbacks; includes standalone tests for all 23 Solaris modules; source-reviewed against illumos / Solaris interfaces |
 | AIX | Hosted C++17 environments using POSIX and documented AIX interfaces | Not started |
 | HP-UX | C++17-capable releases and toolchains using documented HP-UX interfaces | Not started |
 | Haiku | Hosted C++17 applications using POSIX and public Haiku APIs | Not started |

@@ -127,6 +127,9 @@ struct audio_device {
 #include <syscape/detail/audio/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/audio/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/audio/solaris.hpp>
 #else
 #include <syscape/detail/audio/generic.hpp>
 #endif

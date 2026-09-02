@@ -168,6 +168,9 @@ struct thermal_zone {
 #include <syscape/detail/sensor/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/sensor/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/sensor/solaris.hpp>
 #else
 #include <syscape/detail/sensor/generic.hpp>
 #endif

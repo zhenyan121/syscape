@@ -141,6 +141,9 @@ enum class drive_health_status : std::uint8_t {
 #include <syscape/detail/storage/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/storage/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    (defined(__sun) || defined(__sun__) || defined(sun))
+#include <syscape/detail/storage/solaris.hpp>
 #else
 #include <syscape/detail/storage/generic.hpp>
 #endif
