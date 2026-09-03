@@ -5,14 +5,14 @@
 /// @brief Hosted process identity, execution-context, scheduling, and
 /// resource-limit queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17
-/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
 /// @note Linux, Windows, macOS, Apple mobile platforms (iOS, iPadOS, tvOS,
-/// watchOS, visionOS, and Mac Catalyst), Android, FreeBSD, and Solaris have
-/// native backends. Apple mobile platforms implement self-process PID, parent
-/// PID, executable path (_NSGetExecutablePath), working directory, CPU time,
-/// memory usage (mach_task_basic_info), and thread count (task_threads) using
-/// public Mach and POSIX APIs; CPU affinity reports unsupported. Other targets
-/// use the generic not-supported fallback.
+/// watchOS, visionOS, and Mac Catalyst), Android, OpenHarmony, FreeBSD, and
+/// Solaris have native backends. Apple mobile platforms implement self-process
+/// PID, parent PID, executable path (_NSGetExecutablePath), working directory,
+/// CPU time, memory usage (mach_task_basic_info), and thread count
+/// (task_threads) using public Mach and POSIX APIs; CPU affinity reports
+/// unsupported. Other targets use the generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows 7 or later SDK declarations.
@@ -38,8 +38,8 @@
 #include <syscape/detail/process/common.hpp>
 #include <syscape/result.hpp>
 
-#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) && \
-    !defined(__ANDROID__)
+#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
 #include <syscape/detail/process/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process/windows.hpp>
@@ -58,6 +58,9 @@
 #include <syscape/detail/process/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/process/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_OPENHARMONY)
+#include <syscape/detail/process/openharmony.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/process/solaris.hpp>

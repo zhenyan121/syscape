@@ -5,7 +5,7 @@
 /// @brief Hosted CPU identity, topology, frequency, utilization, cache, and
 /// instruction-set queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17
-/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
 /// @note Linux implements identity through kernel-documented interfaces,
 /// topology and cache instances through the documented testing sysfs ABI
 /// interface under /sys/devices/system/cpu, recorded frequency bounds and
@@ -75,8 +75,8 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
 
-#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) && \
-    !defined(__ANDROID__)
+#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
 #include <syscape/detail/cpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/cpu/windows.hpp>
@@ -95,6 +95,9 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/detail/cpu/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/cpu/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_OPENHARMONY)
+#include <syscape/detail/cpu/openharmony.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/cpu/solaris.hpp>
@@ -210,7 +213,8 @@ inline result<std::uint32_t> maximum_frequency_khz() {
 /// systems may legitimately report different values. Linux prefers the
 /// documented scaling_cur_freq attribute of every online processor and falls
 /// back to the /proc/cpuinfo "cpu MHz" fields (rounded to kilohertz) when the
-/// cpufreq interface is unavailable; Windows reports the CurrentMhz field of
+/// cpufreq interface is unavailable; OpenHarmony queries scaling_cur_freq with
+/// a cpuinfo_cur_freq fallback; Windows reports the CurrentMhz field of
 /// the processor power information records on single-group systems and reports
 /// not_supported on multi-group systems. No other backend currently has a
 /// documented per-processor clock source.

@@ -81,6 +81,48 @@ jobs:
           ./build-asan/examples/example_process_monitor >/dev/null
           ./build-asan/examples/example_software_inventory >/dev/null
 
+  openharmony-backend-host-check:
+    name: OpenHarmony backend host check (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC
+            cxx: g++
+          - compiler: Clang
+            cxx: clang++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang gcc g++ cmake ninja-build
+
+      - name: Configure OpenHarmony backend host checks
+        run: |
+          cmake -B build-openharmony -G Ninja \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DOHOS=ON \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build-openharmony -j
+
+      - name: Run OpenHarmony backend host tests
+        run: |
+          ctest \
+            --test-dir build-openharmony \
+            --output-on-failure \
+            -R openharmony
+
+      - name: Verify pkg-config dynamic-loader linkage
+        run: |
+          grep -Fx "Libs: -ldl" build-openharmony/syscape.pc
+
   android-ndk-emulator:
     runs-on: ubuntu-latest
     steps:
