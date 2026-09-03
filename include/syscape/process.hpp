@@ -7,12 +7,17 @@
 /// @note Minimum compatibility profile: Hosted Full with C++17
 /// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
 /// @note Linux, Windows, macOS, Apple mobile platforms (iOS, iPadOS, tvOS,
-/// watchOS, visionOS, and Mac Catalyst), Android, OpenHarmony, FreeBSD, and
-/// Solaris have native backends. Apple mobile platforms implement self-process
-/// PID, parent PID, executable path (_NSGetExecutablePath), working directory,
-/// CPU time, memory usage (mach_task_basic_info), and thread count
-/// (task_threads) using public Mach and POSIX APIs; CPU affinity reports
-/// unsupported. Other targets use the generic not-supported fallback.
+/// watchOS, visionOS, and Mac Catalyst), Android, OpenHarmony, FreeBSD,
+/// Solaris, and Haiku have native backends. Apple mobile platforms implement
+/// self-process PID, parent PID, executable path (_NSGetExecutablePath),
+/// working directory, CPU time, memory usage (mach_task_basic_info), and thread
+/// count (task_threads) using public Mach and POSIX APIs; CPU affinity reports
+/// unsupported. Haiku implements self-process PID, parent PID, executable path
+/// (image_info B_APP_IMAGE), working directory, CPU times
+/// (get_team_usage_info), memory usage (get_next_area_info), start time, thread
+/// count, priority, and resource limits; command line (truncated without
+/// argument framing in kernel team_info) and CPU affinity report not_supported.
+/// Other targets use the generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows 7 or later SDK declarations.

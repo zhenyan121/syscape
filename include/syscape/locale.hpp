@@ -7,17 +7,19 @@
 /// @note Minimum compatibility profile: Hosted Full with C++17
 /// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
 /// @note Linux, macOS, Apple mobile platforms (iOS, iPadOS, tvOS, watchOS,
-/// visionOS, and Mac Catalyst), FreeBSD, and Solaris share POSIX backends for
-/// locale identity, text encoding, and UTC offset; Windows provides a native
-/// backend. Language preferences and region codes use native backends on
-/// Windows, macOS, and Apple mobile platforms (via CoreFoundation). Time-zone
-/// identifiers use the documented localtime configuration on Linux and dynamic
-/// time-zone information on Windows. macOS and Apple mobile platforms report
-/// not_supported because CoreFoundation silently substitutes GMT when the
-/// system zone is indeterminable. FreeBSD uses its POSIX locale facilities and
-/// documented zoneinfo layout, while language preferences and region codes
-/// report not_supported. Solaris reads /etc/timezone and zoneinfo files for
-/// time zones, reporting language preferences and region codes as
+/// visionOS, and Mac Catalyst), FreeBSD, Solaris, and Haiku share POSIX
+/// backends for locale identity, text encoding, and UTC offset; Windows
+/// provides a native backend. Language preferences and region codes use native
+/// backends on Windows, macOS, and Apple mobile platforms (via CoreFoundation).
+/// Time-zone identifiers use the documented localtime configuration on Linux
+/// and dynamic time-zone information on Windows. macOS and Apple mobile
+/// platforms report not_supported because CoreFoundation silently substitutes
+/// GMT when the system zone is indeterminable. FreeBSD uses its POSIX locale
+/// facilities and documented zoneinfo layout, while language preferences and
+/// region codes report not_supported. Solaris reads /etc/timezone and zoneinfo
+/// files for time zones, reporting language preferences and region codes as
+/// not_supported. Haiku reads /boot/system/settings/Timezone and /etc/localtime
+/// for time zones, reporting language preferences and region codes as
 /// not_supported. Other targets use the generic not-supported fallback. On
 /// Android, text_encoding() requires API level 26 or later and reports
 /// not_supported on earlier API levels.

@@ -37,8 +37,12 @@
 /// core counts, vendor identifiers, model names, and cumulative utilization
 /// through sysconf and kstat, and instruction-set features through getisax;
 /// frequency queries and cache descriptors report not_supported.
-/// Applications using this header on Solaris link -lkstat. All other targets
-/// use the not-supported fallback.
+/// Applications using this header on Solaris link -lkstat. Haiku implements
+/// online logical processor count via get_cpu_info / sysconf, physical core
+/// and package counts via get_cpu_topology_info, current clock frequencies via
+/// cpu_info, and CPUID vendor / model on x86; recorded frequency bounds, cache
+/// descriptors, instruction-set features, and cumulative usage report
+/// not_supported. All other targets use the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
 

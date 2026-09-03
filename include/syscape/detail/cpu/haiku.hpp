@@ -17,6 +17,7 @@
 #endif
 
 #include <syscape/detail/cpu/common.hpp>
+#include <syscape/detail/haiku/error.hpp>
 #include <syscape/result.hpp>
 
 namespace syscape {
@@ -80,7 +81,8 @@ inline result<std::vector<std::string>> model_names() {
 inline result<std::uint32_t> online_logical_processor_count() {
 #if defined(SYSCAPE_HAS_HAIKU_OS_H)
     ::system_info info {};
-    if (::get_system_info(&info) == B_OK && info.cpu_count > 0) {
+    const status_t st = ::get_system_info(&info);
+    if (st == B_OK && info.cpu_count > 0) {
         const auto count = static_cast<std::uint32_t>(info.cpu_count);
         std::vector<::cpu_info> cpus(count);
         if (::get_cpu_info(0, count, cpus.data()) == B_OK) {
@@ -106,23 +108,32 @@ inline result<std::uint32_t> online_logical_processor_count() {
 inline result<std::uint32_t> online_physical_core_count() {
 #if defined(SYSCAPE_HAS_HAIKU_OS_H)
     ::system_info info {};
-    if (::get_system_info(&info) != B_OK || info.cpu_count <= 0) {
-        return fail(errc::not_supported);
+    const status_t s_st = ::get_system_info(&info);
+    if (s_st != B_OK) {
+        return fail(haiku_error::make_haiku_error(s_st));
+    }
+    if (info.cpu_count <= 0) {
+        return fail(errc::malformed_data);
     }
     const auto count = static_cast<std::uint32_t>(info.cpu_count);
     std::vector<::cpu_info> cpus(count);
-    if (::get_cpu_info(0, count, cpus.data()) != B_OK) {
-        return fail(errc::not_supported);
+    const status_t c_st = ::get_cpu_info(0, count, cpus.data());
+    if (c_st != B_OK) {
+        return fail(haiku_error::make_haiku_error(c_st));
     }
 
     uint32 topo_count = 0;
-    if (::get_cpu_topology_info(nullptr, &topo_count) != B_OK ||
-        topo_count == 0) {
-        return fail(errc::not_supported);
+    const status_t t_st = ::get_cpu_topology_info(nullptr, &topo_count);
+    if (t_st != B_OK) {
+        return fail(haiku_error::make_haiku_error(t_st));
+    }
+    if (topo_count == 0) {
+        return fail(errc::malformed_data);
     }
     std::vector<::cpu_topology_node_info> nodes(topo_count);
-    if (::get_cpu_topology_info(nodes.data(), &topo_count) != B_OK) {
-        return fail(errc::not_supported);
+    const status_t t2_st = ::get_cpu_topology_info(nodes.data(), &topo_count);
+    if (t2_st != B_OK) {
+        return fail(haiku_error::make_haiku_error(t2_st));
     }
 
     std::uint32_t online_cores = 0;
@@ -154,23 +165,32 @@ inline result<std::uint32_t> online_physical_core_count() {
 inline result<std::uint32_t> online_processor_package_count() {
 #if defined(SYSCAPE_HAS_HAIKU_OS_H)
     ::system_info info {};
-    if (::get_system_info(&info) != B_OK || info.cpu_count <= 0) {
-        return fail(errc::not_supported);
+    const status_t s_st = ::get_system_info(&info);
+    if (s_st != B_OK) {
+        return fail(haiku_error::make_haiku_error(s_st));
+    }
+    if (info.cpu_count <= 0) {
+        return fail(errc::malformed_data);
     }
     const auto count = static_cast<std::uint32_t>(info.cpu_count);
     std::vector<::cpu_info> cpus(count);
-    if (::get_cpu_info(0, count, cpus.data()) != B_OK) {
-        return fail(errc::not_supported);
+    const status_t c_st = ::get_cpu_info(0, count, cpus.data());
+    if (c_st != B_OK) {
+        return fail(haiku_error::make_haiku_error(c_st));
     }
 
     uint32 topo_count = 0;
-    if (::get_cpu_topology_info(nullptr, &topo_count) != B_OK ||
-        topo_count == 0) {
-        return fail(errc::not_supported);
+    const status_t t_st = ::get_cpu_topology_info(nullptr, &topo_count);
+    if (t_st != B_OK) {
+        return fail(haiku_error::make_haiku_error(t_st));
+    }
+    if (topo_count == 0) {
+        return fail(errc::malformed_data);
     }
     std::vector<::cpu_topology_node_info> nodes(topo_count);
-    if (::get_cpu_topology_info(nodes.data(), &topo_count) != B_OK) {
-        return fail(errc::not_supported);
+    const status_t t2_st = ::get_cpu_topology_info(nodes.data(), &topo_count);
+    if (t2_st != B_OK) {
+        return fail(haiku_error::make_haiku_error(t2_st));
     }
 
     std::uint32_t online_packages = 0;
@@ -212,13 +232,18 @@ inline result<std::uint32_t> maximum_frequency_khz() {
 inline result<std::vector<std::uint32_t>> current_frequencies_khz() {
 #if defined(SYSCAPE_HAS_HAIKU_OS_H)
     ::system_info info {};
-    if (::get_system_info(&info) != B_OK || info.cpu_count <= 0) {
-        return fail(errc::not_supported);
+    const status_t s_st = ::get_system_info(&info);
+    if (s_st != B_OK) {
+        return fail(haiku_error::make_haiku_error(s_st));
+    }
+    if (info.cpu_count <= 0) {
+        return fail(errc::malformed_data);
     }
     const auto count = static_cast<std::uint32_t>(info.cpu_count);
     std::vector<::cpu_info> cpus(count);
-    if (::get_cpu_info(0, count, cpus.data()) != B_OK) {
-        return fail(errc::not_supported);
+    const status_t c_st = ::get_cpu_info(0, count, cpus.data());
+    if (c_st != B_OK) {
+        return fail(haiku_error::make_haiku_error(c_st));
     }
     std::vector<std::uint32_t> freqs;
     freqs.reserve(count);
@@ -227,7 +252,7 @@ inline result<std::vector<std::uint32_t>> current_frequencies_khz() {
             continue;
         }
         if (c.current_frequency == 0) {
-            return fail(errc::malformed_data);
+            return fail(errc::temporarily_unavailable);
         }
         const auto khz =
             static_cast<std::uint64_t>(c.current_frequency / 1000ULL);

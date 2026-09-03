@@ -138,26 +138,21 @@ inline result<bool> is_virtual_machine() {
     return is_hypervisor_present();
 }
 
-inline result<virtualization_common::cgroup_version_type> cgroup_version() {
+inline result<virtualization_common::cgroup_version_type>
+cgroup_hierarchy_version() {
     return fail(errc::not_supported);
 }
 
-inline result<std::vector<virtualization_common::namespace_category>>
-supported_namespaces() {
+inline result<virtualization_common::cgroup_record> current_cgroup() {
     return fail(errc::not_supported);
 }
 
 inline result<std::vector<virtualization_common::namespace_record>>
-active_namespaces() {
+namespaces() {
     return fail(errc::not_supported);
 }
 
-inline result<virtualization_common::cgroup_limits_record> cgroup_limits() {
-    return fail(errc::not_supported);
-}
-
-inline result<std::vector<virtualization_common::cgroup_record>>
-cgroup_controllers() {
+inline result<bool> is_namespace_isolated() {
     return fail(errc::not_supported);
 }
 

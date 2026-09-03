@@ -17,7 +17,10 @@
 /// network shares without drive letters and other non-drive-letter volumes
 /// are not enumerated by this slice. Android enumerates mounts from
 /// /proc/self/mounts and queries capacity through statvfs. Solaris enumerates
-/// mounts from /etc/mnttab and queries capacity through POSIX statvfs.
+/// mounts from /etc/mnttab and queries capacity through POSIX statvfs. Haiku
+/// queries capacity through POSIX statvfs and volume identifier through
+/// dev_for_path and fs_stat_dev; mount enumeration reports not_supported due
+/// to lack of a public in-process C mount table interface.
 /// Other targets use the generic not-supported fallback.
 /// @note Path-limit queries use POSIX pathconf on Linux, macOS, Apple mobile
 /// platforms, and FreeBSD.

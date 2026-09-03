@@ -7,8 +7,10 @@
 /// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
 /// @note Linux, Windows, macOS, Apple mobile platforms (iOS, iPadOS, tvOS,
 /// watchOS, visionOS, and Mac Catalyst), Android, OpenHarmony, FreeBSD,
-/// OpenBSD, NetBSD, DragonFly BSD, and Solaris have native backends. Other
-/// targets use the generic not-supported fallback.
+/// OpenBSD, NetBSD, DragonFly BSD, Solaris, and Haiku have native backends.
+/// Haiku implements OS identity and boot queries through uname,
+/// get_system_info, and system_time. Other targets use the generic
+/// not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows Vista or later SDK declarations.

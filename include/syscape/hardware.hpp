@@ -27,6 +27,9 @@
 /// registry properties (IOPlatformExpertDevice, IOPCIDevice, IOUSBDevice).
 /// Physical memory-module enumeration has no verified public source there and
 /// reports not_supported. Callers must link IOKit and CoreFoundation.
+/// @note Haiku reports not_supported for system hardware identity and bus
+/// device inventories because the platform documents no public in-process C
+/// hardware inventory API.
 /// @note hardware_uuid() exposes a machine identifier. The query is explicit,
 /// preserves permission failures, performs no logging, persistence, or
 /// network access, and reports the SMBIOS-documented absence renderings as

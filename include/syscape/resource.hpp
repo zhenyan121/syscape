@@ -29,8 +29,12 @@
 /// not_supported. Android implements load average, process count, and system
 /// file descriptor limits through /proc and sysconf. Solaris implements load
 /// average through getloadavg and process count through /proc; entity, thread,
-/// open-file, handle, and descriptor-limit queries report not_supported. All
-/// other targets use the not-supported fallback.
+/// open-file, handle, and descriptor-limit queries report not_supported. Haiku
+/// implements load average through getloadavg, process and thread counts
+/// through get_system_info (used_teams and used_threads), and process file
+/// descriptor limit through getrlimit(RLIMIT_NOFILE); scheduler entities, open
+/// files, open handles, and system-wide file descriptor limit report
+/// not_supported. All other targets use the not-supported fallback.
 /// @note Every count is an instantaneous snapshot observed during the call;
 /// values change continuously with system activity and must never be
 /// assumed stable after a query returns.

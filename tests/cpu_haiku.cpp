@@ -30,9 +30,10 @@ void test_cpu_queries() {
     const auto cur_freqs = syscape::cpu::current_frequencies_khz();
     expect(cur_freqs.has_value() ||
                cur_freqs.error() == syscape::errc::not_supported ||
+               cur_freqs.error() == syscape::errc::temporarily_unavailable ||
                cur_freqs.error() == syscape::errc::malformed_data,
-           "current frequencies must succeed, report not_supported, or "
-           "malformed_data");
+           "current frequencies must succeed, report not_supported, "
+           "temporarily_unavailable, or malformed_data");
     if (cur_freqs) {
         const auto fresh_logical =
             syscape::cpu::online_logical_processor_count();

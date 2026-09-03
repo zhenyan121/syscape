@@ -22,6 +22,7 @@
 #endif
 #endif
 
+#include <syscape/detail/haiku/error.hpp>
 #include <syscape/detail/posix/passwd.hpp>
 #include <syscape/detail/process_list/common.hpp>
 #include <syscape/process_list.hpp>
@@ -109,18 +110,25 @@ inline result<std::vector<process_list::process_entry>> processes() {
 #if defined(SYSCAPE_HAS_HAIKU_OS_H)
     ::system_info sinfo {};
     bigtime_t boot_time = 0;
-    if (::get_system_info(&sinfo) == B_OK) {
+    const status_t s_st = ::get_system_info(&sinfo);
+    if (s_st == B_OK) {
         boot_time = sinfo.boot_time;
+    } else {
+        return fail(haiku_error::make_haiku_error(s_st));
     }
 
     std::vector<process_list::process_entry> list;
     int32 cookie = 0;
     ::team_info tinfo {};
-    while (::get_next_team_info(&cookie, &tinfo) == B_OK) {
+    status_t st = B_OK;
+    while ((st = ::get_next_team_info(&cookie, &tinfo)) == B_OK) {
         if (tinfo.team <= 0) {
             continue;
         }
         list.push_back(convert_team(tinfo, boot_time));
+    }
+    if (!haiku_error::is_iteration_end(st)) {
+        return fail(haiku_error::make_haiku_error(st));
     }
     std::sort(list.begin(), list.end(),
               [](const auto& a, const auto& b) { return a.pid < b.pid; });
@@ -133,8 +141,12 @@ inline result<std::vector<process_list::process_entry>> processes() {
 inline result<std::uint32_t> process_count() {
 #if defined(SYSCAPE_HAS_HAIKU_OS_H)
     ::system_info sinfo {};
-    if (::get_system_info(&sinfo) == B_OK && sinfo.used_teams > 0) {
+    const status_t st = ::get_system_info(&sinfo);
+    if (st == B_OK && sinfo.used_teams > 0) {
         return static_cast<std::uint32_t>(sinfo.used_teams);
+    }
+    if (st != B_OK && st != B_UNSUPPORTED) {
+        return fail(haiku_error::make_haiku_error(st));
     }
 #endif
     const auto procs = processes();
@@ -150,7 +162,8 @@ inline result<process_list::process_entry> find_process(std::uint32_t pid) {
     }
 #if defined(SYSCAPE_HAS_HAIKU_OS_H)
     ::team_info tinfo {};
-    if (::get_team_info(static_cast<team_id>(pid), &tinfo) == B_OK) {
+    const status_t t_st = ::get_team_info(static_cast<team_id>(pid), &tinfo);
+    if (t_st == B_OK) {
         ::system_info sinfo {};
         bigtime_t boot_time = 0;
         if (::get_system_info(&sinfo) == B_OK) {
@@ -158,7 +171,7 @@ inline result<process_list::process_entry> find_process(std::uint32_t pid) {
         }
         return convert_team(tinfo, boot_time);
     }
-    return fail(errc::not_found);
+    return fail(haiku_error::make_haiku_error(t_st));
 #else
     return fail(errc::not_supported);
 #endif

@@ -24,6 +24,7 @@
 #endif
 #endif
 
+#include <syscape/detail/haiku/error.hpp>
 #include <syscape/detail/process/common.hpp>
 #include <syscape/detail/process/posix.hpp>
 #include <syscape/result.hpp>
@@ -44,13 +45,19 @@ inline result<std::string> executable_path() {
 #if defined(SYSCAPE_HAS_HAIKU_IMAGE_H)
     int32 cookie = 0;
     ::image_info iinfo {};
-    while (::get_next_image_info(::getpid(), &cookie, &iinfo) == B_OK) {
+    status_t st = B_OK;
+    while ((st = ::get_next_image_info(::getpid(), &cookie, &iinfo)) == B_OK) {
         if (iinfo.type == B_APP_IMAGE && iinfo.name[0] == '/') {
             return std::string(iinfo.name);
         }
     }
-#endif
+    if (!haiku_error::is_iteration_end(st)) {
+        return fail(haiku_error::make_haiku_error(st));
+    }
+    return fail(errc::not_found);
+#else
     return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::vector<std::string>> command_line() {
@@ -86,13 +93,18 @@ inline result<std::string> working_directory() {
 inline result<process_common::cpu_time_usage> cpu_time() {
 #if defined(SYSCAPE_HAS_HAIKU_OS_H)
     ::team_usage_info uinfo {};
-    if (::get_team_usage_info(::getpid(), B_TEAM_USAGE_SELF, &uinfo) == B_OK) {
+    const status_t st =
+        ::get_team_usage_info(::getpid(), B_TEAM_USAGE_SELF, &uinfo);
+    if (st == B_OK) {
         process_common::cpu_time_usage usage;
         usage.user = std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::microseconds(uinfo.user_time));
         usage.system = std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::microseconds(uinfo.kernel_time));
         return usage;
+    }
+    if (st != B_UNSUPPORTED) {
+        return fail(haiku_error::make_haiku_error(st));
     }
 #endif
     struct ::tms t {};
@@ -115,19 +127,29 @@ inline result<process_common::cpu_time_usage> cpu_time() {
 inline result<std::chrono::system_clock::time_point> start_time() {
 #if defined(SYSCAPE_HAS_HAIKU_OS_H)
     ::system_info sinfo {};
-    if (::get_system_info(&sinfo) != B_OK || sinfo.boot_time <= 0) {
-        return fail(errc::not_supported);
+    const status_t s_st = ::get_system_info(&sinfo);
+    if (s_st != B_OK) {
+        return fail(haiku_error::make_haiku_error(s_st));
+    }
+    if (sinfo.boot_time <= 0) {
+        return fail(errc::malformed_data);
     }
     ::team_info tinfo {};
-    if (::get_team_info(::getpid(), &tinfo) == B_OK && tinfo.start_time > 0) {
+    const status_t t_st = ::get_team_info(::getpid(), &tinfo);
+    if (t_st != B_OK) {
+        return fail(haiku_error::make_haiku_error(t_st));
+    }
+    if (tinfo.start_time > 0) {
         const bigtime_t wall_start_us = sinfo.boot_time + tinfo.start_time;
         const auto us = std::chrono::microseconds(wall_start_us);
         return std::chrono::system_clock::time_point(
             std::chrono::duration_cast<std::chrono::system_clock::duration>(
                 us));
     }
-#endif
+    return fail(errc::malformed_data);
+#else
     return fail(errc::not_supported);
+#endif
 }
 
 inline result<process_common::memory_usage_snapshot> memory_usage() {
@@ -136,9 +158,13 @@ inline result<process_common::memory_usage_snapshot> memory_usage() {
     ::area_info ainfo {};
     std::uint64_t ram = 0;
     std::uint64_t virt = 0;
-    while (::get_next_area_info(::getpid(), &cookie, &ainfo) == B_OK) {
+    status_t st = B_OK;
+    while ((st = ::get_next_area_info(::getpid(), &cookie, &ainfo)) == B_OK) {
         ram += ainfo.ram_size;
         virt += ainfo.size;
+    }
+    if (!haiku_error::is_iteration_end(st)) {
+        return fail(haiku_error::make_haiku_error(st));
     }
     process_common::memory_usage_snapshot mem;
     mem.resident_bytes = ram;
@@ -152,11 +178,14 @@ inline result<process_common::memory_usage_snapshot> memory_usage() {
 inline result<std::uint32_t> thread_count() {
 #if defined(SYSCAPE_HAS_HAIKU_OS_H)
     ::team_info tinfo {};
-    if (::get_team_info(::getpid(), &tinfo) == B_OK) {
+    const status_t st = ::get_team_info(::getpid(), &tinfo);
+    if (st == B_OK) {
         return static_cast<std::uint32_t>(tinfo.thread_count);
     }
-#endif
+    return fail(haiku_error::make_haiku_error(st));
+#else
     return fail(errc::not_supported);
+#endif
 }
 
 inline result<int> priority() {

@@ -6,13 +6,13 @@
 /// terminal queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17
 /// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
-/// @note Linux, macOS, and FreeBSD use their documented POSIX and platform
-/// directory facilities; Windows provides a native Win32/Shell known-folder
-/// backend; Android provides environment variables and working directory
-/// queries; Apple mobile platforms (iOS, iPadOS, tvOS, watchOS, visionOS, and
-/// Mac Catalyst) provide POSIX environment variables, temporary directory, and
-/// terminal queries under sandbox constraints. Other targets use the generic
-/// fallback.
+/// @note Linux, macOS, FreeBSD, Solaris, and Haiku use their documented POSIX
+/// and platform directory facilities; Windows provides a native Win32/Shell
+/// known-folder backend; Android provides environment variables and working
+/// directory queries; Apple mobile platforms (iOS, iPadOS, tvOS, watchOS,
+/// visionOS, and Mac Catalyst) provide POSIX environment variables, temporary
+/// directory, and terminal queries under sandbox constraints. Other targets use
+/// the generic fallback.
 /// @note All returned paths and strings are UTF-8 encoded.
 /// @note Thread-safety: queries observe the process environment without
 /// modifying it. C and POSIX environment mutation APIs do not provide a

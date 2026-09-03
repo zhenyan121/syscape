@@ -15,8 +15,9 @@
 /// - Active user login sessions and logged-in user names (sessions(),
 /// logged_in_users()).
 /// @note Linux, macOS, Apple mobile platforms (iOS, iPadOS, tvOS, watchOS,
-/// visionOS, and Mac Catalyst), and FreeBSD share a POSIX backend querying
-/// passwd, groups, getlogin_r, and utmpx / sandbox directories.
+/// visionOS, and Mac Catalyst), FreeBSD, Solaris, and Haiku share POSIX
+/// backends querying passwd, groups, and getlogin_r. Haiku does not provide
+/// utmpx, so sessions() and logged_in_users() report not_supported.
 /// @note On Android, login_name() requires API level 28 or later; earlier API
 /// levels report not_supported while the remaining implemented identity
 /// queries continue to use older Bionic interfaces.
