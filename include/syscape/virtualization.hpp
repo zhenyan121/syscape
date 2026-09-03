@@ -5,7 +5,7 @@
 /// @brief Hosted virtualization, hypervisor, container, WSL, and sandbox
 /// queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17
-/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
 /// @note Apple mobile platforms report only affirmative hypervisor or sandbox
 /// evidence exposed by public sysctl values or the application-sandbox
 /// environment. Queries without definitive evidence, along with container,
@@ -238,8 +238,8 @@ struct cgroup_info {
 #include <syscape/detail/virtualization/common.hpp>
 #include <syscape/result.hpp>
 
-#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) && \
-    !defined(__ANDROID__)
+#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
 #include <syscape/detail/virtualization/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/virtualization/windows.hpp>
@@ -258,6 +258,9 @@ struct cgroup_info {
 #include <syscape/detail/virtualization/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/virtualization/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_OPENHARMONY)
+#include <syscape/detail/virtualization/openharmony.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/virtualization/solaris.hpp>

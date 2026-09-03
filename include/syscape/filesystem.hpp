@@ -4,7 +4,7 @@
 /// @file
 /// @brief Hosted mounted-filesystem and volume-capacity queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17
-/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
 /// @note Linux enumerates mounts from the kernel-documented
 /// /proc/self/mounts interface and queries capacity through POSIX statvfs.
 /// macOS, Apple mobile platforms (iOS, iPadOS, tvOS, watchOS, visionOS, and Mac
@@ -45,8 +45,8 @@
 #include <syscape/detail/filesystem/common.hpp>
 #include <syscape/result.hpp>
 
-#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) && \
-    !defined(__ANDROID__)
+#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
 #include <syscape/detail/filesystem/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/filesystem/windows.hpp>
@@ -65,6 +65,9 @@
 #include <syscape/detail/filesystem/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/filesystem/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_OPENHARMONY)
+#include <syscape/detail/filesystem/openharmony.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/filesystem/solaris.hpp>

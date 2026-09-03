@@ -97,7 +97,7 @@ strict language mode and library facilities required by its intended profile.
 | visionOS | Arm64 | Sandboxed/Restricted | In progress (Mach/sysctl/POSIX backends implemented across 23 modules using public APIs; standalone test suite created; Apple mobile SDK build and physical device verification pending) |
 | watchOS | Arm64-family Apple targets | Sandboxed/Restricted | In progress (Mach/sysctl/POSIX backends implemented across 23 modules using public APIs; standalone test suite created; Apple mobile SDK build and physical device verification pending) |
 | tvOS | Arm64 | Sandboxed/Restricted | In progress (Mach/sysctl/POSIX backends implemented across 23 modules using public APIs; standalone test suite created; Apple mobile SDK build and physical device verification pending) |
-| HarmonyOS and OpenHarmony | Arm, Arm64, x86-family, and supported device ports | Sandboxed/Restricted or RTOS/Constrained depending on product | Not started |
+| HarmonyOS and OpenHarmony | Arm, Arm64, x86-family, and supported device ports | Sandboxed/Restricted or RTOS/Constrained depending on product | Implemented (Sandboxed/Restricted profile backends implemented across 23 modules; includes standalone tests for all 23 OpenHarmony modules; dynamic `libbegetutil` innerkit parameter queries fall back safely to POSIX/procfs or report `not_supported`/`permission_denied` in restricted app sandboxes; native device verification pending) |
 | KaiOS | Product-dependent Arm targets using a web-oriented Linux-derived stack | Sandboxed/Restricted | Not started |
 | Tizen | Arm, Arm64, x86-family depending on product | Sandboxed/Restricted | Not started |
 | Sailfish OS | Arm and x86-family depending on product | Sandboxed/Restricted | Not started |

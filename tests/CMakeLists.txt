@@ -615,6 +615,40 @@ if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Android")
     syscape_add_test(connection_android 17 syscape::hosted connection_android.cpp)
 endif()
 
+if(CMAKE_SYSTEM_NAME MATCHES "^(OpenHarmony|OHOS)$" OR OHOS)
+    set(OHOS_TEST_TARGETS
+        os_openharmony
+        cpu_openharmony
+        memory_openharmony
+        process_openharmony
+        user_openharmony
+        filesystem_openharmony
+        network_openharmony
+        locale_openharmony
+        environment_openharmony
+        resource_openharmony
+        virtualization_openharmony
+        hardware_openharmony
+        power_openharmony
+        sensor_openharmony
+        security_openharmony
+        numa_openharmony
+        process_list_openharmony
+        printer_openharmony
+        audio_openharmony
+        software_openharmony
+        storage_openharmony
+        ipc_openharmony
+        connection_openharmony)
+    foreach(ohos_target IN LISTS OHOS_TEST_TARGETS)
+        syscape_add_test(${ohos_target} 17 syscape::hosted ${ohos_target}.cpp)
+        target_compile_definitions(${ohos_target} PRIVATE __OHOS__=1)
+        if(CMAKE_DL_LIBS)
+            target_link_libraries(${ohos_target} PRIVATE ${CMAKE_DL_LIBS})
+        endif()
+    endforeach()
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
     syscape_add_test(os_solaris 17 syscape::hosted os_solaris.cpp)
     syscape_add_test(cpu_solaris 17 syscape::hosted cpu_solaris.cpp)

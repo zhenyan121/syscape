@@ -4,7 +4,7 @@
 /// @file
 /// @brief Hosted user identity and active login session queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17
-/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
 /// @note This module exposes:
 /// - Real and effective user and group numeric identifiers (real_user_id(),
 /// effective_user_id(), real_group_id(), effective_group_id()).
@@ -45,8 +45,8 @@
 #include <syscape/detail/user/common.hpp>
 #include <syscape/result.hpp>
 
-#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) && \
-    !defined(__ANDROID__)
+#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
 #include <syscape/detail/user/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/user/windows.hpp>
@@ -65,6 +65,9 @@
 #include <syscape/detail/user/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/user/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_OPENHARMONY)
+#include <syscape/detail/user/openharmony.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/user/solaris.hpp>

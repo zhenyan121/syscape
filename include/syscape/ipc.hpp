@@ -5,7 +5,7 @@
 /// @brief Hosted Inter-Process Communication (IPC) resources, shared memory,
 /// message queues, semaphores, local UNIX domain sockets, and IPC limits.
 /// @note Minimum compatibility profile: Hosted Full with C++17
-/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
 /// @note Apple mobile sandboxes expose no acceptable system-wide IPC
 /// inventory or limit source to this interface, so all queries report
 /// not_supported.
@@ -45,8 +45,8 @@
 #include <syscape/error.hpp>
 #include <syscape/result.hpp>
 
-#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) && \
-    !defined(__ANDROID__)
+#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
 #include <syscape/detail/ipc/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/ipc/windows.hpp>
@@ -65,6 +65,9 @@
 #include <syscape/detail/ipc/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/ipc/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_OPENHARMONY)
+#include <syscape/detail/ipc/openharmony.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/ipc/solaris.hpp>

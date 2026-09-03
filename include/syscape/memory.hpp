@@ -5,7 +5,7 @@
 /// @brief Hosted system memory capacity, commit accounting, huge pages,
 /// utilization, and pressure-stall usage queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17
-/// (Sandboxed/Restricted on Apple mobile platforms and Android).
+/// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
 /// @note Linux implements every query through the kernel-documented
 /// /proc/meminfo interface, POSIX sysconf values, and the kernel-documented
 /// /proc/pressure/memory records. Windows implements the capacity, commit,
@@ -44,8 +44,8 @@
 #include <syscape/detail/memory/common.hpp>
 #include <syscape/result.hpp>
 
-#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) && \
-    !defined(__ANDROID__)
+#if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
 #include <syscape/detail/memory/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/memory/windows.hpp>
@@ -64,6 +64,9 @@
 #include <syscape/detail/memory/dragonfly.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__ANDROID__)
 #include <syscape/detail/memory/android.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_OPENHARMONY)
+#include <syscape/detail/memory/openharmony.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/memory/solaris.hpp>

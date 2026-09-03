@@ -40,7 +40,8 @@ enum class operating_system {
     zephyr,
     nuttx,
     wasi,
-    emscripten
+    emscripten,
+    openharmony
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -63,6 +64,8 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::wasi;
 #elif defined(__ANDROID__)
     return operating_system::android;
+#elif defined(__OHOS__) || defined(__OpenHarmony__)
+    return operating_system::openharmony;
 #elif defined(__CYGWIN__) || defined(_WIN32)
     return operating_system::windows;
 #elif defined(__APPLE__) && defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
@@ -120,11 +123,13 @@ constexpr operating_system target_operating_system() noexcept {
 constexpr execution_environment target_execution_environment() noexcept {
 #if defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return execution_environment::unknown;
-#elif defined(__EMSCRIPTEN__) || defined(__wasi__) || defined(__ANDROID__) || \
-    (defined(__APPLE__) && (defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) || \
-                           defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) || \
-                           defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) || \
-                           defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)))
+#elif defined(__EMSCRIPTEN__) || defined(__wasi__) || defined(__ANDROID__) ||  \
+    defined(__OHOS__) || defined(__OpenHarmony__) ||                           \
+    (defined(__APPLE__) &&                                                     \
+     (defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) ||               \
+      defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) ||                \
+      defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) ||                   \
+      defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)))
     return execution_environment::sandboxed;
 #elif defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
     return execution_environment::compatibility;
@@ -170,6 +175,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
     case operating_system::rtems: return "rtems";
     case operating_system::zephyr: return "zephyr";
     case operating_system::nuttx: return "nuttx";
+    case operating_system::openharmony:
+        return "openharmony";
     case operating_system::wasi: return "wasi";
     case operating_system::emscripten: return "emscripten";
     case operating_system::unknown: return "unknown";

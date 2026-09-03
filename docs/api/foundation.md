@@ -102,7 +102,7 @@ const char* standard_library_name(standard_library value) noexcept;
 
 #### `enum class operating_system`
 Compile-target OS detection:
-- `unknown`, `windows`, `linux_os`, `macos`, `android`, `ios`, `ipados`, `watchos`, `tvos`, `visionos`, `freebsd`, `openbsd`, `netbsd`, `dragonfly_bsd`, `illumos`, `solaris`, `aix`, `hpux`, `haiku`, `serenityos`, `redox`, `hurd`, `qnx`, `vxworks`, `rtems`, `zephyr`, `nuttx`, `wasi`, `emscripten`.
+- `unknown`, `windows`, `linux_os`, `macos`, `android`, `ios`, `ipados`, `watchos`, `tvos`, `visionos`, `freebsd`, `openbsd`, `netbsd`, `dragonfly_bsd`, `illumos`, `solaris`, `aix`, `hpux`, `haiku`, `serenityos`, `redox`, `hurd`, `qnx`, `vxworks`, `rtems`, `zephyr`, `nuttx`, `wasi`, `emscripten`, `openharmony`.
 
 #### `enum class execution_environment`
 Runtime environment classification:
