@@ -149,6 +149,8 @@ struct process_entry {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/process_list/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/process_list/haiku.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif

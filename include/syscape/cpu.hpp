@@ -101,6 +101,8 @@ enum class cache_kind : std::uint8_t {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/cpu/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/cpu/haiku.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif
@@ -216,7 +218,8 @@ inline result<std::uint32_t> maximum_frequency_khz() {
 /// cpufreq interface is unavailable; OpenHarmony queries scaling_cur_freq with
 /// a cpuinfo_cur_freq fallback; Windows reports the CurrentMhz field of
 /// the processor power information records on single-group systems and reports
-/// not_supported on multi-group systems. No other backend currently has a
+/// not_supported on multi-group systems; Haiku reads the current_frequency
+/// field of each active cpu_info structure. No other backend currently has a
 /// documented per-processor clock source.
 /// @return One positive frequency per online logical processor,
 /// not_supported when no acceptable platform source exists, malformed_data,

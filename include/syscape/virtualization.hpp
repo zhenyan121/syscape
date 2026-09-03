@@ -264,6 +264,8 @@ struct cgroup_info {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/virtualization/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/virtualization/haiku.hpp>
 #else
 #include <syscape/detail/virtualization/generic.hpp>
 #endif

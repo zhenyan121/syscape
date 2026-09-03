@@ -168,6 +168,8 @@ struct printer_info {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/printer/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/printer/haiku.hpp>
 #else
 #include <syscape/detail/printer/generic.hpp>
 #endif

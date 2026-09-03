@@ -71,6 +71,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/filesystem/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/filesystem/haiku.hpp>
 #else
 #include <syscape/detail/filesystem/generic.hpp>
 #endif
@@ -282,8 +284,9 @@ inline result<path_length_limit> max_path_length(const std::string& path) {
 /// word pair, reported verbatim rather than normalized: Linux renders
 /// kernel-documented statfs f_fsid words and macOS renders the statfs
 /// f_fsid words as sixteen hexadecimal digits total in recorded order,
-/// while Windows renders the documented GetVolumeInformationW serial
-/// number as eight hexadecimal digits. An all-zero rendering is
+/// Windows renders the documented GetVolumeInformationW serial number as eight
+/// hexadecimal digits, and Haiku renders its native dev_t and 64-bit root
+/// ino_t words as twenty-four hexadecimal digits. An all-zero rendering is
 /// valid data because platforms that define no distinguishing
 /// identifier for a filesystem record zeros.
 ///

@@ -84,6 +84,8 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/environment/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/environment/haiku.hpp>
 #else
 #include <syscape/detail/environment/generic.hpp>
 #endif

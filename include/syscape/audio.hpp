@@ -140,6 +140,8 @@ struct audio_device {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/audio/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/audio/haiku.hpp>
 #else
 #include <syscape/detail/audio/generic.hpp>
 #endif
