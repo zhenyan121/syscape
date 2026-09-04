@@ -72,9 +72,9 @@ inline process_list::process_entry convert_team(const ::team_info& tinfo,
     }
     entry.state = process_list::process_state::unknown;
 
-    const auto user_opt = posix_passwd::name_for_uid(tinfo.real_uid);
-    if (user_opt) {
-        entry.user_name = *user_opt;
+    const auto pwd_entry = posix_passwd::entry_by_uid(tinfo.real_uid);
+    if (pwd_entry && !pwd_entry->name.empty()) {
+        entry.user_name = pwd_entry->name;
     }
 
     ::team_usage_info uinfo {};
