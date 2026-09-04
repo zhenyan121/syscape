@@ -1,5 +1,7 @@
 #include <chrono>
+#include <cstdint>
 #include <iostream>
+#include <limits>
 
 #include <syscape/process.hpp>
 
@@ -49,9 +51,29 @@ void test_process_queries() {
     }
 }
 
+void test_clock_tick_conversion() {
+    const auto duration =
+        syscape::detail::process_backend::clock_ticks_to_nanoseconds(150U, 100);
+    expect(duration && duration->count() == 1500000000,
+           "150 ticks at 100 Hz must equal 1.5 seconds");
+
+    const auto invalid_rate =
+        syscape::detail::process_backend::clock_ticks_to_nanoseconds(1U, 0);
+    expect(!invalid_rate &&
+               invalid_rate.error() == syscape::errc::not_supported,
+           "a zero tick rate must report not_supported");
+
+    const auto overflow =
+        syscape::detail::process_backend::clock_ticks_to_nanoseconds(
+            (std::numeric_limits<std::uint64_t>::max)(), 1);
+    expect(!overflow && overflow.error() == syscape::errc::value_too_large,
+           "an overflowing tick duration must report value_too_large");
+}
+
 } // namespace
 
 int main() {
     test_process_queries();
+    test_clock_tick_conversion();
     return failures == 0 ? 0 : 1;
 }

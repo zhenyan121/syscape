@@ -275,8 +275,8 @@ inline result<std::vector<std::uint32_t>> current_frequencies_khz() {
         if (c.current_frequency == 0) {
             return fail(errc::temporarily_unavailable);
         }
-        const auto khz =
-            static_cast<std::uint64_t>(c.current_frequency / 1000ULL);
+        const auto khz = static_cast<std::uint64_t>(
+            c.current_frequency / static_cast<std::uint64_t>(1000U));
         if (khz == 0 || khz > (std::numeric_limits<std::uint32_t>::max)()) {
             return fail(errc::malformed_data);
         }

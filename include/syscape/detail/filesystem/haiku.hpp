@@ -79,8 +79,9 @@ inline result<std::string> volume_id(const std::string& path) {
         filesystem_common::render_hex32(static_cast<std::uint32_t>(fsi.dev));
     const auto high =
         static_cast<std::uint32_t>(static_cast<std::uint64_t>(fsi.root) >> 32U);
-    const auto low = static_cast<std::uint32_t>(
-        static_cast<std::uint64_t>(fsi.root) & 0xFFFFFFFFULL);
+    const auto low =
+        static_cast<std::uint32_t>(static_cast<std::uint64_t>(fsi.root) &
+                                   static_cast<std::uint64_t>(0xFFFFFFFFU));
     rendered += filesystem_common::render_hex32(high);
     rendered += filesystem_common::render_hex32(low);
     return rendered;
