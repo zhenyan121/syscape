@@ -47,7 +47,7 @@ inline std::error_code make_haiku_error(status_t status) {
 #endif
 #if defined(B_NO_MEMORY)
     if (status == B_NO_MEMORY) {
-        return make_error_code(errc::resource_unavailable);
+        return make_error_code(errc::resource_exhausted);
     }
 #endif
 #if defined(B_BUSY) && defined(B_TIMED_OUT)

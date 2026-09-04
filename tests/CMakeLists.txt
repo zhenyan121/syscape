@@ -677,6 +677,7 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Haiku")
     set(HAIKU_TEST_TARGETS
+        error_haiku
         os_haiku
         cpu_haiku
         memory_haiku
