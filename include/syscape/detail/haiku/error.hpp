@@ -84,6 +84,56 @@ inline bool is_iteration_end(status_t status) noexcept {
         return true;
     }
 #endif
+#if defined(B_BAD_TEAM_ID)
+    if (status == B_BAD_TEAM_ID) {
+        return true;
+    }
+#endif
+#if defined(B_NO_MORE_TEAMS)
+    if (status == B_NO_MORE_TEAMS) {
+        return true;
+    }
+#endif
+#if defined(B_BAD_THREAD_ID)
+    if (status == B_BAD_THREAD_ID) {
+        return true;
+    }
+#endif
+#if defined(B_NO_MORE_THREADS)
+    if (status == B_NO_MORE_THREADS) {
+        return true;
+    }
+#endif
+#if defined(B_BAD_PORT_ID)
+    if (status == B_BAD_PORT_ID) {
+        return true;
+    }
+#endif
+#if defined(B_NO_MORE_PORTS)
+    if (status == B_NO_MORE_PORTS) {
+        return true;
+    }
+#endif
+#if defined(B_BAD_SEM_ID)
+    if (status == B_BAD_SEM_ID) {
+        return true;
+    }
+#endif
+#if defined(B_NO_MORE_SEMS)
+    if (status == B_NO_MORE_SEMS) {
+        return true;
+    }
+#endif
+#if defined(B_BAD_IMAGE_ID)
+    if (status == B_BAD_IMAGE_ID) {
+        return true;
+    }
+#endif
+#if defined(B_BAD_INDEX)
+    if (status == B_BAD_INDEX) {
+        return true;
+    }
+#endif
     (void)status;
     return false;
 }
