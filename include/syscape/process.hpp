@@ -8,18 +8,22 @@
 /// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
 /// @note Linux, Windows, macOS, Apple mobile platforms (iOS, iPadOS, tvOS,
 /// watchOS, visionOS, and Mac Catalyst), Android, OpenHarmony, FreeBSD,
-/// Solaris, and Haiku have native backends. Apple mobile platforms implement
-/// self-process PID, parent PID, executable path (_NSGetExecutablePath),
-/// working directory, CPU time, memory usage (mach_task_basic_info), and thread
-/// count (task_threads) using public Mach and POSIX APIs; CPU affinity reports
-/// unsupported. Haiku implements self-process PID, parent PID, executable path
-/// (image_info B_APP_IMAGE), working directory, CPU times
-/// (get_team_usage_info), memory usage (get_next_area_info), start time, thread
-/// count, priority, and resource limits; command line (truncated without
-/// argument framing in kernel team_info) and CPU affinity report not_supported.
-/// AIX implements PID, parent PID, working directory, CPU time, priority,
-/// and resource limits via POSIX, times, and getrlimit.
-/// Other targets use the generic not-supported fallback.
+/// Solaris, Haiku, AIX, and HP-UX have native backends. Apple mobile platforms
+/// implement self-process PID, parent PID, executable path
+/// (_NSGetExecutablePath), working directory, CPU time, memory usage
+/// (mach_task_basic_info), and thread count (task_threads) using public Mach
+/// and POSIX APIs; CPU affinity reports unsupported. Haiku implements
+/// self-process PID, parent PID, executable path (image_info B_APP_IMAGE),
+/// working directory, CPU times (get_team_usage_info), memory usage
+/// (get_next_area_info), start time, thread count, priority, and resource
+/// limits; command line (truncated without argument framing in kernel
+/// team_info) and CPU affinity report not_supported. AIX implements PID, parent
+/// PID, working directory, CPU time, priority, and resource limits via POSIX,
+/// times, and getrlimit. HP-UX implements self-process PID, parent PID, working
+/// directory, CPU time, memory usage (via pstat_getproc and pstat_getstatic),
+/// start time, priority, and resource limits; thread count, command line,
+/// executable path, and CPU affinity report not_supported. Other targets use
+/// the generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows 7 or later SDK declarations.
@@ -47,7 +51,7 @@
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/process/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process/windows.hpp>
@@ -76,6 +80,8 @@
 #include <syscape/detail/process/haiku.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/process/aix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
+#include <syscape/detail/process/hpux.hpp>
 #else
 #include <syscape/detail/process/generic.hpp>
 #endif

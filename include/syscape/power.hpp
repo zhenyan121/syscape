@@ -22,8 +22,8 @@
 /// interfaces (declared in <IOKit/ps/IOPowerSources.h>), which require
 /// linking the IOKit and CoreFoundation frameworks on Apple targets.
 /// Android implements battery state and external-power online presence
-/// through /sys/class/power_supply. AIX does not expose battery interfaces
-/// on standard server hardware and reports not_supported.
+/// through /sys/class/power_supply. AIX and HP-UX do not expose battery
+/// interfaces on standard server hardware and report not_supported.
 /// Other targets use the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
@@ -134,7 +134,7 @@ enum class power_source_type : std::uint8_t {
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/power/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/power/windows.hpp>
@@ -163,6 +163,8 @@ enum class power_source_type : std::uint8_t {
 #include <syscape/detail/power/haiku.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/power/aix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
+#include <syscape/detail/power/hpux.hpp>
 #else
 #include <syscape/detail/power/generic.hpp>
 #endif

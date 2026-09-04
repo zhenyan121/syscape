@@ -37,7 +37,11 @@
 /// r1beta5. AIX implements load average via getloadavg, process count via
 /// libperfstat, and process file descriptor limit via getrlimit; scheduler
 /// entities, thread count, open file count, and open handle count report
-/// not_supported. All other targets use the not-supported fallback.
+/// not_supported. HP-UX implements load average via pstat_getdynamic, process
+/// count via pstat_getdynamic (psd_activeprocs), and file descriptor limit via
+/// sysconf; scheduler entities, thread count, open file count, and open handle
+/// count report not_supported. All other targets use the not-supported
+/// fallback.
 /// @note Every count is an instantaneous snapshot observed during the call;
 /// values change continuously with system activity and must never be
 /// assumed stable after a query returns.
@@ -59,7 +63,7 @@
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/resource/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/resource/windows.hpp>
@@ -88,6 +92,8 @@
 #include <syscape/detail/resource/haiku.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/resource/aix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
+#include <syscape/detail/resource/hpux.hpp>
 #else
 #include <syscape/detail/resource/generic.hpp>
 #endif

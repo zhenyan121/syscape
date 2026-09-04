@@ -31,7 +31,8 @@
 /// (requires linking -framework CoreFoundation). loaded_drivers() returns
 /// not_supported on macOS as Darwin provides no unprivileged in-process public
 /// API for loaded kernel modules.
-/// @note AIX reports not_supported for system software management queries.
+/// @note AIX and HP-UX report not_supported for system software management
+/// queries.
 /// @note Software and service states change dynamically. Queries query on
 /// demand without caching.
 
@@ -54,7 +55,7 @@
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/software/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/software/windows.hpp>
@@ -83,6 +84,8 @@
 #include <syscape/detail/software/haiku.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/software/aix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
+#include <syscape/detail/software/hpux.hpp>
 #else
 #include <syscape/detail/software/generic.hpp>
 #endif
