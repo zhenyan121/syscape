@@ -15,9 +15,8 @@ void expect(bool condition, const char* message) {
 
 void test_resource_queries() {
     const auto loads = syscape::resource::load_average();
-    expect(loads.has_value() || loads.error() == syscape::errc::io_error ||
-               loads.error() == syscape::errc::not_supported,
-           "load average query must succeed or report expected error");
+    expect(!loads && loads.error() == syscape::errc::not_supported,
+           "load average query must report not_supported on Haiku r1beta5");
     const auto procs = syscape::resource::process_count();
     expect((procs && *procs > 0) ||
                procs.error() == syscape::errc::not_supported,

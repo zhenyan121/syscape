@@ -2,7 +2,6 @@
 #define SYSCAPE_DETAIL_RESOURCE_HAIKU_HPP
 
 #include <cstdint>
-#include <cstdlib>
 #include <sys/resource.h>
 #include <unistd.h>
 
@@ -21,15 +20,7 @@ namespace detail {
 namespace resource_backend {
 
 inline result<resource_common::load_samples> load_average() {
-    double samples[3] = {0.0, 0.0, 0.0};
-    if (::getloadavg(samples, 3) != 3) {
-        return fail(errc::io_error);
-    }
-    resource_common::load_samples loads;
-    loads.one_minute = samples[0];
-    loads.five_minute = samples[1];
-    loads.fifteen_minute = samples[2];
-    return loads;
+    return fail(errc::not_supported);
 }
 
 inline result<resource_common::entity_counts> scheduler_entities() {
