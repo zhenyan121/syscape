@@ -36,24 +36,19 @@ tokenize_resolver_line(std::string_view line) {
     }
     std::vector<std::string_view> tokens;
     std::size_t offset = 0U;
-    while (offset < line.size() &&
-           (line[offset] == ' ' || line[offset] == '\t')) {
-        ++offset;
-    }
-    if (offset < line.size() && (line[offset] == '#' || line[offset] == ';')) {
-        return tokens;
-    }
     while (offset < line.size()) {
         while (offset < line.size() &&
                (line[offset] == ' ' || line[offset] == '\t')) {
             ++offset;
         }
-        if (offset >= line.size()) {
+        if (offset >= line.size() || line[offset] == '#' ||
+            line[offset] == ';') {
             break;
         }
         const std::size_t start = offset;
         while (offset < line.size() && line[offset] != ' ' &&
-               line[offset] != '\t') {
+               line[offset] != '\t' && line[offset] != '#' &&
+               line[offset] != ';') {
             ++offset;
         }
         tokens.push_back(line.substr(start, offset - start));
@@ -186,7 +181,7 @@ inline result<network_common::dns_record> dns() {
 
         const std::string_view directive = tokens.front();
         if (directive == "nameserver") {
-            if (tokens.size() != 2U) {
+            if (tokens.size() < 2U) {
                 return fail(errc::malformed_data);
             }
             const auto addr = parse_resolver_address(tokens[1]);
@@ -203,7 +198,7 @@ inline result<network_common::dns_record> dns() {
             }
             last_was_search = true;
         } else if (directive == "domain") {
-            if (tokens.size() != 2U) {
+            if (tokens.size() < 2U) {
                 return fail(errc::malformed_data);
             }
             domain_value.assign(tokens[1]);

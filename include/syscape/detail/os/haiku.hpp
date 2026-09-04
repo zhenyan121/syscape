@@ -72,10 +72,7 @@ inline result<std::string> host_name() {
                 ++end;
             }
             if (end < buffer.size()) {
-                if (end > 0) {
-                    return std::string(buffer.data(), end);
-                }
-                break;
+                return std::string(buffer.data(), end);
             }
             buffer.resize(buffer.size() * 2U);
             continue;
@@ -85,7 +82,7 @@ inline result<std::string> host_name() {
         }
         buffer.resize(buffer.size() * 2U);
     }
-    return fail(errc::not_found);
+    return fail(errc::value_too_large);
 }
 
 inline result<std::string> boot_identifier() {
@@ -110,11 +107,8 @@ inline result<std::chrono::system_clock::time_point> boot_time() {
 inline result<std::chrono::milliseconds> uptime() {
 #if defined(SYSCAPE_HAS_HAIKU_OS_H)
     const bigtime_t us = ::system_time();
-    if (us >= 0) {
-        return std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::microseconds(us));
-    }
-    return fail(errc::io_error);
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::microseconds(us));
 #else
     return fail(errc::not_supported);
 #endif

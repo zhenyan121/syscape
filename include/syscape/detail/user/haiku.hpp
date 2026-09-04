@@ -28,13 +28,17 @@ inline result<std::uint32_t>
 narrow_identifier(NativeIdentifier value) noexcept {
     static_assert(std::is_integral<NativeIdentifier>::value,
                   "A POSIX identifier must be an integral type");
-    static_assert(std::is_unsigned<NativeIdentifier>::value,
-                  "A POSIX identifier must be an unsigned type");
-    const std::uintmax_t widened = static_cast<std::uintmax_t>(value);
-    if (widened > std::numeric_limits<std::uint32_t>::max()) {
+    if constexpr (std::is_signed<NativeIdentifier>::value) {
+        if (value < 0) {
+            return fail(errc::value_too_large);
+        }
+    }
+    using unsigned_type = typename std::make_unsigned<NativeIdentifier>::type;
+    const auto unsigned_value = static_cast<unsigned_type>(value);
+    if (unsigned_value > std::numeric_limits<std::uint32_t>::max()) {
         return fail(errc::value_too_large);
     }
-    return static_cast<std::uint32_t>(widened);
+    return static_cast<std::uint32_t>(unsigned_value);
 }
 
 inline result<std::uint32_t> real_user_id() {

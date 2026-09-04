@@ -140,15 +140,24 @@ inline result<std::uint32_t> online_physical_core_count() {
     for (uint32 i = 0; i < topo_count; ++i) {
         if (nodes[i].type == B_TOPOLOGY_CORE) {
             bool has_online_cpu = false;
+            bool has_smt_child = false;
             for (uint32 j = i + 1; j < topo_count; ++j) {
+                if (nodes[j].type == B_TOPOLOGY_CORE ||
+                    nodes[j].type == B_TOPOLOGY_PACKAGE ||
+                    nodes[j].type == B_TOPOLOGY_ROOT) {
+                    break;
+                }
                 if (nodes[j].type == B_TOPOLOGY_SMT) {
+                    has_smt_child = true;
                     const auto cpu_id = nodes[j].id;
                     if (cpu_id < count && is_cpu_active(cpus[cpu_id], 0)) {
                         has_online_cpu = true;
                     }
-                } else {
-                    break;
                 }
+            }
+            if (!has_smt_child && nodes[i].id < count &&
+                is_cpu_active(cpus[nodes[i].id], 0)) {
+                has_online_cpu = true;
             }
             if (has_online_cpu) {
                 ++online_cores;
@@ -197,17 +206,29 @@ inline result<std::uint32_t> online_processor_package_count() {
     for (uint32 i = 0; i < topo_count; ++i) {
         if (nodes[i].type == B_TOPOLOGY_PACKAGE) {
             bool has_online_cpu = false;
+            bool has_child_cpu = false;
             for (uint32 j = i + 1; j < topo_count; ++j) {
                 if (nodes[j].type == B_TOPOLOGY_PACKAGE ||
                     nodes[j].type == B_TOPOLOGY_ROOT) {
                     break;
                 }
                 if (nodes[j].type == B_TOPOLOGY_SMT) {
+                    has_child_cpu = true;
+                    const auto cpu_id = nodes[j].id;
+                    if (cpu_id < count && is_cpu_active(cpus[cpu_id], 0)) {
+                        has_online_cpu = true;
+                    }
+                } else if (nodes[j].type == B_TOPOLOGY_CORE) {
+                    has_child_cpu = true;
                     const auto cpu_id = nodes[j].id;
                     if (cpu_id < count && is_cpu_active(cpus[cpu_id], 0)) {
                         has_online_cpu = true;
                     }
                 }
+            }
+            if (!has_child_cpu && nodes[i].id < count &&
+                is_cpu_active(cpus[nodes[i].id], 0)) {
+                has_online_cpu = true;
             }
             if (has_online_cpu) {
                 ++online_packages;

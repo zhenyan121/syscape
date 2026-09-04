@@ -87,7 +87,7 @@ inline result<std::string> working_directory() {
         }
         return fail(std::error_code(err, std::generic_category()));
     }
-    return fail(errc::malformed_data);
+    return fail(errc::value_too_large);
 }
 
 inline result<process_common::cpu_time_usage> cpu_time() {

@@ -50,7 +50,7 @@ inline std::error_code make_haiku_error(status_t status) {
         return make_error_code(errc::resource_unavailable);
     }
 #endif
-#if defined(B_BUSY) || defined(B_TIMED_OUT)
+#if defined(B_BUSY) && defined(B_TIMED_OUT)
     if (status == B_BUSY || status == B_TIMED_OUT) {
         return make_error_code(errc::temporarily_unavailable);
     }
@@ -84,6 +84,7 @@ inline bool is_iteration_end(status_t status) noexcept {
         return true;
     }
 #endif
+    (void)status;
     return false;
 }
 #endif
