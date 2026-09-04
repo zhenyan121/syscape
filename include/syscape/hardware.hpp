@@ -30,6 +30,8 @@
 /// @note Haiku reports not_supported for system hardware identity and bus
 /// device inventories because the platform documents no public in-process C
 /// hardware inventory API.
+/// @note AIX reports system manufacturer as "IBM"; model names, versions,
+/// UUID, and bus device inventories report not_supported.
 /// @note hardware_uuid() exposes a machine identifier. The query is explicit,
 /// preserves permission failures, performs no logging, persistence, or
 /// network access, and reports the SMBIOS-documented absence renderings as
@@ -310,7 +312,8 @@ struct memory_device {
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
-    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
+    !defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/hardware/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/hardware/windows.hpp>
@@ -337,6 +340,8 @@ struct memory_device {
 #include <syscape/detail/hardware/solaris.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
 #include <syscape/detail/hardware/haiku.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
+#include <syscape/detail/hardware/aix.hpp>
 #else
 #include <syscape/detail/hardware/generic.hpp>
 #endif

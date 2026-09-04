@@ -42,7 +42,11 @@
 /// and package counts via get_cpu_topology_info, current clock frequencies via
 /// cpu_info, and CPUID vendor / model on x86; recorded frequency bounds, cache
 /// descriptors, instruction-set features, and cumulative usage report
-/// not_supported. All other targets use the not-supported fallback.
+/// not_supported. AIX implements online logical processor count via sysconf,
+/// vendor identifiers, and utilization via libperfstat; physical core count,
+/// package count, clock frequencies, cache descriptors, and instruction-set
+/// features report not_supported.
+/// All other targets use the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
 
@@ -80,7 +84,8 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
-    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
+    !defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/cpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/cpu/windows.hpp>
@@ -107,6 +112,8 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/detail/cpu/solaris.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
 #include <syscape/detail/cpu/haiku.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
+#include <syscape/detail/cpu/aix.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif

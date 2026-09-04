@@ -15,7 +15,8 @@
 /// GetNumaNodeProcessorMaskEx, GetNumaNodeProcessorMask2 when available,
 /// GetNumaAvailableMemoryNodeEx, GetCurrentProcessorNumberEx, and
 /// GetNumaProcessorNodeEx). macOS operates on Uniform Memory Access (UMA)
-/// architectures and reports a single unified node or unsupported. Other
+/// architectures and reports a single unified node or unsupported. AIX reports
+/// not_supported for NUMA topology. Other
 /// targets use the not-supported generic fallback.
 
 #include <syscape/detail/config.hpp>
@@ -32,7 +33,8 @@
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
-    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
+    !defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/numa/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/numa/windows.hpp>
@@ -59,6 +61,8 @@
 #include <syscape/detail/numa/solaris.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
 #include <syscape/detail/numa/haiku.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
+#include <syscape/detail/numa/aix.hpp>
 #else
 #include <syscape/detail/numa/generic.hpp>
 #endif

@@ -90,7 +90,7 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::illumos;
 #elif defined(__sun) && defined(__SVR4)
     return operating_system::solaris;
-#elif defined(_AIX)
+#elif defined(SYSCAPE_TARGET_AIX)
     return operating_system::aix;
 #elif defined(__hpux)
     return operating_system::hpux;

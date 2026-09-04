@@ -17,6 +17,8 @@
 /// (get_team_usage_info), memory usage (get_next_area_info), start time, thread
 /// count, priority, and resource limits; command line (truncated without
 /// argument framing in kernel team_info) and CPU affinity report not_supported.
+/// AIX implements PID, parent PID, working directory, CPU time, priority,
+/// and resource limits via POSIX, times, and getrlimit.
 /// Other targets use the generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
@@ -44,7 +46,8 @@
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
-    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
+    !defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/process/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process/windows.hpp>
@@ -71,6 +74,8 @@
 #include <syscape/detail/process/solaris.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
 #include <syscape/detail/process/haiku.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
+#include <syscape/detail/process/aix.hpp>
 #else
 #include <syscape/detail/process/generic.hpp>
 #endif

@@ -707,6 +707,40 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Haiku")
     endforeach()
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "AIX" OR AIX)
+    set(AIX_TEST_TARGETS
+        os_aix
+        cpu_aix
+        memory_aix
+        process_aix
+        user_aix
+        filesystem_aix
+        network_aix
+        locale_aix
+        environment_aix
+        resource_aix
+        virtualization_aix
+        hardware_aix
+        power_aix
+        sensor_aix
+        security_aix
+        numa_aix
+        process_list_aix
+        printer_aix
+        audio_aix
+        software_aix
+        storage_aix
+        ipc_aix
+        connection_aix)
+    foreach(aix_target IN LISTS AIX_TEST_TARGETS)
+        syscape_add_test(${aix_target} 17 syscape::hosted ${aix_target}.cpp)
+        target_compile_definitions(${aix_target} PRIVATE _AIX=1 _BSD=44)
+        if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
+            target_link_libraries(${aix_target} PRIVATE perfstat bsd)
+        endif()
+    endforeach()
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")

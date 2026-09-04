@@ -34,7 +34,10 @@
 /// and used_threads), and process file descriptor limit through
 /// getrlimit(RLIMIT_NOFILE); load average, scheduler entities, open files, open
 /// handles, and system-wide file descriptor limit report not_supported on
-/// r1beta5. All other targets use the not-supported fallback.
+/// r1beta5. AIX implements load average via getloadavg, process count via
+/// libperfstat, and process file descriptor limit via getrlimit; scheduler
+/// entities, thread count, open file count, and open handle count report
+/// not_supported. All other targets use the not-supported fallback.
 /// @note Every count is an instantaneous snapshot observed during the call;
 /// values change continuously with system activity and must never be
 /// assumed stable after a query returns.
@@ -55,7 +58,8 @@
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
-    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
+    !defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/resource/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/resource/windows.hpp>
@@ -82,6 +86,8 @@
 #include <syscape/detail/resource/solaris.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
 #include <syscape/detail/resource/haiku.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
+#include <syscape/detail/resource/aix.hpp>
 #else
 #include <syscape/detail/resource/generic.hpp>
 #endif

@@ -43,6 +43,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Haiku")
     set(SYSCAPE_PKGCONFIG_LIBS "-lnetwork")
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
+    target_compile_definitions(syscape INTERFACE _BSD=44)
+    target_compile_definitions(syscape_hosted INTERFACE _BSD=44)
+    target_link_libraries(syscape_hosted INTERFACE perfstat bsd)
+    set(SYSCAPE_PKGCONFIG_LIBS "-lperfstat -lbsd")
+endif()
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     option(SYSCAPE_BUILD_TESTS "Build Syscape tests" ON)
     option(SYSCAPE_BUILD_EXAMPLES "Build Syscape examples" ON)

@@ -25,7 +25,8 @@
 /// IOKit media registry entries, resolving partition media to qualifying
 /// non-virtual whole disks, and reading SMART Status and IORegistry statistics.
 /// Android implements drive queries through the sysfs block interface under
-/// /sys/block. Other targets use the not-supported fallback.
+/// /sys/block. AIX reports not_supported for physical block-device and SMART
+/// queries. Other targets use the not-supported fallback.
 /// @note Windows callers that use drives(), partitions(), or health queries
 /// must link Setupapi.lib.
 
@@ -125,7 +126,8 @@ enum class drive_health_status : std::uint8_t {
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
-    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
+    !defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/storage/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/storage/windows.hpp>
@@ -152,6 +154,8 @@ enum class drive_health_status : std::uint8_t {
 #include <syscape/detail/storage/solaris.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
 #include <syscape/detail/storage/haiku.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
+#include <syscape/detail/storage/aix.hpp>
 #else
 #include <syscape/detail/storage/generic.hpp>
 #endif
