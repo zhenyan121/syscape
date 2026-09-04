@@ -30,6 +30,7 @@
 /// get_team_usage_info; process state reports unknown because teams do not
 /// expose a single whole-process scheduling state, and command lines report
 /// nullopt due to lack of argument framing in kernel team_info.
+/// @note AIX queries getprocs64.
 /// @note Processes and their metadata change continuously. Queries do not cache
 /// results. Unprivileged callers gracefully receive partial observable metadata
 /// for restricted processes rather than failing the enumeration.
@@ -129,7 +130,8 @@ struct process_entry {
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
-    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
+    !defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/process_list/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process_list/windows.hpp>
@@ -156,6 +158,8 @@ struct process_entry {
 #include <syscape/detail/process_list/solaris.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
 #include <syscape/detail/process_list/haiku.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
+#include <syscape/detail/process_list/aix.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif

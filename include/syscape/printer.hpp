@@ -25,6 +25,8 @@
 /// queues with direct USB printer nodes; both platforms can fall back to the
 /// persistent CUPS configuration when no daemon is available.
 /// @note Windows queries the official Win32 Print Spooler APIs (winspool.h).
+/// @note AIX reports not_supported for printer spooler queries without
+/// CUPS/qdaemon.
 /// @note Printing environments and queues can change dynamically. Queries do
 /// not cache results.
 
@@ -143,7 +145,8 @@ struct printer_info {
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
-    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
+    !defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/printer/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/printer/windows.hpp>
@@ -170,6 +173,8 @@ struct printer_info {
 #include <syscape/detail/printer/solaris.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
 #include <syscape/detail/printer/haiku.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
+#include <syscape/detail/printer/aix.hpp>
 #else
 #include <syscape/detail/printer/generic.hpp>
 #endif

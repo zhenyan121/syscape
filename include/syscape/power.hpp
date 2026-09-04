@@ -22,8 +22,9 @@
 /// interfaces (declared in <IOKit/ps/IOPowerSources.h>), which require
 /// linking the IOKit and CoreFoundation frameworks on Apple targets.
 /// Android implements battery state and external-power online presence
-/// through /sys/class/power_supply. Other targets use the not-supported
-/// fallback.
+/// through /sys/class/power_supply. AIX does not expose battery interfaces
+/// on standard server hardware and reports not_supported.
+/// Other targets use the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
 
@@ -132,7 +133,8 @@ enum class power_source_type : std::uint8_t {
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
-    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
+    !defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/power/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/power/windows.hpp>
@@ -159,6 +161,8 @@ enum class power_source_type : std::uint8_t {
 #include <syscape/detail/power/solaris.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
 #include <syscape/detail/power/haiku.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
+#include <syscape/detail/power/aix.hpp>
 #else
 #include <syscape/detail/power/generic.hpp>
 #endif

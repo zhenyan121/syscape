@@ -27,7 +27,8 @@
 /// holding open file descriptors, subject to operating-system caller
 /// permissions.
 /// @note FreeBSD exposes System V IPC limits through documented sysctl values;
-/// object inventories and local sockets report not_supported. Windows and macOS
+/// object inventories and local sockets report not_supported. AIX reports
+/// not_supported for IPC enumeration. Windows and macOS
 /// targets use their respective platform mechanisms or generic fallbacks.
 
 #include <syscape/detail/config.hpp>
@@ -46,7 +47,8 @@
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
-    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
+    !defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/ipc/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/ipc/windows.hpp>
@@ -73,6 +75,8 @@
 #include <syscape/detail/ipc/solaris.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
 #include <syscape/detail/ipc/haiku.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
+#include <syscape/detail/ipc/aix.hpp>
 #else
 #include <syscape/detail/ipc/generic.hpp>
 #endif

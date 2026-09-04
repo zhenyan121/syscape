@@ -24,13 +24,16 @@
 /// this header on Windows must link the Iphlpapi import library;
 /// applications using this header on Solaris link -lsocket -lnsl;
 /// applications using this header on Haiku link -lnetwork;
+/// applications using this header on AIX link -lperfstat -lbsd;
 /// Syscape itself stays header-only and does not add linkage for unrelated
 /// Hosted Full domains. Haiku implements interface enumeration through
 /// getifaddrs and DNS resolver configuration through resolv.conf files;
-/// routes, gateways, and statistics report not_supported. FreeBSD reads
-/// resolv.conf and getifaddrs traffic statistics, and reports routes and
-/// gateways as unsupported. Other targets use the generic not-supported
-/// fallback.
+/// routes, gateways, and statistics report not_supported. AIX implements
+/// interface enumeration via getifaddrs, traffic statistics via libperfstat,
+/// and DNS resolver configuration via resolv.conf; routes and gateways report
+/// not_supported. FreeBSD reads resolv.conf and getifaddrs traffic statistics,
+/// and reports routes and gateways as unsupported. Other targets use the
+/// generic not-supported fallback.
 /// @note Android interface enumeration requires API level 24 or later and
 /// reports not_supported on earlier API levels. Opening the AF_INET socket
 /// used for MTU queries may require android.permission.INTERNET.
@@ -64,7 +67,8 @@
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
-    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
+    !defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/network/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/network/windows.hpp>
@@ -91,6 +95,8 @@
 #include <syscape/detail/network/solaris.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
 #include <syscape/detail/network/haiku.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
+#include <syscape/detail/network/aix.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif

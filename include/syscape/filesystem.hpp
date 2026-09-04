@@ -20,7 +20,8 @@
 /// mounts from /etc/mnttab and queries capacity through POSIX statvfs. Haiku
 /// queries capacity through POSIX statvfs and volume identifier through
 /// dev_for_path and fs_stat_dev; mount enumeration reports not_supported due
-/// to lack of a public in-process C mount table interface.
+/// to lack of a public in-process C mount table interface. AIX enumerates
+/// mounts through mntctl / sys/vmount.h or statvfs.
 /// Other targets use the generic not-supported fallback.
 /// @note Path-limit queries use POSIX pathconf on Linux, macOS, Apple mobile
 /// platforms, and FreeBSD.
@@ -49,7 +50,8 @@
 #include <syscape/result.hpp>
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
-    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY)
+    !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
+    !defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/filesystem/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/filesystem/windows.hpp>
@@ -76,6 +78,8 @@
 #include <syscape/detail/filesystem/solaris.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
 #include <syscape/detail/filesystem/haiku.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
+#include <syscape/detail/filesystem/aix.hpp>
 #else
 #include <syscape/detail/filesystem/generic.hpp>
 #endif

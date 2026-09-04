@@ -13,6 +13,13 @@
 #define SYSCAPE_TARGET_HAIKU 1
 #endif
 
+#if defined(_AIX) || defined(__TOS_AIX__)
+#define SYSCAPE_TARGET_AIX 1
+#if !defined(_BSD)
+#define _BSD 44
+#endif
+#endif
+
 #if defined(__APPLE__) && defined(__MACH__)
 #if defined(__has_include)
 #if __has_include(<TargetConditionals.h>)
