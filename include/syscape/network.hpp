@@ -23,10 +23,14 @@
 /// The Windows sources require Windows Vista or later. Applications that use
 /// this header on Windows must link the Iphlpapi import library;
 /// applications using this header on Solaris link -lsocket -lnsl;
+/// applications using this header on Haiku link -lnetwork;
 /// Syscape itself stays header-only and does not add linkage for unrelated
-/// Hosted Full domains. FreeBSD reads resolv.conf and getifaddrs traffic
-/// statistics, and reports routes and gateways as unsupported. Other targets
-/// use the generic not-supported fallback.
+/// Hosted Full domains. Haiku implements interface enumeration through
+/// getifaddrs and DNS resolver configuration through resolv.conf files;
+/// routes, gateways, and statistics report not_supported. FreeBSD reads
+/// resolv.conf and getifaddrs traffic statistics, and reports routes and
+/// gateways as unsupported. Other targets use the generic not-supported
+/// fallback.
 /// @note Android interface enumeration requires API level 24 or later and
 /// reports not_supported on earlier API levels. Opening the AF_INET socket
 /// used for MTU queries may require android.permission.INTERNET.
@@ -85,6 +89,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/network/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/network/haiku.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif

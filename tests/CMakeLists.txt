@@ -675,6 +675,38 @@ if(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
     syscape_add_test(connection_solaris 17 syscape::hosted connection_solaris.cpp)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Haiku")
+    set(HAIKU_TEST_TARGETS
+        error_haiku
+        os_haiku
+        cpu_haiku
+        memory_haiku
+        process_haiku
+        user_haiku
+        filesystem_haiku
+        network_haiku
+        locale_haiku
+        environment_haiku
+        resource_haiku
+        virtualization_haiku
+        hardware_haiku
+        power_haiku
+        sensor_haiku
+        security_haiku
+        numa_haiku
+        process_list_haiku
+        printer_haiku
+        audio_haiku
+        software_haiku
+        storage_haiku
+        ipc_haiku
+        connection_haiku)
+    foreach(haiku_target IN LISTS HAIKU_TEST_TARGETS)
+        syscape_add_test(${haiku_target} 17 syscape::hosted ${haiku_target}.cpp)
+        target_link_libraries(${haiku_target} PRIVATE network)
+    endforeach()
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")

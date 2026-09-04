@@ -9,6 +9,10 @@
 #define SYSCAPE_TARGET_OPENHARMONY 1
 #endif
 
+#if defined(__HAIKU__)
+#define SYSCAPE_TARGET_HAIKU 1
+#endif
+
 #if defined(__APPLE__) && defined(__MACH__)
 #if defined(__has_include)
 #if __has_include(<TargetConditionals.h>)

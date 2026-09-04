@@ -42,6 +42,9 @@
 /// environment. Cgroup and namespace queries return not_supported.
 /// @note Solaris implements container queries through getzoneid() and
 /// getzonenamebyid().
+/// @note Haiku implements hypervisor detection through CPUID hypervisor leaves
+/// (0x1 and 0x40000000); container, sandbox, cgroup, and namespace queries
+/// report none, false, or not_supported.
 
 #include <syscape/detail/config.hpp>
 
@@ -264,6 +267,8 @@ struct cgroup_info {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/virtualization/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/virtualization/haiku.hpp>
 #else
 #include <syscape/detail/virtualization/generic.hpp>
 #endif

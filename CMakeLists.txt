@@ -38,6 +38,11 @@ if(CMAKE_SYSTEM_NAME MATCHES "^(OpenHarmony|OHOS)$" OR OHOS)
     endif()
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Haiku")
+    target_link_libraries(syscape_hosted INTERFACE network)
+    set(SYSCAPE_PKGCONFIG_LIBS "-lnetwork")
+endif()
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     option(SYSCAPE_BUILD_TESTS "Build Syscape tests" ON)
     option(SYSCAPE_BUILD_EXAMPLES "Build Syscape examples" ON)

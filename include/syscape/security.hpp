@@ -262,6 +262,8 @@ struct tpm_info {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/security/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/security/haiku.hpp>
 #else
 #include <syscape/detail/security/generic.hpp>
 #endif

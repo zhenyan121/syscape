@@ -150,6 +150,8 @@ enum class drive_health_status : std::uint8_t {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/storage/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/storage/haiku.hpp>
 #else
 #include <syscape/detail/storage/generic.hpp>
 #endif

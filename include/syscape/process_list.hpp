@@ -25,6 +25,11 @@
 /// under application sandbox rules; find_process(0) reports not_found.
 /// @note Android queries procfs (/proc/[pid]/...).
 /// @note Solaris queries procfs (/proc/[pid]/psinfo, /proc/[pid]/path).
+/// @note Haiku queries teams through get_next_team_info, areas via
+/// get_next_area_info, images via get_next_image_info, and CPU usage via
+/// get_team_usage_info; process state reports unknown because teams do not
+/// expose a single whole-process scheduling state, and command lines report
+/// nullopt due to lack of argument framing in kernel team_info.
 /// @note Processes and their metadata change continuously. Queries do not cache
 /// results. Unprivileged callers gracefully receive partial observable metadata
 /// for restricted processes rather than failing the enumeration.
@@ -149,6 +154,8 @@ struct process_entry {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/process_list/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/process_list/haiku.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif

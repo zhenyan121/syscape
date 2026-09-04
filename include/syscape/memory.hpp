@@ -27,8 +27,10 @@
 /// swap, and memory load through sysconf and /proc/meminfo. Solaris implements
 /// page size, physical and available memory, and memory load through sysconf,
 /// and swap capacity through swapctl (SC_GETNSWP and SC_LIST); commit,
-/// huge-page, and pressure queries report not_supported. Other targets use
-/// the not-supported fallback.
+/// huge-page, and pressure queries report not_supported. Haiku implements
+/// page size, physical and available memory, and memory load through
+/// get_system_info and B_PAGE_SIZE; swap, commit, huge-page, and pressure
+/// queries report not_supported. Other targets use the not-supported fallback.
 /// @note The Windows commit query uses GetPerformanceInfo declared in
 /// <psapi.h>, which maps to Kernel32.lib on Windows 7 or later SDKs and may
 /// require Psapi.lib with older declarations.
@@ -70,6 +72,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/memory/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/memory/haiku.hpp>
 #else
 #include <syscape/detail/memory/generic.hpp>
 #endif

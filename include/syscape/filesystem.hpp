@@ -17,7 +17,10 @@
 /// network shares without drive letters and other non-drive-letter volumes
 /// are not enumerated by this slice. Android enumerates mounts from
 /// /proc/self/mounts and queries capacity through statvfs. Solaris enumerates
-/// mounts from /etc/mnttab and queries capacity through POSIX statvfs.
+/// mounts from /etc/mnttab and queries capacity through POSIX statvfs. Haiku
+/// queries capacity through POSIX statvfs and volume identifier through
+/// dev_for_path and fs_stat_dev; mount enumeration reports not_supported due
+/// to lack of a public in-process C mount table interface.
 /// Other targets use the generic not-supported fallback.
 /// @note Path-limit queries use POSIX pathconf on Linux, macOS, Apple mobile
 /// platforms, and FreeBSD.
@@ -71,6 +74,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/filesystem/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/filesystem/haiku.hpp>
 #else
 #include <syscape/detail/filesystem/generic.hpp>
 #endif
@@ -282,8 +287,9 @@ inline result<path_length_limit> max_path_length(const std::string& path) {
 /// word pair, reported verbatim rather than normalized: Linux renders
 /// kernel-documented statfs f_fsid words and macOS renders the statfs
 /// f_fsid words as sixteen hexadecimal digits total in recorded order,
-/// while Windows renders the documented GetVolumeInformationW serial
-/// number as eight hexadecimal digits. An all-zero rendering is
+/// Windows renders the documented GetVolumeInformationW serial number as eight
+/// hexadecimal digits, and Haiku renders its native dev_t and 64-bit root
+/// ino_t words as twenty-four hexadecimal digits. An all-zero rendering is
 /// valid data because platforms that define no distinguishing
 /// identifier for a filesystem record zeros.
 ///

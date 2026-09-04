@@ -157,6 +157,8 @@ enum class power_source_type : std::uint8_t {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/power/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/power/haiku.hpp>
 #else
 #include <syscape/detail/power/generic.hpp>
 #endif

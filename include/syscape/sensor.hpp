@@ -177,6 +177,8 @@ struct thermal_zone {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     (defined(__sun) || defined(__sun__) || defined(sun))
 #include <syscape/detail/sensor/solaris.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__HAIKU__)
+#include <syscape/detail/sensor/haiku.hpp>
 #else
 #include <syscape/detail/sensor/generic.hpp>
 #endif

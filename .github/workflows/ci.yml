@@ -428,3 +428,15 @@ jobs:
             ./build/examples/example_peripherals_multimedia >/dev/null
             ./build/examples/example_process_monitor >/dev/null
             ./build/examples/example_software_inventory >/dev/null
+
+  haiku-gcc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test in Haiku VM
+        uses: vmactions/haiku-vm@v1
+        with:
+          release: "r1beta5"
+          run: |
+            sh .github/scripts/haiku-ci.sh

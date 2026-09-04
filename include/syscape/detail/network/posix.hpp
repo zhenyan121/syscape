@@ -15,9 +15,20 @@
 #if defined(__sun) || defined(__sun__)
 #include <sys/sockio.h>
 #endif
+#if defined(__HAIKU__)
+#include <sys/sockio.h>
+#endif
 #include <net/if.h>
 #include <netinet/in.h>
+#if defined(__HAIKU__) && !defined(_DEFAULT_SOURCE)
+#define _DEFAULT_SOURCE
+#define SYSCAPE_DETAIL_NETWORK_UNDEFINE_DEFAULT_SOURCE
+#endif
 #include <ifaddrs.h>
+#if defined(SYSCAPE_DETAIL_NETWORK_UNDEFINE_DEFAULT_SOURCE)
+#undef SYSCAPE_DETAIL_NETWORK_UNDEFINE_DEFAULT_SOURCE
+#undef _DEFAULT_SOURCE
+#endif
 #include <unistd.h>
 #if defined(AF_PACKET)
 #include <netpacket/packet.h>
@@ -132,7 +143,11 @@ inline network_common::interface_state classify_state(Flags flags) noexcept {
     if ((flags & static_cast<Flags>(IFF_UP)) == static_cast<Flags>(0)) {
         return network_common::interface_state::down;
     }
+#if defined(__HAIKU__)
+    if ((flags & static_cast<Flags>(IFF_LINK)) != static_cast<Flags>(0)) {
+#else
     if ((flags & static_cast<Flags>(IFF_RUNNING)) != static_cast<Flags>(0)) {
+#endif
         return network_common::interface_state::up;
     }
     return network_common::interface_state::unknown;
@@ -285,7 +300,7 @@ inline result<void> convert_ifaddrs_row(
         if (mtu) {
             created.mtu_bytes = *mtu;
         } else {
-#if defined(AF_LINK)
+#if defined(AF_LINK) && !defined(__HAIKU__)
             if (row.ifa_data != nullptr) {
                 const struct ::if_data* data =
                     reinterpret_cast<const struct ::if_data*>(row.ifa_data);
