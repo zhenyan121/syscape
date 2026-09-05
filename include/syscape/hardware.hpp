@@ -32,9 +32,9 @@
 /// hardware inventory API.
 /// @note AIX reports system manufacturer as "IBM"; model names, versions,
 /// UUID, and bus device inventories report not_supported.
-/// @note HP-UX, GNU/Hurd, and SerenityOS report system identity, firmware
-/// identity, UUID, and bus device inventories as not_supported because no
-/// verified public source currently provides their portable semantics.
+/// @note HP-UX, GNU/Hurd, SerenityOS, and Redox OS report system identity,
+/// firmware identity, UUID, and bus device inventories as not_supported because
+/// no verified public source currently provides their portable semantics.
 /// @note hardware_uuid() exposes a machine identifier. The query is explicit,
 /// preserves permission failures, performs no logging, persistence, or
 /// network access, and reports the SMBIOS-documented absence renderings as
@@ -317,7 +317,8 @@ struct memory_device {
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/hardware/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/hardware/windows.hpp>
@@ -353,6 +354,8 @@ struct memory_device {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/hardware/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/hardware/redox.hpp>
 #else
 #include <syscape/detail/hardware/generic.hpp>
 #endif

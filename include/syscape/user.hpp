@@ -21,7 +21,9 @@
 /// and HP-UX use POSIX user APIs and utmpx for sessions. SerenityOS uses its
 /// POSIX identity, passwd, and group APIs; login_name(), sessions(), and
 /// logged_in_users() report not_supported because SerenityOS does not provide
-/// getlogin_r or utmpx.
+/// getlogin_r or utmpx. Redox OS behaves similarly: login_name(), sessions(),
+/// and logged_in_users() report not_supported because getlogin_r and utmpx are
+/// unavailable.
 /// @note On Android, login_name() requires API level 28 or later; earlier API
 /// levels report not_supported while the remaining implemented identity
 /// queries continue to use older Bionic interfaces.
@@ -53,7 +55,8 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/user/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/user/windows.hpp>
@@ -89,6 +92,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/user/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/user/redox.hpp>
 #else
 #include <syscape/detail/user/generic.hpp>
 #endif

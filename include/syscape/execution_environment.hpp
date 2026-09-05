@@ -96,9 +96,10 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::hpux;
 #elif defined(__HAIKU__)
     return operating_system::haiku;
-#elif defined(__serenity__)
+#elif defined(__serenity__) || defined(SERENITY) ||                            \
+    defined(SYSCAPE_TARGET_SERENITY)
     return operating_system::serenityos;
-#elif defined(__redox__)
+#elif defined(__redox__) || defined(REDOX) || defined(SYSCAPE_TARGET_REDOX)
     return operating_system::redox;
 #elif defined(__GNU__)
     return operating_system::hurd;

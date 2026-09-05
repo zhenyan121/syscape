@@ -21,8 +21,8 @@
 /// /proc/asound/pcm, /sys/class/sound).
 /// @note Windows queries Win32 Core Audio MMDevice interfaces.
 /// @note macOS queries Darwin CoreAudio HAL interfaces.
-/// @note AIX, HP-UX, GNU/Hurd, and SerenityOS report not_supported for audio
-/// queries.
+/// @note AIX, HP-UX, GNU/Hurd, SerenityOS, and Redox OS report not_supported
+/// for audio queries.
 
 #include <syscape/detail/config.hpp>
 
@@ -119,7 +119,8 @@ struct audio_device {
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/audio/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/audio/windows.hpp>
@@ -155,6 +156,8 @@ struct audio_device {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/audio/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/audio/redox.hpp>
 #else
 #include <syscape/detail/audio/generic.hpp>
 #endif
