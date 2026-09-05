@@ -15,10 +15,10 @@
 /// - Active user login sessions and logged-in user names (sessions(),
 /// logged_in_users()).
 /// @note Linux, macOS, Apple mobile platforms (iOS, iPadOS, tvOS, watchOS,
-/// visionOS, and Mac Catalyst), FreeBSD, Solaris, Haiku, and AIX share POSIX
-/// backends querying passwd, groups, and getlogin_r. Haiku does not provide
-/// utmpx, so sessions() and logged_in_users() report not_supported. AIX uses
-/// POSIX user APIs and utmpx for sessions.
+/// visionOS, and Mac Catalyst), FreeBSD, Solaris, Haiku, AIX, and HP-UX share
+/// POSIX backends querying passwd, groups, and getlogin_r. Haiku does not
+/// provide utmpx, so sessions() and logged_in_users() report not_supported. AIX
+/// and HP-UX use POSIX user APIs and utmpx for sessions.
 /// @note On Android, login_name() requires API level 28 or later; earlier API
 /// levels report not_supported while the remaining implemented identity
 /// queries continue to use older Bionic interfaces.
@@ -49,7 +49,7 @@
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/user/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/user/windows.hpp>
@@ -78,6 +78,8 @@
 #include <syscape/detail/user/haiku.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/user/aix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
+#include <syscape/detail/user/hpux.hpp>
 #else
 #include <syscape/detail/user/generic.hpp>
 #endif

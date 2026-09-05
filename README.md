@@ -198,6 +198,15 @@ target_link_libraries(my_application PRIVATE syscape::hosted)
 
 Because Syscape is header-only with zero dependencies, you can also copy the `include/` directory directly into your project's include path and configure your compiler for C++17 (or C++11 for minimal profile headers).
 
+On HP-UX, direct-header users must additionally define
+`_XOPEN_SOURCE_EXTENDED=1`, `_PSTAT64=1`, and `_ICOD_BASE_INFO=1` on the
+compiler command line. They must be defined before any system header is
+included. `_PSTAT64=1` allows 32-bit applications to receive the full-width
+counters exported by a 64-bit kernel, while `_ICOD_BASE_INFO=1` exposes the
+processor-state fields used to exclude disabled processors. The exported
+CMake targets and pkg-config metadata supply all three definitions
+automatically.
+
 ---
 
 ## Building Tests and Examples

@@ -15,8 +15,8 @@
 /// - Operating-system thermal zones and cooling trip points (thermal_zones()).
 /// @note Linux queries /sys/class/hwmon and /sys/class/thermal.
 /// Android queries /sys/class/thermal for thermal zones and temperature
-/// sensors. Windows, macOS, and AIX currently report not_supported because no
-/// stable, public backend has been implemented for these queries.
+/// sensors. Windows, macOS, AIX, and HP-UX currently report not_supported
+/// because no stable, public backend has been implemented for these queries.
 
 #include <syscape/detail/config.hpp>
 
@@ -153,7 +153,7 @@ struct thermal_zone {
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/sensor/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/sensor/windows.hpp>
@@ -182,6 +182,8 @@ struct thermal_zone {
 #include <syscape/detail/sensor/haiku.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/sensor/aix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
+#include <syscape/detail/sensor/hpux.hpp>
 #else
 #include <syscape/detail/sensor/generic.hpp>
 #endif

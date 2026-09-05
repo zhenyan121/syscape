@@ -31,7 +31,8 @@
 /// Iphlpapi.lib. The supplied CMake tests demonstrate this SDK linkage without
 /// imposing it on unrelated modules.
 /// @note macOS queries Darwin libproc socket inspection APIs.
-/// @note AIX reports not_supported for socket and connection inspection.
+/// @note AIX and HP-UX report not_supported for socket and connection
+/// inspection.
 /// @note Network connections change continuously. Queries do not cache results.
 /// Unprivileged callers receive partial observable metadata without failing the
 /// whole snapshot.
@@ -54,7 +55,7 @@
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/connection/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/connection/windows.hpp>
@@ -83,6 +84,8 @@
 #include <syscape/detail/connection/haiku.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/connection/aix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
+#include <syscape/detail/connection/hpux.hpp>
 #else
 #include <syscape/detail/connection/generic.hpp>
 #endif

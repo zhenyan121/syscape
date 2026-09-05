@@ -741,6 +741,49 @@ if(CMAKE_SYSTEM_NAME STREQUAL "AIX" OR AIX)
     endforeach()
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "HP-UX" OR HPUX)
+    set(HPUX_TEST_TARGETS
+        os_hpux
+        cpu_hpux
+        memory_hpux
+        process_hpux
+        user_hpux
+        filesystem_hpux
+        network_hpux
+        locale_hpux
+        environment_hpux
+        resource_hpux
+        virtualization_hpux
+        hardware_hpux
+        power_hpux
+        sensor_hpux
+        security_hpux
+        numa_hpux
+        process_list_hpux
+        printer_hpux
+        audio_hpux
+        software_hpux
+        storage_hpux
+        ipc_hpux
+        connection_hpux)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "HP-UX")
+        add_library(hpux_pstat_compat STATIC compat/hpux/pstat_compat.cpp)
+        target_include_directories(hpux_pstat_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/hpux)
+        target_compile_features(hpux_pstat_compat PUBLIC cxx_std_17)
+        target_compile_definitions(hpux_pstat_compat PUBLIC _PSTAT64=1 _ICOD_BASE_INFO=1)
+    endif()
+    foreach(hpux_target IN LISTS HPUX_TEST_TARGETS)
+        syscape_add_test(${hpux_target} 17 syscape::hosted ${hpux_target}.cpp)
+        target_compile_definitions(${hpux_target} PRIVATE __hpux=1 _XOPEN_SOURCE_EXTENDED=1 _PSTAT64=1 _ICOD_BASE_INFO=1)
+        if(NOT CMAKE_SYSTEM_NAME STREQUAL "HP-UX")
+            target_link_libraries(${hpux_target} PRIVATE hpux_pstat_compat)
+            target_include_directories(${hpux_target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/compat/hpux)
+            target_compile_definitions(${hpux_target} PRIVATE SYSCAPE_HPUX_PSTAT_MOCK=1)
+        endif()
+    endforeach()
+endif()
+
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")

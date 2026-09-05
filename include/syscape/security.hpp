@@ -37,8 +37,8 @@
 /// @note Android queries Verified Boot properties and randomize_va_space for
 /// ASLR.
 /// @note macOS reports full ASLR, SIP status, and fallback security properties.
-/// @note AIX reports not_supported for Secure Boot, LSM, and TPM without
-/// specialized PowerSC or firmware tooling.
+/// @note AIX and HP-UX report not_supported for Secure Boot, LSM, and TPM
+/// without specialized PowerSC, PDC/firmware, or integrity tooling.
 
 #include <syscape/detail/config.hpp>
 
@@ -240,7 +240,7 @@ struct tpm_info {
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/security/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/security/windows.hpp>
@@ -269,6 +269,8 @@ struct tpm_info {
 #include <syscape/detail/security/haiku.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/security/aix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
+#include <syscape/detail/security/hpux.hpp>
 #else
 #include <syscape/detail/security/generic.hpp>
 #endif

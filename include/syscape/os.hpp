@@ -7,11 +7,11 @@
 /// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
 /// @note Linux, Windows, macOS, Apple mobile platforms (iOS, iPadOS, tvOS,
 /// watchOS, visionOS, and Mac Catalyst), Android, OpenHarmony, FreeBSD,
-/// OpenBSD, NetBSD, DragonFly BSD, Solaris, Haiku, and AIX have native
+/// OpenBSD, NetBSD, DragonFly BSD, Solaris, Haiku, AIX, and HP-UX have native
 /// backends. Haiku implements OS identity and boot queries through uname,
-/// get_system_info, and system_time. AIX implements OS identity and uptime
-/// through uname, sysconf, and gethostname. Other targets use the generic
-/// not-supported fallback.
+/// get_system_info, and system_time. AIX and HP-UX implement OS identity and
+/// uptime through uname, sysconf, and gethostname. Other targets use the
+/// generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows Vista or later SDK declarations.
@@ -30,7 +30,7 @@
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/os/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/os/windows.hpp>
@@ -59,6 +59,8 @@
 #include <syscape/detail/os/haiku.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/os/aix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
+#include <syscape/detail/os/hpux.hpp>
 #else
 #include <syscape/detail/os/generic.hpp>
 #endif

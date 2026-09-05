@@ -20,7 +20,7 @@
 /// files for time zones, reporting language preferences and region codes as
 /// not_supported. Haiku reads /boot/system/settings/Timezone and /etc/localtime
 /// for time zones, reporting language preferences and region codes as
-/// not_supported. AIX uses POSIX locale and TZ facilities, reporting
+/// not_supported. AIX and HP-UX use POSIX locale and TZ facilities, reporting
 /// language preferences and region codes as not_supported.
 /// Other targets use the generic not-supported fallback. On
 /// Android, text_encoding() requires API level 26 or later and reports
@@ -53,7 +53,7 @@
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/locale/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/locale/windows.hpp>
@@ -82,6 +82,8 @@
 #include <syscape/detail/locale/haiku.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/locale/aix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
+#include <syscape/detail/locale/hpux.hpp>
 #else
 #include <syscape/detail/locale/generic.hpp>
 #endif

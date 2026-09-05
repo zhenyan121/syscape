@@ -20,6 +20,16 @@
 #endif
 #endif
 
+#if defined(__hpux) || defined(__hpux__)
+#define SYSCAPE_TARGET_HPUX 1
+#if !defined(_XOPEN_SOURCE_EXTENDED)
+#define _XOPEN_SOURCE_EXTENDED 1
+#endif
+#if !defined(_PSTAT64)
+#define _PSTAT64 1
+#endif
+#endif
+
 #if defined(__APPLE__) && defined(__MACH__)
 #if defined(__has_include)
 #if __has_include(<TargetConditionals.h>)

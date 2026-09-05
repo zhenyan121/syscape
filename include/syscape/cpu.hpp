@@ -45,8 +45,11 @@
 /// not_supported. AIX implements online logical processor count via sysconf,
 /// vendor identifiers, and utilization via libperfstat; physical core count,
 /// package count, clock frequencies, cache descriptors, and instruction-set
-/// features report not_supported.
-/// All other targets use the not-supported fallback.
+/// features report not_supported. HP-UX implements online logical processor
+/// count via sysconf, and cumulative utilization via pstat_getprocessor; vendor
+/// identifiers, model names, physical core count, package count, clock
+/// frequencies, cache descriptors, and instruction-set features report
+/// not_supported. All other targets use the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
 
@@ -85,7 +88,7 @@ enum class cache_kind : std::uint8_t {
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/cpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/cpu/windows.hpp>
@@ -114,6 +117,8 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/detail/cpu/haiku.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AIX)
 #include <syscape/detail/cpu/aix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
+#include <syscape/detail/cpu/hpux.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif

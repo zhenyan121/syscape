@@ -92,7 +92,7 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::solaris;
 #elif defined(SYSCAPE_TARGET_AIX)
     return operating_system::aix;
-#elif defined(__hpux)
+#elif defined(SYSCAPE_TARGET_HPUX) || defined(__hpux) || defined(__hpux__)
     return operating_system::hpux;
 #elif defined(__HAIKU__)
     return operating_system::haiku;
