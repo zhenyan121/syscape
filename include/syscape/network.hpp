@@ -33,9 +33,12 @@
 /// and DNS resolver configuration via resolv.conf; routes and gateways report
 /// not_supported. HP-UX implements interface enumeration via getifaddrs and
 /// DNS resolver configuration via resolv.conf; routes, gateways, and statistics
-/// report not_supported. FreeBSD reads resolv.conf and getifaddrs traffic
-/// statistics, and reports routes and gateways as unsupported. Other targets
-/// use the generic not-supported fallback.
+/// report not_supported. GNU/Hurd and SerenityOS implement interface
+/// enumeration via getifaddrs and DNS resolver configuration via resolv.conf;
+/// routes, gateways, and statistics report not_supported. FreeBSD reads
+/// resolv.conf and getifaddrs traffic statistics, and reports routes and
+/// gateways as unsupported. Other targets use the generic not-supported
+/// fallback.
 /// @note Android interface enumeration requires API level 24 or later and
 /// reports not_supported on earlier API levels. Opening the AF_INET socket
 /// used for MTU queries may require android.permission.INTERNET.
@@ -71,7 +74,7 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/network/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/network/windows.hpp>
@@ -104,6 +107,9 @@
 #include <syscape/detail/network/hpux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HURD)
 #include <syscape/detail/network/hurd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_SERENITY)
+#include <syscape/detail/network/serenity.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif

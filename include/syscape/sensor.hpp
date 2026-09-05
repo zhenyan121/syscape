@@ -154,7 +154,7 @@ struct thermal_zone {
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/sensor/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/sensor/windows.hpp>
@@ -187,6 +187,9 @@ struct thermal_zone {
 #include <syscape/detail/sensor/hpux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HURD)
 #include <syscape/detail/sensor/hurd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_SERENITY)
+#include <syscape/detail/sensor/serenity.hpp>
 #else
 #include <syscape/detail/sensor/generic.hpp>
 #endif

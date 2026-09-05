@@ -814,6 +814,37 @@ if(CMAKE_SYSTEM_NAME STREQUAL "GNU" OR HURD)
     endforeach()
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "SerenityOS" OR SERENITY)
+    set(SERENITY_TEST_TARGETS
+        os_serenity
+        cpu_serenity
+        memory_serenity
+        process_serenity
+        user_serenity
+        filesystem_serenity
+        network_serenity
+        locale_serenity
+        environment_serenity
+        resource_serenity
+        virtualization_serenity
+        hardware_serenity
+        power_serenity
+        sensor_serenity
+        security_serenity
+        numa_serenity
+        process_list_serenity
+        printer_serenity
+        audio_serenity
+        software_serenity
+        storage_serenity
+        ipc_serenity
+        connection_serenity)
+    foreach(serenity_target IN LISTS SERENITY_TEST_TARGETS)
+        syscape_add_test(${serenity_target} 17 syscape::hosted ${serenity_target}.cpp)
+        target_compile_definitions(${serenity_target} PRIVATE __serenity__=1 SERENITY=1)
+    endforeach()
+endif()
+
 
 if(APPLE)
     target_link_libraries(

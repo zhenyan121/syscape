@@ -32,6 +32,10 @@
 /// nullopt due to lack of argument framing in kernel team_info.
 /// @note AIX queries getprocs64.
 /// @note HP-UX queries pstat_getproc and pstat_getstatic.
+/// @note SerenityOS enumerates observable procfs PID directories and reports
+/// their directory ownership. Other metadata and name-based lookup report
+/// not_supported until a stable public source with matching semantics is
+/// available.
 /// @note Processes and their metadata change continuously. Queries do not cache
 /// results. Unprivileged callers gracefully receive partial observable metadata
 /// for restricted processes rather than failing the enumeration.
@@ -133,7 +137,7 @@ struct process_entry {
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/process_list/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process_list/windows.hpp>
@@ -166,6 +170,9 @@ struct process_entry {
 #include <syscape/detail/process_list/hpux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HURD)
 #include <syscape/detail/process_list/hurd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_SERENITY)
+#include <syscape/detail/process_list/serenity.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif

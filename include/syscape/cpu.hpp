@@ -47,9 +47,13 @@
 /// package count, clock frequencies, cache descriptors, and instruction-set
 /// features report not_supported. HP-UX implements online logical processor
 /// count via sysconf, and cumulative utilization via pstat_getprocessor; vendor
-/// identifiers, model names, physical core count, package count, clock
-/// frequencies, cache descriptors, and instruction-set features report
-/// not_supported. All other targets use the not-supported fallback.
+/// GNU/Hurd implements online logical processor count via sysconf, vendor
+/// identifiers and model names via /proc/cpuinfo, and cumulative processor
+/// usage via /proc/stat; physical core count, package count, clock frequencies,
+/// cache descriptors, and instruction-set features report not_supported.
+/// SerenityOS reports not_supported for CPU queries until a stable public
+/// interface with the portable semantics is available. All other targets use
+/// the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
 
@@ -89,7 +93,7 @@ enum class cache_kind : std::uint8_t {
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/cpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/cpu/windows.hpp>
@@ -122,6 +126,9 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/detail/cpu/hpux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HURD)
 #include <syscape/detail/cpu/hurd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_SERENITY)
+#include <syscape/detail/cpu/serenity.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif

@@ -18,7 +18,10 @@
 /// visionOS, and Mac Catalyst), FreeBSD, Solaris, Haiku, AIX, and HP-UX share
 /// POSIX backends querying passwd, groups, and getlogin_r. Haiku does not
 /// provide utmpx, so sessions() and logged_in_users() report not_supported. AIX
-/// and HP-UX use POSIX user APIs and utmpx for sessions.
+/// and HP-UX use POSIX user APIs and utmpx for sessions. SerenityOS uses its
+/// POSIX identity, passwd, and group APIs; login_name(), sessions(), and
+/// logged_in_users() report not_supported because SerenityOS does not provide
+/// getlogin_r or utmpx.
 /// @note On Android, login_name() requires API level 28 or later; earlier API
 /// levels report not_supported while the remaining implemented identity
 /// queries continue to use older Bionic interfaces.
@@ -50,7 +53,7 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/user/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/user/windows.hpp>
@@ -83,6 +86,9 @@
 #include <syscape/detail/user/hpux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HURD)
 #include <syscape/detail/user/hurd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_SERENITY)
+#include <syscape/detail/user/serenity.hpp>
 #else
 #include <syscape/detail/user/generic.hpp>
 #endif

@@ -36,6 +36,12 @@
 #define SYSCAPE_TARGET_HURD 1
 #endif
 
+#if defined(__serenity__)
+#define SYSCAPE_TARGET_SERENITY 1
+#elif defined(SERENITY)
+#define SYSCAPE_TARGET_SERENITY 1
+#endif
+
 #if defined(__APPLE__) && defined(__MACH__)
 #if defined(__has_include)
 #if __has_include(<TargetConditionals.h>)

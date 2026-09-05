@@ -23,6 +23,11 @@
 /// to lack of a public in-process C mount table interface. AIX enumerates
 /// mounts through mntctl / sys/vmount.h or statvfs. HP-UX enumerates mounts
 /// from /etc/mnttab (mntent) and queries capacity through POSIX statvfs.
+/// GNU/Hurd enumerates mounts from /proc/mounts, /etc/mtab, or /etc/fstab and
+/// queries capacity through POSIX statvfs. SerenityOS implements capacity,
+/// path-limit, and volume-identifier queries through POSIX interfaces; mount
+/// enumeration reports not_supported because its procfs does not expose a
+/// portable live mount table.
 /// Other targets use the generic not-supported fallback.
 /// @note Path-limit queries use POSIX pathconf on Linux, macOS, Apple mobile
 /// platforms, and FreeBSD.
@@ -53,7 +58,7 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/filesystem/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/filesystem/windows.hpp>
@@ -86,6 +91,9 @@
 #include <syscape/detail/filesystem/hpux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HURD)
 #include <syscape/detail/filesystem/hurd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_SERENITY)
+#include <syscape/detail/filesystem/serenity.hpp>
 #else
 #include <syscape/detail/filesystem/generic.hpp>
 #endif
