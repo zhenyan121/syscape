@@ -17,7 +17,7 @@
 #include <string>
 #include <system_error>
 #include <type_traits>
-#if !defined(SYSCAPE_TARGET_SERENITY)
+#if !defined(SYSCAPE_TARGET_SERENITY) && !defined(SYSCAPE_TARGET_REDOX)
 #include <utmpx.h>
 #endif
 #include <vector>
@@ -27,7 +27,7 @@
 #include <pwd.h>
 
 #include <syscape/detail/posix/passwd.hpp>
-#if !defined(SYSCAPE_TARGET_SERENITY)
+#if !defined(SYSCAPE_TARGET_SERENITY) && !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/posix/utmpx.hpp>
 #endif
 #include <syscape/detail/user/common.hpp>
@@ -38,7 +38,7 @@ namespace syscape {
 namespace detail {
 namespace user_backend {
 
-#if !defined(SYSCAPE_TARGET_SERENITY)
+#if !defined(SYSCAPE_TARGET_SERENITY) && !defined(SYSCAPE_TARGET_REDOX)
 
 /// Safely extracts a null-terminated string from a fixed-size char array.
 template <std::size_t N>
@@ -404,7 +404,7 @@ inline result<std::string> lookup_login_with_growth(LoginOperation login) {
 
 /// Returns the login name recorded for the calling process's session.
 inline result<std::string> login_name() {
-#if defined(SYSCAPE_TARGET_SERENITY)
+#if defined(SYSCAPE_TARGET_SERENITY) || defined(SYSCAPE_TARGET_REDOX)
     return fail(errc::not_supported);
 #else
     return lookup_login_with_growth([](char* buffer, std::size_t size) {

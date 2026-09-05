@@ -27,7 +27,9 @@
 /// queries capacity through POSIX statvfs. SerenityOS implements capacity,
 /// path-limit, and volume-identifier queries through POSIX interfaces; mount
 /// enumeration reports not_supported because its procfs does not expose a
-/// portable live mount table.
+/// portable live mount table. Redox OS implements capacity via statvfs,
+/// volume identifier via statvfs and stat, and path limits via pathconf after
+/// path validation; mount enumeration reports not_supported.
 /// Other targets use the generic not-supported fallback.
 /// @note Path-limit queries use POSIX pathconf on Linux, macOS, Apple mobile
 /// platforms, and FreeBSD.
@@ -58,7 +60,8 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/filesystem/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/filesystem/windows.hpp>
@@ -94,6 +97,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/filesystem/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/filesystem/redox.hpp>
 #else
 #include <syscape/detail/filesystem/generic.hpp>
 #endif

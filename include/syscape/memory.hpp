@@ -39,8 +39,9 @@
 /// GNU/Hurd implements page size via sysconf, and physical memory, available
 /// memory, swap status, and memory load via /proc/meminfo; commit, huge-page,
 /// and pressure queries report not_supported. SerenityOS implements page size
-/// through getpagesize; all other memory queries report not_supported. Other
-/// targets use the not-supported fallback.
+/// through getpagesize; all other memory queries report not_supported. Redox OS
+/// implements page size through getpagesize; all other memory queries report
+/// not_supported. Other targets use the not-supported fallback.
 /// @note The Windows commit query uses GetPerformanceInfo declared in
 /// <psapi.h>, which maps to Kernel32.lib on Windows 7 or later SDKs and may
 /// require Psapi.lib with older declarations.
@@ -59,7 +60,8 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/memory/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/memory/windows.hpp>
@@ -95,6 +97,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/memory/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/memory/redox.hpp>
 #else
 #include <syscape/detail/memory/generic.hpp>
 #endif

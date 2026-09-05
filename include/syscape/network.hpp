@@ -35,8 +35,10 @@
 /// DNS resolver configuration via resolv.conf; routes, gateways, and statistics
 /// report not_supported. GNU/Hurd and SerenityOS implement interface
 /// enumeration via getifaddrs and DNS resolver configuration via resolv.conf;
-/// routes, gateways, and statistics report not_supported. FreeBSD reads
-/// resolv.conf and getifaddrs traffic statistics, and reports routes and
+/// routes, gateways, and statistics report not_supported. Redox OS implements
+/// DNS resolver configuration via /etc/net/dns (falling back to resolv.conf);
+/// interfaces, routes, gateways, and statistics report not_supported. FreeBSD
+/// reads resolv.conf and getifaddrs traffic statistics, and reports routes and
 /// gateways as unsupported. Other targets use the generic not-supported
 /// fallback.
 /// @note Android interface enumeration requires API level 24 or later and
@@ -74,7 +76,8 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/network/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/network/windows.hpp>
@@ -110,6 +113,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/network/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/network/redox.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif

@@ -15,9 +15,9 @@
 /// GetNumaNodeProcessorMaskEx, GetNumaNodeProcessorMask2 when available,
 /// GetNumaAvailableMemoryNodeEx, GetCurrentProcessorNumberEx, and
 /// GetNumaProcessorNodeEx). macOS operates on Uniform Memory Access (UMA)
-/// architectures and reports a single unified node or unsupported. AIX and
-/// HP-UX report not_supported for NUMA topology. Other
-/// targets use the not-supported generic fallback.
+/// architectures and reports a single unified node or unsupported. AIX,
+/// HP-UX, GNU/Hurd, SerenityOS, and Redox OS report not_supported for NUMA
+/// topology. Other targets use the not-supported generic fallback.
 
 #include <syscape/detail/config.hpp>
 
@@ -35,7 +35,8 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/numa/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/numa/windows.hpp>
@@ -71,6 +72,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/numa/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/numa/redox.hpp>
 #else
 #include <syscape/detail/numa/generic.hpp>
 #endif

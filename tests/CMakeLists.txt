@@ -845,6 +845,37 @@ if(CMAKE_SYSTEM_NAME STREQUAL "SerenityOS" OR SERENITY)
     endforeach()
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Redox" OR REDOX)
+    set(REDOX_TEST_TARGETS
+        os_redox
+        cpu_redox
+        memory_redox
+        process_redox
+        user_redox
+        filesystem_redox
+        network_redox
+        locale_redox
+        environment_redox
+        resource_redox
+        virtualization_redox
+        hardware_redox
+        power_redox
+        sensor_redox
+        security_redox
+        numa_redox
+        process_list_redox
+        printer_redox
+        audio_redox
+        software_redox
+        storage_redox
+        ipc_redox
+        connection_redox)
+    foreach(redox_target IN LISTS REDOX_TEST_TARGETS)
+        syscape_add_test(${redox_target} 17 syscape::hosted ${redox_target}.cpp)
+        target_compile_definitions(${redox_target} PRIVATE __redox__=1 REDOX=1)
+    endforeach()
+endif()
+
 
 if(APPLE)
     target_link_libraries(

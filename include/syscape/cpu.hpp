@@ -52,8 +52,9 @@
 /// usage via /proc/stat; physical core count, package count, clock frequencies,
 /// cache descriptors, and instruction-set features report not_supported.
 /// SerenityOS reports not_supported for CPU queries until a stable public
-/// interface with the portable semantics is available. All other targets use
-/// the not-supported fallback.
+/// interface with the portable semantics is available. Redox OS implements
+/// online logical processor count via /scheme/sys/cpu; other CPU queries
+/// report not_supported. All other targets use the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
 
@@ -93,7 +94,8 @@ enum class cache_kind : std::uint8_t {
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/cpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/cpu/windows.hpp>
@@ -129,6 +131,8 @@ enum class cache_kind : std::uint8_t {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/cpu/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/cpu/redox.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif

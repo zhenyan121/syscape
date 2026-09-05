@@ -42,6 +42,12 @@
 #define SYSCAPE_TARGET_SERENITY 1
 #endif
 
+#if defined(__redox__)
+#define SYSCAPE_TARGET_REDOX 1
+#elif defined(REDOX)
+#define SYSCAPE_TARGET_REDOX 1
+#endif
+
 #if defined(__APPLE__) && defined(__MACH__)
 #if defined(__has_include)
 #if __has_include(<TargetConditionals.h>)

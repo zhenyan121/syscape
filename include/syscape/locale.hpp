@@ -20,8 +20,8 @@
 /// files for time zones, reporting language preferences and region codes as
 /// not_supported. Haiku reads /boot/system/settings/Timezone and /etc/localtime
 /// for time zones, reporting language preferences and region codes as
-/// not_supported. AIX, HP-UX, GNU/Hurd, and SerenityOS use POSIX locale and TZ
-/// facilities, reporting language preferences and region codes as
+/// not_supported. AIX, HP-UX, GNU/Hurd, SerenityOS, and Redox OS use POSIX
+/// locale and TZ facilities, reporting language preferences and region codes as
 /// not_supported. Other targets use the generic not-supported fallback. On
 /// Android, text_encoding() requires API level 26 or later and reports
 /// not_supported on earlier API levels.
@@ -54,7 +54,8 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/locale/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/locale/windows.hpp>
@@ -90,6 +91,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/locale/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/locale/redox.hpp>
 #else
 #include <syscape/detail/locale/generic.hpp>
 #endif

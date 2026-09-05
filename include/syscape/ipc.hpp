@@ -28,7 +28,7 @@
 /// permissions.
 /// @note FreeBSD exposes System V IPC limits through documented sysctl values;
 /// object inventories and local sockets report not_supported. AIX, HP-UX,
-/// GNU/Hurd, and SerenityOS report not_supported for IPC enumeration.
+/// GNU/Hurd, SerenityOS, and Redox OS report not_supported for IPC enumeration.
 /// Windows and macOS targets use their respective platform mechanisms or
 /// generic fallbacks.
 
@@ -50,7 +50,8 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/ipc/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/ipc/windows.hpp>
@@ -86,6 +87,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/ipc/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/ipc/redox.hpp>
 #else
 #include <syscape/detail/ipc/generic.hpp>
 #endif

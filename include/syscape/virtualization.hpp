@@ -49,6 +49,10 @@
 /// report none, false, or not_supported.
 /// @note HP-UX hypervisor, container, sandbox, cgroup, and namespace queries
 /// report not_supported.
+/// @note SerenityOS hypervisor, container, sandbox, cgroup, and namespace
+/// queries report not_supported.
+/// @note Redox hypervisor, container, sandbox, cgroup, and namespace queries
+/// report not_supported.
 
 #include <syscape/detail/config.hpp>
 
@@ -248,7 +252,8 @@ struct cgroup_info {
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/virtualization/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/virtualization/windows.hpp>
@@ -284,6 +289,8 @@ struct cgroup_info {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/virtualization/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/virtualization/redox.hpp>
 #else
 #include <syscape/detail/virtualization/generic.hpp>
 #endif

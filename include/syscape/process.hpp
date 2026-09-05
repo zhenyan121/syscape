@@ -25,8 +25,11 @@
 /// executable path, and CPU affinity report not_supported. SerenityOS
 /// implements PID, parent PID, executable path, working directory, CPU time,
 /// priority, and resource limits; command line, memory usage, start time,
-/// thread count, and CPU affinity report not_supported. Other targets use the
-/// generic not-supported fallback.
+/// thread count, and CPU affinity report not_supported. Redox OS implements
+/// PID, parent PID, working directory, and priority; executable path, command
+/// line, CPU time, memory usage, start time, thread count, CPU affinity, and
+/// resource limits report not_supported.
+/// Other targets use the generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows 7 or later SDK declarations.
@@ -55,7 +58,8 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/process/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process/windows.hpp>
@@ -91,6 +95,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/process/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/process/redox.hpp>
 #else
 #include <syscape/detail/process/generic.hpp>
 #endif

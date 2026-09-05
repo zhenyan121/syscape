@@ -25,8 +25,8 @@
 /// queues with direct USB printer nodes; both platforms can fall back to the
 /// persistent CUPS configuration when no daemon is available.
 /// @note Windows queries the official Win32 Print Spooler APIs (winspool.h).
-/// @note AIX and HP-UX report not_supported for printer spooler queries without
-/// CUPS/qdaemon/lp.
+/// @note AIX, HP-UX, GNU/Hurd, SerenityOS, and Redox OS report not_supported
+/// for printer spooler queries.
 /// @note Printing environments and queues can change dynamically. Queries do
 /// not cache results.
 
@@ -147,7 +147,8 @@ struct printer_info {
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/printer/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/printer/windows.hpp>
@@ -183,6 +184,8 @@ struct printer_info {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/printer/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/printer/redox.hpp>
 #else
 #include <syscape/detail/printer/generic.hpp>
 #endif

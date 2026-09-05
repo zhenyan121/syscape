@@ -36,6 +36,12 @@
 /// their directory ownership. Other metadata and name-based lookup report
 /// not_supported until a stable public source with matching semantics is
 /// available.
+/// @note Redox OS queries /scheme/sys/context to enumerate active processes
+/// and their lifecycle execution states. Because context names represent
+/// individual thread context names rather than verified process-level command
+/// names, name remains nullopt. Real UID/GID ownership is also not exposed by
+/// the kernel context snapshot, so uid, gid, and user_name remain unpopulated.
+/// Name-based lookup reports not_supported.
 /// @note Processes and their metadata change continuously. Queries do not cache
 /// results. Unprivileged callers gracefully receive partial observable metadata
 /// for restricted processes rather than failing the enumeration.
@@ -137,7 +143,8 @@ struct process_entry {
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/process_list/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process_list/windows.hpp>
@@ -173,6 +180,8 @@ struct process_entry {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/process_list/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/process_list/redox.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif

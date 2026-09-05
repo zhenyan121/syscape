@@ -15,8 +15,9 @@
 /// - Operating-system thermal zones and cooling trip points (thermal_zones()).
 /// @note Linux queries /sys/class/hwmon and /sys/class/thermal.
 /// Android queries /sys/class/thermal for thermal zones and temperature
-/// sensors. Windows, macOS, AIX, and HP-UX currently report not_supported
-/// because no stable, public backend has been implemented for these queries.
+/// sensors. Windows, macOS, AIX, HP-UX, GNU/Hurd, SerenityOS, and Redox OS
+/// currently report not_supported because no stable, public backend has been
+/// implemented for these queries.
 
 #include <syscape/detail/config.hpp>
 
@@ -154,7 +155,8 @@ struct thermal_zone {
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
+    !defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/sensor/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/sensor/windows.hpp>
@@ -190,6 +192,8 @@ struct thermal_zone {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/sensor/serenity.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
+#include <syscape/detail/sensor/redox.hpp>
 #else
 #include <syscape/detail/sensor/generic.hpp>
 #endif
