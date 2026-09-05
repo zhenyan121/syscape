@@ -30,6 +30,12 @@
 #endif
 #endif
 
+#if defined(__GNU__) && !defined(__linux__)
+#define SYSCAPE_TARGET_HURD 1
+#elif defined(HURD) || defined(SYSCAPE_TARGET_HURD)
+#define SYSCAPE_TARGET_HURD 1
+#endif
+
 #if defined(__APPLE__) && defined(__MACH__)
 #if defined(__has_include)
 #if __has_include(<TargetConditionals.h>)

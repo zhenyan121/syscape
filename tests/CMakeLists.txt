@@ -783,6 +783,37 @@ if(CMAKE_SYSTEM_NAME STREQUAL "HP-UX" OR HPUX)
     endforeach()
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "GNU" OR HURD)
+    set(HURD_TEST_TARGETS
+        os_hurd
+        cpu_hurd
+        memory_hurd
+        process_hurd
+        user_hurd
+        filesystem_hurd
+        network_hurd
+        locale_hurd
+        environment_hurd
+        resource_hurd
+        virtualization_hurd
+        hardware_hurd
+        power_hurd
+        sensor_hurd
+        security_hurd
+        numa_hurd
+        process_list_hurd
+        printer_hurd
+        audio_hurd
+        software_hurd
+        storage_hurd
+        ipc_hurd
+        connection_hurd)
+    foreach(hurd_target IN LISTS HURD_TEST_TARGETS)
+        syscape_add_test(${hurd_target} 17 syscape::hosted ${hurd_target}.cpp)
+        target_compile_definitions(${hurd_target} PRIVATE __GNU__=1 HURD=1)
+    endforeach()
+endif()
+
 
 if(APPLE)
     target_link_libraries(
