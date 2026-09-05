@@ -10,8 +10,10 @@
 /// OpenBSD, NetBSD, DragonFly BSD, Solaris, Haiku, AIX, and HP-UX have native
 /// backends. Haiku implements OS identity and boot queries through uname,
 /// get_system_info, and system_time. AIX and HP-UX implement OS identity and
-/// uptime through uname, sysconf, and gethostname. Other targets use the
-/// generic not-supported fallback.
+/// uptime through uname, sysconf, and gethostname. SerenityOS implements OS
+/// identity through uname and gethostname, and uptime and approximate boot time
+/// through CLOCK_MONOTONIC. Other targets use the generic not-supported
+/// fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows Vista or later SDK declarations.
@@ -31,7 +33,7 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/os/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/os/windows.hpp>
@@ -64,6 +66,9 @@
 #include <syscape/detail/os/hpux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HURD)
 #include <syscape/detail/os/hurd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_SERENITY)
+#include <syscape/detail/os/serenity.hpp>
 #else
 #include <syscape/detail/os/generic.hpp>
 #endif

@@ -40,8 +40,9 @@
 /// not_supported. HP-UX implements load average via pstat_getdynamic, process
 /// count via pstat_getdynamic (psd_activeprocs), and file descriptor limit via
 /// sysconf; scheduler entities, thread count, open file count, and open handle
-/// count report not_supported. All other targets use the not-supported
-/// fallback.
+/// count report not_supported. SerenityOS implements the process file
+/// descriptor limit through getdtablesize; all other resource queries report
+/// not_supported. All other targets use the not-supported fallback.
 /// @note Every count is an instantaneous snapshot observed during the call;
 /// values change continuously with system activity and must never be
 /// assumed stable after a query returns.
@@ -64,7 +65,7 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/resource/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/resource/windows.hpp>
@@ -97,6 +98,9 @@
 #include <syscape/detail/resource/hpux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HURD)
 #include <syscape/detail/resource/hurd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_SERENITY)
+#include <syscape/detail/resource/serenity.hpp>
 #else
 #include <syscape/detail/resource/generic.hpp>
 #endif

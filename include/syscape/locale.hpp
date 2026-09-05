@@ -20,9 +20,9 @@
 /// files for time zones, reporting language preferences and region codes as
 /// not_supported. Haiku reads /boot/system/settings/Timezone and /etc/localtime
 /// for time zones, reporting language preferences and region codes as
-/// not_supported. AIX and HP-UX use POSIX locale and TZ facilities, reporting
-/// language preferences and region codes as not_supported.
-/// Other targets use the generic not-supported fallback. On
+/// not_supported. AIX, HP-UX, GNU/Hurd, and SerenityOS use POSIX locale and TZ
+/// facilities, reporting language preferences and region codes as
+/// not_supported. Other targets use the generic not-supported fallback. On
 /// Android, text_encoding() requires API level 26 or later and reports
 /// not_supported on earlier API levels.
 /// @note On Windows the preference queries require _WIN32_WINNT and WINVER
@@ -54,7 +54,7 @@
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
-    !defined(SYSCAPE_TARGET_HURD)
+    !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/locale/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/locale/windows.hpp>
@@ -87,6 +87,9 @@
 #include <syscape/detail/locale/hpux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HURD)
 #include <syscape/detail/locale/hurd.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_SERENITY)
+#include <syscape/detail/locale/serenity.hpp>
 #else
 #include <syscape/detail/locale/generic.hpp>
 #endif

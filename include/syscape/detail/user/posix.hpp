@@ -1,6 +1,8 @@
 #ifndef SYSCAPE_DETAIL_USER_POSIX_HPP
 #define SYSCAPE_DETAIL_USER_POSIX_HPP
 
+#include <syscape/detail/config.hpp>
+
 #if (defined(__sun) || defined(__sun__)) && !defined(_POSIX_PTHREAD_SEMANTICS)
 #define _POSIX_PTHREAD_SEMANTICS 1
 #endif
@@ -15,7 +17,9 @@
 #include <string>
 #include <system_error>
 #include <type_traits>
+#if !defined(SYSCAPE_TARGET_SERENITY)
 #include <utmpx.h>
+#endif
 #include <vector>
 
 #include <sys/types.h>
@@ -23,7 +27,9 @@
 #include <pwd.h>
 
 #include <syscape/detail/posix/passwd.hpp>
+#if !defined(SYSCAPE_TARGET_SERENITY)
 #include <syscape/detail/posix/utmpx.hpp>
+#endif
 #include <syscape/detail/user/common.hpp>
 #include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
@@ -31,6 +37,8 @@
 namespace syscape {
 namespace detail {
 namespace user_backend {
+
+#if !defined(SYSCAPE_TARGET_SERENITY)
 
 /// Safely extracts a null-terminated string from a fixed-size char array.
 template <std::size_t N>
@@ -171,6 +179,14 @@ inline result<std::vector<user_common::session_info>> sessions() {
     } cleanup;
     return parse_utmpx_entries([]() { return ::getutxent(); });
 }
+
+#else
+
+inline result<std::vector<user_common::session_info>> sessions() {
+    return fail(errc::not_supported);
+}
+
+#endif
 
 /// Narrows a POSIX user or group identifier to the portable width.
 template <typename NativeIdentifier>
@@ -388,6 +404,9 @@ inline result<std::string> lookup_login_with_growth(LoginOperation login) {
 
 /// Returns the login name recorded for the calling process's session.
 inline result<std::string> login_name() {
+#if defined(SYSCAPE_TARGET_SERENITY)
+    return fail(errc::not_supported);
+#else
     return lookup_login_with_growth([](char* buffer, std::size_t size) {
 #if defined(__sun) || defined(__sun__)
         if (size >
@@ -399,6 +418,7 @@ inline result<std::string> login_name() {
         return ::getlogin_r(buffer, size);
 #endif
     });
+#endif
 }
 
 } // namespace user_backend
