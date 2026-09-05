@@ -127,7 +127,8 @@ enum class drive_health_status : std::uint8_t {
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
+    !defined(SYSCAPE_TARGET_HURD)
 #include <syscape/detail/storage/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/storage/windows.hpp>
@@ -158,6 +159,8 @@ enum class drive_health_status : std::uint8_t {
 #include <syscape/detail/storage/aix.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/storage/hpux.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HURD)
+#include <syscape/detail/storage/hurd.hpp>
 #else
 #include <syscape/detail/storage/generic.hpp>
 #endif

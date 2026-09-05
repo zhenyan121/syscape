@@ -53,7 +53,8 @@
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX)
+    !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
+    !defined(SYSCAPE_TARGET_HURD)
 #include <syscape/detail/locale/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/locale/windows.hpp>
@@ -84,6 +85,8 @@
 #include <syscape/detail/locale/aix.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HPUX)
 #include <syscape/detail/locale/hpux.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_HURD)
+#include <syscape/detail/locale/hurd.hpp>
 #else
 #include <syscape/detail/locale/generic.hpp>
 #endif

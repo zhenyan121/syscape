@@ -199,6 +199,44 @@ jobs:
             --output-on-failure \
             -R _hpux
 
+  hurd-backend-host-check:
+    name: GNU/Hurd backend host check (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC
+            cxx: g++
+          - compiler: Clang
+            cxx: clang++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang gcc g++ cmake ninja-build
+
+      - name: Configure GNU/Hurd backend host checks
+        run: |
+          cmake -B build-hurd -G Ninja \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DHURD=ON \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build-hurd -j
+
+      - name: Run GNU/Hurd backend host tests
+        run: |
+          ctest \
+            --test-dir build-hurd \
+            --output-on-failure \
+            -R _hurd
+
   android-ndk-emulator:
     runs-on: ubuntu-latest
     steps:
