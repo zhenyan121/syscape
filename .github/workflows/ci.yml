@@ -351,6 +351,44 @@ jobs:
             --output-on-failure \
             -R _minix
 
+  qnx-backend-host-check:
+    name: QNX backend selection host check (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC
+            cxx: g++
+          - compiler: Clang
+            cxx: clang++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang gcc g++ cmake ninja-build
+
+      - name: Configure QNX backend selection checks
+        run: |
+          cmake -B build-qnx -G Ninja \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DQNX=ON \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build-qnx -j
+
+      - name: Run QNX backend selection tests
+        run: |
+          ctest \
+            --test-dir build-qnx \
+            --output-on-failure \
+            -R _qnx
+
   android-ndk-emulator:
     runs-on: ubuntu-latest
     steps:

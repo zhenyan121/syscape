@@ -156,7 +156,8 @@ struct thermal_zone {
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
-    !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX)
+    !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
+    !defined(SYSCAPE_TARGET_QNX)
 #include <syscape/detail/sensor/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/sensor/windows.hpp>
@@ -196,6 +197,8 @@ struct thermal_zone {
 #include <syscape/detail/sensor/redox.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MINIX)
 #include <syscape/detail/sensor/minix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_QNX)
+#include <syscape/detail/sensor/qnx.hpp>
 #else
 #include <syscape/detail/sensor/generic.hpp>
 #endif

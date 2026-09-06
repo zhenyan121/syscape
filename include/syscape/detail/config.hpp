@@ -54,6 +54,12 @@
 #define SYSCAPE_TARGET_MINIX 1
 #endif
 
+#if defined(__QNXNTO__) || defined(__QNX__)
+#define SYSCAPE_TARGET_QNX 1
+#elif defined(QNX) || defined(SYSCAPE_TARGET_QNX)
+#define SYSCAPE_TARGET_QNX 1
+#endif
+
 #if defined(__APPLE__) && defined(__MACH__)
 #if defined(__has_include)
 #if __has_include(<TargetConditionals.h>)

@@ -60,6 +60,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "HP-UX" OR HPUX)
     set(SYSCAPE_PKGCONFIG_CFLAGS "-D_XOPEN_SOURCE_EXTENDED=1 -D_PSTAT64=1 -D_ICOD_BASE_INFO=1")
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "QNX")
+    target_link_libraries(syscape_hosted INTERFACE socket)
+    set(SYSCAPE_PKGCONFIG_LIBS "-lsocket")
+endif()
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     option(SYSCAPE_BUILD_TESTS "Build Syscape tests" ON)
     option(SYSCAPE_BUILD_EXAMPLES "Build Syscape examples" ON)
