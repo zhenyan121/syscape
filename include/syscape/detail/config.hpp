@@ -48,6 +48,12 @@
 #define SYSCAPE_TARGET_REDOX 1
 #endif
 
+#if defined(__minix) || defined(__minix__)
+#define SYSCAPE_TARGET_MINIX 1
+#elif defined(MINIX) || defined(SYSCAPE_TARGET_MINIX)
+#define SYSCAPE_TARGET_MINIX 1
+#endif
+
 #if defined(__APPLE__) && defined(__MACH__)
 #if defined(__has_include)
 #if __has_include(<TargetConditionals.h>)
