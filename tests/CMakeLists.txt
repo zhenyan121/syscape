@@ -876,6 +876,37 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Redox" OR REDOX)
     endforeach()
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Minix" OR MINIX)
+    set(MINIX_TEST_TARGETS
+        os_minix
+        cpu_minix
+        memory_minix
+        process_minix
+        user_minix
+        filesystem_minix
+        network_minix
+        locale_minix
+        environment_minix
+        resource_minix
+        virtualization_minix
+        hardware_minix
+        power_minix
+        sensor_minix
+        security_minix
+        numa_minix
+        process_list_minix
+        printer_minix
+        audio_minix
+        software_minix
+        storage_minix
+        ipc_minix
+        connection_minix)
+    foreach(minix_target IN LISTS MINIX_TEST_TARGETS)
+        syscape_add_test(${minix_target} 17 syscape::hosted ${minix_target}.cpp)
+        target_compile_definitions(${minix_target} PRIVATE __minix=1 MINIX=1)
+    endforeach()
+endif()
+
 
 if(APPLE)
     target_link_libraries(

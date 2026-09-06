@@ -68,7 +68,7 @@
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
-    !defined(SYSCAPE_TARGET_REDOX)
+    !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX)
 #include <syscape/detail/resource/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/resource/windows.hpp>
@@ -106,6 +106,8 @@
 #include <syscape/detail/resource/serenity.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/resource/redox.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MINIX)
+#include <syscape/detail/resource/minix.hpp>
 #else
 #include <syscape/detail/resource/generic.hpp>
 #endif

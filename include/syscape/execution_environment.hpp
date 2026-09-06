@@ -34,6 +34,7 @@ enum class operating_system {
     serenityos,
     redox,
     hurd,
+    minix,
     qnx,
     vxworks,
     rtems,
@@ -103,6 +104,9 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::redox;
 #elif defined(__GNU__)
     return operating_system::hurd;
+#elif defined(__minix) || defined(__minix__) || defined(MINIX) ||              \
+    defined(SYSCAPE_TARGET_MINIX)
+    return operating_system::minix;
 #elif defined(__QNXNTO__)
     return operating_system::qnx;
 #elif defined(__VXWORKS__) || defined(_WRS_KERNEL)
@@ -171,6 +175,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
     case operating_system::serenityos: return "serenityos";
     case operating_system::redox: return "redox";
     case operating_system::hurd: return "hurd";
+    case operating_system::minix:
+        return "minix";
     case operating_system::qnx: return "qnx";
     case operating_system::vxworks: return "vxworks";
     case operating_system::rtems: return "rtems";

@@ -144,7 +144,7 @@ struct process_entry {
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
-    !defined(SYSCAPE_TARGET_REDOX)
+    !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX)
 #include <syscape/detail/process_list/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process_list/windows.hpp>
@@ -182,6 +182,8 @@ struct process_entry {
 #include <syscape/detail/process_list/serenity.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_REDOX)
 #include <syscape/detail/process_list/redox.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MINIX)
+#include <syscape/detail/process_list/minix.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif
