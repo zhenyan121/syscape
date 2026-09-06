@@ -907,6 +907,37 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Minix" OR MINIX)
     endforeach()
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "QNX" OR QNX)
+    set(QNX_TEST_TARGETS
+        os_qnx
+        cpu_qnx
+        memory_qnx
+        process_qnx
+        user_qnx
+        filesystem_qnx
+        network_qnx
+        locale_qnx
+        environment_qnx
+        resource_qnx
+        virtualization_qnx
+        hardware_qnx
+        power_qnx
+        sensor_qnx
+        security_qnx
+        numa_qnx
+        process_list_qnx
+        printer_qnx
+        audio_qnx
+        software_qnx
+        storage_qnx
+        ipc_qnx
+        connection_qnx)
+    foreach(qnx_target IN LISTS QNX_TEST_TARGETS)
+        syscape_add_test(${qnx_target} 17 syscape::hosted ${qnx_target}.cpp)
+        target_compile_definitions(${qnx_target} PRIVATE __QNXNTO__=1 __QNX__=1 QNX=1)
+    endforeach()
+endif()
+
 
 if(APPLE)
     target_link_libraries(

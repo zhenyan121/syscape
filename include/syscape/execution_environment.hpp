@@ -107,7 +107,8 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(__minix) || defined(__minix__) || defined(MINIX) ||              \
     defined(SYSCAPE_TARGET_MINIX)
     return operating_system::minix;
-#elif defined(__QNXNTO__)
+#elif defined(__QNXNTO__) || defined(__QNX__) || defined(QNX) ||               \
+    defined(SYSCAPE_TARGET_QNX)
     return operating_system::qnx;
 #elif defined(__VXWORKS__) || defined(_WRS_KERNEL)
     return operating_system::vxworks;
@@ -138,8 +139,10 @@ constexpr execution_environment target_execution_environment() noexcept {
     return execution_environment::sandboxed;
 #elif defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
     return execution_environment::compatibility;
-#elif defined(__QNXNTO__) || defined(__VXWORKS__) || defined(_WRS_KERNEL) || \
-    defined(__rtems__) || defined(__ZEPHYR__) || defined(__NuttX__)
+#elif defined(__QNXNTO__) || defined(__QNX__) || defined(QNX) ||               \
+    defined(SYSCAPE_TARGET_QNX) || defined(__VXWORKS__) ||                     \
+    defined(_WRS_KERNEL) || defined(__rtems__) || defined(__ZEPHYR__) ||       \
+    defined(__NuttX__)
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;

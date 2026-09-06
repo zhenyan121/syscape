@@ -25,6 +25,7 @@
 /// applications using this header on Solaris link -lsocket -lnsl;
 /// applications using this header on Haiku link -lnetwork;
 /// applications using this header on AIX link -lperfstat -lbsd;
+/// applications using this header on QNX link -lsocket;
 /// Syscape itself stays header-only and does not add linkage for unrelated
 /// Hosted Full domains. Haiku implements interface enumeration through
 /// getifaddrs and DNS resolver configuration through resolv.conf files;
@@ -77,7 +78,8 @@
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
-    !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX)
+    !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
+    !defined(SYSCAPE_TARGET_QNX)
 #include <syscape/detail/network/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/network/windows.hpp>
@@ -117,6 +119,8 @@
 #include <syscape/detail/network/redox.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MINIX)
 #include <syscape/detail/network/minix.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_QNX)
+#include <syscape/detail/network/qnx.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif
