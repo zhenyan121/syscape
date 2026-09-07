@@ -1,0 +1,52 @@
+#include <iostream>
+#include <string>
+
+#include <syscape/environment.hpp>
+
+namespace {
+
+int failures = 0;
+
+void expect(bool condition, const char* message) {
+    if (!condition) {
+        std::cerr << "FAIL: " << message << '\n';
+        ++failures;
+    }
+}
+
+void test_environment_queries() {
+    const auto cwd = syscape::environment::current_working_directory();
+    expect(cwd && !cwd->empty() && cwd->front() == '/',
+           "current working directory must be an absolute path");
+
+    const auto tmp = syscape::environment::temp_directory();
+    expect((tmp && !tmp->empty() && tmp->front() == '/') ||
+               tmp.error() == syscape::errc::not_found,
+           "temp directory must be an absolute existing path or not_found");
+
+    const auto home = syscape::environment::home_directory();
+    expect(home.has_value() || home.error() == syscape::errc::not_found,
+           "home directory query must succeed or report not_found");
+
+    const auto config = syscape::environment::config_directory();
+    expect(!config && config.error() == syscape::errc::not_supported,
+           "config directory must report not_supported on RTEMS");
+
+    const auto data = syscape::environment::data_directory();
+    expect(!data && data.error() == syscape::errc::not_supported,
+           "data directory must report not_supported on RTEMS");
+
+    const auto cache = syscape::environment::cache_directory();
+    expect(!cache && cache.error() == syscape::errc::not_supported,
+           "cache directory must report not_supported on RTEMS");
+
+    const auto vars = syscape::environment::environment_variables();
+    expect(vars.has_value(), "environment variables query must succeed");
+}
+
+} // namespace
+
+int main() {
+    test_environment_queries();
+    return failures == 0 ? 0 : 1;
+}

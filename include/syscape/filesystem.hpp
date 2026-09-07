@@ -29,7 +29,10 @@
 /// enumeration reports not_supported because its procfs does not expose a
 /// portable live mount table. Redox OS implements capacity via statvfs,
 /// volume identifier via statvfs and stat, and path limits via pathconf after
-/// path validation; mount enumeration reports not_supported.
+/// path validation; mount enumeration reports not_supported. RTEMS implements
+/// path limits and volume identifiers; capacity snapshots and mount
+/// enumeration report not_supported because RTEMS statvfs exposes no portable
+/// read-only status flag.
 /// Other targets use the generic not-supported fallback.
 /// @note Path-limit queries use POSIX pathconf on Linux, macOS, Apple mobile
 /// platforms, and FreeBSD.
@@ -62,7 +65,8 @@
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
+    !defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/filesystem/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/filesystem/windows.hpp>
@@ -106,6 +110,8 @@
 #include <syscape/detail/filesystem/qnx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/filesystem/vxworks.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
+#include <syscape/detail/filesystem/rtems.hpp>
 #else
 #include <syscape/detail/filesystem/generic.hpp>
 #endif

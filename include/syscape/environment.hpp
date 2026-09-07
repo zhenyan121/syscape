@@ -12,7 +12,10 @@
 /// Win32/Shell known-folder backend; Android provides environment variables and
 /// working directory queries; Apple mobile platforms (iOS, iPadOS, tvOS,
 /// watchOS, visionOS, and Mac Catalyst) provide POSIX environment variables,
-/// temporary directory, and terminal queries under sandbox constraints. Other
+/// temporary directory, and terminal queries under sandbox constraints. RTEMS
+/// provides process environment and working-directory queries; temporary and
+/// home directories are returned only when the recorded path exists, while
+/// configuration, data, and cache directories report not_supported. Other
 /// targets use the generic fallback.
 /// @note All returned paths and strings are UTF-8 encoded.
 /// @note Thread-safety: queries observe the process environment without
@@ -64,7 +67,8 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
+    !defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/environment/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/environment/windows.hpp>
@@ -108,6 +112,8 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
 #include <syscape/detail/environment/qnx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/environment/vxworks.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
+#include <syscape/detail/environment/rtems.hpp>
 #else
 #include <syscape/detail/environment/generic.hpp>
 #endif

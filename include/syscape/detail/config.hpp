@@ -78,6 +78,12 @@
 #endif
 #endif
 
+#if defined(__rtems__)
+#define SYSCAPE_TARGET_RTEMS 1
+#elif defined(RTEMS) || defined(SYSCAPE_TARGET_RTEMS)
+#define SYSCAPE_TARGET_RTEMS 1
+#endif
+
 #if defined(__APPLE__) && defined(__MACH__)
 #if defined(__has_include)
 #if __has_include(<TargetConditionals.h>)

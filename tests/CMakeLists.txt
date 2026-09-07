@@ -972,6 +972,37 @@ if(CMAKE_SYSTEM_NAME STREQUAL "VxWorks" OR VXWORKS)
     target_compile_definitions(kernel_vxworks PRIVATE __VXWORKS__=1 VXWORKS=1 _WRS_KERNEL=1)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "RTEMS" OR RTEMS)
+    set(RTEMS_TEST_TARGETS
+        os_rtems
+        cpu_rtems
+        memory_rtems
+        process_rtems
+        user_rtems
+        filesystem_rtems
+        network_rtems
+        locale_rtems
+        environment_rtems
+        resource_rtems
+        virtualization_rtems
+        hardware_rtems
+        power_rtems
+        sensor_rtems
+        security_rtems
+        numa_rtems
+        process_list_rtems
+        printer_rtems
+        audio_rtems
+        software_rtems
+        storage_rtems
+        ipc_rtems
+        connection_rtems)
+    foreach(rtems_target IN LISTS RTEMS_TEST_TARGETS)
+        syscape_add_test(${rtems_target} 17 syscape::hosted ${rtems_target}.cpp)
+        target_compile_definitions(${rtems_target} PRIVATE __rtems__=1 RTEMS=1)
+    endforeach()
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")

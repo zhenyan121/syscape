@@ -54,7 +54,8 @@
 /// SerenityOS reports not_supported for CPU queries until a stable public
 /// interface with the portable semantics is available. Redox OS implements
 /// online logical processor count via /scheme/sys/cpu; other CPU queries
-/// report not_supported. All other targets use the not-supported fallback.
+/// report not_supported. RTEMS implements only the online logical processor
+/// count through sysconf. All other targets use the not-supported fallback.
 
 #include <syscape/detail/config.hpp>
 
@@ -96,7 +97,8 @@ enum class cache_kind : std::uint8_t {
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
+    !defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/cpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/cpu/windows.hpp>
@@ -140,6 +142,8 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/detail/cpu/qnx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/cpu/vxworks.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
+#include <syscape/detail/cpu/rtems.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif
