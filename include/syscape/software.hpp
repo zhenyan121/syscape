@@ -31,8 +31,8 @@
 /// (requires linking -framework CoreFoundation). loaded_drivers() returns
 /// not_supported on macOS as Darwin provides no unprivileged in-process public
 /// API for loaded kernel modules.
-/// @note AIX, HP-UX, GNU/Hurd, SerenityOS, and Redox OS report not_supported
-/// for system software management queries.
+/// @note AIX, HP-UX, GNU/Hurd, SerenityOS, Redox OS, QNX, and VxWorks report
+/// not_supported for system software management queries.
 /// @note Software and service states change dynamically. Queries query on
 /// demand without caching.
 
@@ -58,7 +58,7 @@
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/software/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/software/windows.hpp>
@@ -100,6 +100,8 @@
 #include <syscape/detail/software/minix.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_QNX)
 #include <syscape/detail/software/qnx.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
+#include <syscape/detail/software/vxworks.hpp>
 #else
 #include <syscape/detail/software/generic.hpp>
 #endif

@@ -15,9 +15,9 @@
 /// - Operating-system thermal zones and cooling trip points (thermal_zones()).
 /// @note Linux queries /sys/class/hwmon and /sys/class/thermal.
 /// Android queries /sys/class/thermal for thermal zones and temperature
-/// sensors. Windows, macOS, AIX, HP-UX, GNU/Hurd, SerenityOS, and Redox OS
-/// currently report not_supported because no stable, public backend has been
-/// implemented for these queries.
+/// sensors. Windows, macOS, AIX, HP-UX, GNU/Hurd, SerenityOS, Redox OS,
+/// QNX, and VxWorks currently report not_supported because no stable, public
+/// backend has been implemented for these queries.
 
 #include <syscape/detail/config.hpp>
 
@@ -157,7 +157,7 @@ struct thermal_zone {
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/sensor/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/sensor/windows.hpp>
@@ -199,6 +199,8 @@ struct thermal_zone {
 #include <syscape/detail/sensor/minix.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_QNX)
 #include <syscape/detail/sensor/qnx.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
+#include <syscape/detail/sensor/vxworks.hpp>
 #else
 #include <syscape/detail/sensor/generic.hpp>
 #endif

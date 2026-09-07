@@ -60,7 +60,7 @@
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/process/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process/windows.hpp>
@@ -102,6 +102,8 @@
 #include <syscape/detail/process/minix.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_QNX)
 #include <syscape/detail/process/qnx.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
+#include <syscape/detail/process/vxworks.hpp>
 #else
 #include <syscape/detail/process/generic.hpp>
 #endif
@@ -292,8 +294,14 @@ inline result<std::uint32_t> thread_count() {
 ///   documented scale.
 /// - Windows maps the documented GetPriorityClass constants onto their
 ///   documented base priorities (4 idle through 24 realtime).
+/// - VxWorks reports the task scheduling priority obtained via
+///   sched_getparam() in the documented range 0 through 255.
 /// A lower POSIX value means more favorable scheduling, while a higher
-/// Windows base priority means more favorable scheduling.
+/// Windows base priority means more favorable scheduling. On VxWorks the
+/// scheduling priority direction depends on posixPriorityNumbering: a higher
+/// numeric value represents more favorable scheduling when POSIX priority
+/// numbering is active, while the native VxWorks scale treats lower numeric
+/// values as more favorable (0 highest through 255 lowest).
 ///
 /// The value reflects a snapshot taken by the query and changes when the
 /// corresponding process or thread priority is changed again by any

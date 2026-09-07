@@ -938,6 +938,39 @@ if(CMAKE_SYSTEM_NAME STREQUAL "QNX" OR QNX)
     endforeach()
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "VxWorks" OR VXWORKS)
+    set(VXWORKS_TEST_TARGETS
+        os_vxworks
+        cpu_vxworks
+        memory_vxworks
+        process_vxworks
+        user_vxworks
+        filesystem_vxworks
+        network_vxworks
+        locale_vxworks
+        environment_vxworks
+        resource_vxworks
+        virtualization_vxworks
+        hardware_vxworks
+        power_vxworks
+        sensor_vxworks
+        security_vxworks
+        numa_vxworks
+        process_list_vxworks
+        printer_vxworks
+        audio_vxworks
+        software_vxworks
+        storage_vxworks
+        ipc_vxworks
+        connection_vxworks)
+    foreach(vxworks_target IN LISTS VXWORKS_TEST_TARGETS)
+        syscape_add_test(${vxworks_target} 17 syscape::hosted ${vxworks_target}.cpp)
+        target_compile_definitions(${vxworks_target} PRIVATE __VXWORKS__=1 VXWORKS=1 __RTP__=1)
+    endforeach()
+    target_compile_definitions(network_vxworks PRIVATE SYSCAPE_HAS_VXWORKS_GETIFADDRS=1)
+    syscape_add_test(kernel_vxworks 17 syscape::hosted kernel_vxworks.cpp)
+    target_compile_definitions(kernel_vxworks PRIVATE __VXWORKS__=1 VXWORKS=1 _WRS_KERNEL=1)
+endif()
 
 if(APPLE)
     target_link_libraries(

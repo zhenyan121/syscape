@@ -37,8 +37,9 @@
 /// @note Android queries Verified Boot properties and randomize_va_space for
 /// ASLR.
 /// @note macOS reports full ASLR, SIP status, and fallback security properties.
-/// @note AIX, HP-UX, GNU/Hurd, SerenityOS, and Redox OS report not_supported
-/// for security queries without specialized firmware or integrity facilities.
+/// @note AIX, HP-UX, GNU/Hurd, SerenityOS, Redox OS, QNX, and VxWorks report
+/// not_supported for security queries without specialized firmware or
+/// integrity facilities.
 
 #include <syscape/detail/config.hpp>
 
@@ -243,7 +244,7 @@ struct tpm_info {
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/security/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/security/windows.hpp>
@@ -285,6 +286,8 @@ struct tpm_info {
 #include <syscape/detail/security/minix.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_QNX)
 #include <syscape/detail/security/qnx.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
+#include <syscape/detail/security/vxworks.hpp>
 #else
 #include <syscape/detail/security/generic.hpp>
 #endif

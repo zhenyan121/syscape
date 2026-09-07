@@ -42,6 +42,14 @@
 /// reads resolv.conf and getifaddrs traffic statistics, and reports routes and
 /// gateways as unsupported. Other targets use the generic not-supported
 /// fallback.
+/// @note VxWorks interface enumeration requires Real-Time Process (RTP) mode
+/// with the optional IPNET getifaddrs wrapper component
+/// (INCLUDE_IPWRAP_GETIFADDRS). Because <ifaddrs.h> may be present in the SDK
+/// even when the target runtime image lacks the component, getifaddrs() is
+/// disabled by default unless INCLUDE_IPWRAP_GETIFADDRS (or a _WRS_CONFIG_
+/// variant) is detected or SYSCAPE_HAS_VXWORKS_GETIFADDRS=1 is explicitly
+/// defined by the build system. Configurations without the component or in
+/// Kernel mode (_WRS_KERNEL) report not_supported.
 /// @note Android interface enumeration requires API level 24 or later and
 /// reports not_supported on earlier API levels. Opening the AF_INET socket
 /// used for MTU queries may require android.permission.INTERNET.
@@ -79,7 +87,7 @@
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/network/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/network/windows.hpp>
@@ -121,6 +129,8 @@
 #include <syscape/detail/network/minix.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_QNX)
 #include <syscape/detail/network/qnx.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
+#include <syscape/detail/network/vxworks.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif

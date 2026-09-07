@@ -25,9 +25,9 @@
 /// IOKit media registry entries, resolving partition media to qualifying
 /// non-virtual whole disks, and reading SMART Status and IORegistry statistics.
 /// Android implements drive queries through the sysfs block interface under
-/// /sys/block. AIX, HP-UX, GNU/Hurd, SerenityOS, and Redox OS report
-/// not_supported for physical block-device and SMART queries. Other targets use
-/// the not-supported fallback.
+/// /sys/block. AIX, HP-UX, GNU/Hurd, SerenityOS, Redox OS, QNX, and VxWorks
+/// report not_supported for physical block-device and SMART queries. Other
+/// targets use the not-supported fallback.
 /// @note Windows callers that use drives(), partitions(), or health queries
 /// must link Setupapi.lib.
 
@@ -131,7 +131,7 @@ enum class drive_health_status : std::uint8_t {
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/storage/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/storage/windows.hpp>
@@ -173,6 +173,8 @@ enum class drive_health_status : std::uint8_t {
 #include <syscape/detail/storage/minix.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_QNX)
 #include <syscape/detail/storage/qnx.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
+#include <syscape/detail/storage/vxworks.hpp>
 #else
 #include <syscape/detail/storage/generic.hpp>
 #endif

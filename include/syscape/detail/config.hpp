@@ -60,6 +60,24 @@
 #define SYSCAPE_TARGET_QNX 1
 #endif
 
+#if defined(__VXWORKS__) || defined(_WRS_KERNEL) || defined(__RTP__)
+#define SYSCAPE_TARGET_VXWORKS 1
+#elif defined(VXWORKS) || defined(SYSCAPE_TARGET_VXWORKS)
+#define SYSCAPE_TARGET_VXWORKS 1
+#endif
+
+#if defined(SYSCAPE_TARGET_VXWORKS)
+#if defined(_WRS_KERNEL)
+#define SYSCAPE_TARGET_VXWORKS_KERNEL 1
+#elif defined(__RTP__)
+#define SYSCAPE_TARGET_VXWORKS_RTP 1
+#else
+// Default to RTP when neither _WRS_KERNEL nor __RTP__ is explicitly specified
+// (e.g. host simulation checks or generic VxWorks userland)
+#define SYSCAPE_TARGET_VXWORKS_RTP 1
+#endif
+#endif
+
 #if defined(__APPLE__) && defined(__MACH__)
 #if defined(__has_include)
 #if __has_include(<TargetConditionals.h>)
