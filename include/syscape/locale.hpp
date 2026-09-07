@@ -56,7 +56,7 @@
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/locale/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/locale/windows.hpp>
@@ -98,6 +98,8 @@
 #include <syscape/detail/locale/minix.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_QNX)
 #include <syscape/detail/locale/qnx.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
+#include <syscape/detail/locale/vxworks.hpp>
 #else
 #include <syscape/detail/locale/generic.hpp>
 #endif
@@ -217,7 +219,10 @@ inline result<std::string> country_region_code() {
 /// "UTC", while a geographical TZ file name is recognized with or without
 /// its optional leading colon. A POSIX-style TZ rule string records no
 /// identifier, so the query reports not_found there instead of rendering a
-/// fabricated name. The value reflects the platform configuration source
+/// fabricated name. On VxWorks the identifier is parsed from the system
+/// TIMEZONE parameter or environment variable (such as "CET" from
+/// "CET::-60:..."), falling back to TZ or /etc/localtime. The value reflects
+/// the platform configuration source
 /// documented above and can change when that source changes; where both
 /// queries are supported, it is not guaranteed to match any particular
 /// instant's offset from utc_offset_seconds() unless queried at the same

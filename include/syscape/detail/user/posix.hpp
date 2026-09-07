@@ -18,7 +18,7 @@
 #include <system_error>
 #include <type_traits>
 #if !defined(SYSCAPE_TARGET_SERENITY) && !defined(SYSCAPE_TARGET_REDOX) &&     \
-    !defined(SYSCAPE_TARGET_QNX)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
 #include <utmpx.h>
 #endif
 #include <vector>
@@ -29,7 +29,7 @@
 
 #include <syscape/detail/posix/passwd.hpp>
 #if !defined(SYSCAPE_TARGET_SERENITY) && !defined(SYSCAPE_TARGET_REDOX) &&     \
-    !defined(SYSCAPE_TARGET_QNX)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/posix/utmpx.hpp>
 #endif
 #include <syscape/detail/user/common.hpp>
@@ -41,7 +41,7 @@ namespace detail {
 namespace user_backend {
 
 #if !defined(SYSCAPE_TARGET_SERENITY) && !defined(SYSCAPE_TARGET_REDOX) &&     \
-    !defined(SYSCAPE_TARGET_QNX)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
 
 /// Safely extracts a null-terminated string from a fixed-size char array.
 template <std::size_t N>

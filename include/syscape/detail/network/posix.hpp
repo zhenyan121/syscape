@@ -1,12 +1,16 @@
 #ifndef SYSCAPE_DETAIL_NETWORK_POSIX_HPP
 #define SYSCAPE_DETAIL_NETWORK_POSIX_HPP
 
+#include <syscape/detail/config.hpp>
+
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <string>
 #include <system_error>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <sys/types.h>
@@ -77,10 +81,36 @@ private:
     int value_;
 };
 
+template <typename Arg2, typename Arg3>
+inline int invoke_mtu_ioctl(int (*fn)(int, Arg2, Arg3), int descriptor,
+                            int request, ::ifreq* req) noexcept {
+    return fn(descriptor, static_cast<Arg2>(request),
+              reinterpret_cast<Arg3>(req));
+}
+
+template <typename Arg2, typename Arg3>
+inline int invoke_mtu_ioctl(int (*fn)(int, Arg2, Arg3) noexcept, int descriptor,
+                            int request, ::ifreq* req) noexcept {
+    return fn(descriptor, static_cast<Arg2>(request),
+              reinterpret_cast<Arg3>(req));
+}
+
+template <typename Arg2>
+inline int invoke_mtu_ioctl(int (*fn)(int, Arg2, ...), int descriptor,
+                            int request, ::ifreq* req) noexcept {
+    return fn(descriptor, static_cast<Arg2>(request), req);
+}
+
+template <typename Arg2>
+inline int invoke_mtu_ioctl(int (*fn)(int, Arg2, ...) noexcept, int descriptor,
+                            int request, ::ifreq* req) noexcept {
+    return fn(descriptor, static_cast<Arg2>(request), req);
+}
+
 /// Native MTU ioctl used by the retryable conversion boundary.
 struct native_mtu_ioctl_api {
     static int get(int descriptor, ::ifreq* request) noexcept {
-        return ::ioctl(descriptor, SIOCGIFMTU, request);
+        return invoke_mtu_ioctl(&::ioctl, descriptor, SIOCGIFMTU, request);
     }
 };
 
@@ -208,6 +238,25 @@ inline void copy_recorded_netmask_bytes(const unsigned char* source,
     std::memcpy(destination, source + address_offset, copy_size);
 }
 
+template <typename T, typename = void>
+struct sockaddr_has_sa_len : std::false_type {};
+
+template <typename T>
+struct sockaddr_has_sa_len<
+    T, std::void_t<decltype(std::declval<const T&>().sa_len)>>
+    : std::true_type {};
+
+template <typename T>
+inline std::size_t
+get_sockaddr_recorded_size(const T& netmask,
+                           std::size_t fallback_size) noexcept {
+    if constexpr (sockaddr_has_sa_len<T>::value) {
+        return static_cast<std::size_t>(netmask.sa_len);
+    } else {
+        return fallback_size;
+    }
+}
+
 /// Extracts the address bytes from a POSIX netmask sockaddr.
 inline void copy_netmask_bytes(const ::sockaddr& netmask,
                                std::size_t address_offset,
@@ -215,8 +264,9 @@ inline void copy_netmask_bytes(const ::sockaddr& netmask,
                                std::size_t destination_size) noexcept {
     std::size_t recorded_size = address_offset + destination_size;
 #if defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__NetBSD__) ||     \
-    defined(__DragonFly__) || defined(__APPLE__)
-    recorded_size = static_cast<std::size_t>(netmask.sa_len);
+    defined(__DragonFly__) || defined(__APPLE__) || defined(__VXWORKS__) ||    \
+    defined(SYSCAPE_TARGET_VXWORKS)
+    recorded_size = get_sockaddr_recorded_size(netmask, recorded_size);
 #endif
     copy_recorded_netmask_bytes(
         reinterpret_cast<const unsigned char*>(&netmask), recorded_size,
@@ -466,6 +516,7 @@ inline result<std::vector<network_common::interface_record>> convert_ifaddrs(
     return interfaces;
 }
 
+#if !defined(SYSCAPE_TARGET_VXWORKS)
 /// Returns a snapshot of the platform's network interfaces and their
 /// unicast addresses through the documented getifaddrs interface.
 inline result<std::vector<network_common::interface_record>> interfaces() {
@@ -480,6 +531,7 @@ inline result<std::vector<network_common::interface_record>> interfaces() {
     return convert_ifaddrs<native_interface_api>(list);
 #endif
 }
+#endif
 
 } // namespace network_backend
 } // namespace detail
