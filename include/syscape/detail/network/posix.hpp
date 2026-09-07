@@ -81,36 +81,42 @@ private:
     int value_;
 };
 
-template <typename Arg2, typename Arg3>
+#if defined(SYSCAPE_TARGET_VXWORKS)
+template <typename Arg2, typename Arg3, typename Request>
 inline int invoke_mtu_ioctl(int (*fn)(int, Arg2, Arg3), int descriptor,
-                            int request, ::ifreq* req) noexcept {
+                            Request request, ::ifreq* req) noexcept {
     return fn(descriptor, static_cast<Arg2>(request),
               reinterpret_cast<Arg3>(req));
 }
 
-template <typename Arg2, typename Arg3>
+template <typename Arg2, typename Arg3, typename Request>
 inline int invoke_mtu_ioctl(int (*fn)(int, Arg2, Arg3) noexcept, int descriptor,
-                            int request, ::ifreq* req) noexcept {
+                            Request request, ::ifreq* req) noexcept {
     return fn(descriptor, static_cast<Arg2>(request),
               reinterpret_cast<Arg3>(req));
 }
 
-template <typename Arg2>
+template <typename Arg2, typename Request>
 inline int invoke_mtu_ioctl(int (*fn)(int, Arg2, ...), int descriptor,
-                            int request, ::ifreq* req) noexcept {
+                            Request request, ::ifreq* req) noexcept {
     return fn(descriptor, static_cast<Arg2>(request), req);
 }
 
-template <typename Arg2>
+template <typename Arg2, typename Request>
 inline int invoke_mtu_ioctl(int (*fn)(int, Arg2, ...) noexcept, int descriptor,
-                            int request, ::ifreq* req) noexcept {
+                            Request request, ::ifreq* req) noexcept {
     return fn(descriptor, static_cast<Arg2>(request), req);
 }
+#endif
 
 /// Native MTU ioctl used by the retryable conversion boundary.
 struct native_mtu_ioctl_api {
     static int get(int descriptor, ::ifreq* request) noexcept {
+#if defined(SYSCAPE_TARGET_VXWORKS)
         return invoke_mtu_ioctl(&::ioctl, descriptor, SIOCGIFMTU, request);
+#else
+        return ::ioctl(descriptor, SIOCGIFMTU, request);
+#endif
     }
 };
 
