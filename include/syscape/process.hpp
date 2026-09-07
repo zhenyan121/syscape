@@ -28,8 +28,10 @@
 /// thread count, and CPU affinity report not_supported. Redox OS implements
 /// PID, parent PID, working directory, and priority; executable path, command
 /// line, CPU time, memory usage, start time, thread count, CPU affinity, and
-/// resource limits report not_supported.
-/// Other targets use the generic not-supported fallback.
+/// resource limits report not_supported. RTEMS implements numeric process
+/// identity and the working directory; CPU time, priority, resource limits,
+/// and the remaining process queries report not_supported. Other targets use
+/// the generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows 7 or later SDK declarations.
@@ -60,7 +62,8 @@
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
+    !defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/process/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process/windows.hpp>
@@ -104,6 +107,8 @@
 #include <syscape/detail/process/qnx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/process/vxworks.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
+#include <syscape/detail/process/rtems.hpp>
 #else
 #include <syscape/detail/process/generic.hpp>
 #endif

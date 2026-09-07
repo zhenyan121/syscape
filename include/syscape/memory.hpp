@@ -41,7 +41,8 @@
 /// and pressure queries report not_supported. SerenityOS implements page size
 /// through getpagesize; all other memory queries report not_supported. Redox OS
 /// implements page size through getpagesize; all other memory queries report
-/// not_supported. Other targets use the not-supported fallback.
+/// not_supported. RTEMS implements only the page-size query through sysconf.
+/// Other targets use the not-supported fallback.
 /// @note The Windows commit query uses GetPerformanceInfo declared in
 /// <psapi.h>, which maps to Kernel32.lib on Windows 7 or later SDKs and may
 /// require Psapi.lib with older declarations.
@@ -62,7 +63,8 @@
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
+    !defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/memory/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/memory/windows.hpp>
@@ -106,6 +108,8 @@
 #include <syscape/detail/memory/qnx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/memory/vxworks.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
+#include <syscape/detail/memory/rtems.hpp>
 #else
 #include <syscape/detail/memory/generic.hpp>
 #endif

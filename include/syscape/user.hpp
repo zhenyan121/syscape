@@ -27,6 +27,10 @@
 /// @note On Android, login_name() requires API level 28 or later; earlier API
 /// levels report not_supported while the remaining implemented identity
 /// queries continue to use older Bionic interfaces.
+/// @note RTEMS implements numeric credentials and privilege classification;
+/// account database, supplementary-group, login, and session queries report
+/// not_supported because those records are optional and their RTEMS interfaces
+/// do not provide the portable error semantics required by this API.
 /// @note Windows provides a native backend querying GetUserNameW,
 /// SHGetKnownFolderPath, process token elevation (Advapi32.lib), and Terminal
 /// Services session enumeration (Wtsapi32.lib).
@@ -57,7 +61,8 @@
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
+    !defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/user/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/user/windows.hpp>
@@ -101,6 +106,8 @@
 #include <syscape/detail/user/qnx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/user/vxworks.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
+#include <syscape/detail/user/rtems.hpp>
 #else
 #include <syscape/detail/user/generic.hpp>
 #endif

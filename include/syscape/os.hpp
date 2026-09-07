@@ -14,8 +14,9 @@
 /// identity through uname and gethostname, and uptime and approximate boot time
 /// through CLOCK_MONOTONIC. Redox OS implements OS identity through
 /// /etc/os-release, uname, and /etc/hostname, and uptime and approximate boot
-/// time through CLOCK_MONOTONIC. Other targets use the generic not-supported
-/// fallback.
+/// time through CLOCK_MONOTONIC. RTEMS implements product, kernel, and host
+/// identity through uname and uptime and approximate boot time through
+/// CLOCK_MONOTONIC. Other targets use the generic not-supported fallback.
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows Vista or later SDK declarations.
@@ -37,7 +38,8 @@
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
+    !defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/os/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/os/windows.hpp>
@@ -81,6 +83,8 @@
 #include <syscape/detail/os/qnx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/os/vxworks.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
+#include <syscape/detail/os/rtems.hpp>
 #else
 #include <syscape/detail/os/generic.hpp>
 #endif

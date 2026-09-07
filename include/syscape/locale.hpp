@@ -22,7 +22,10 @@
 /// for time zones, reporting language preferences and region codes as
 /// not_supported. AIX, HP-UX, GNU/Hurd, SerenityOS, and Redox OS use POSIX
 /// locale and TZ facilities, reporting language preferences and region codes as
-/// not_supported. Other targets use the generic not-supported fallback. On
+/// not_supported. RTEMS implements locale identity, text encoding, UTC offset,
+/// and time-zone identification through Newlib and local zoneinfo data;
+/// language and region queries report not_supported. Other targets use the
+/// generic not-supported fallback. On
 /// Android, text_encoding() requires API level 26 or later and reports
 /// not_supported on earlier API levels.
 /// @note On Windows the preference queries require _WIN32_WINNT and WINVER
@@ -56,7 +59,8 @@
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
+    !defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/locale/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/locale/windows.hpp>
@@ -100,6 +104,8 @@
 #include <syscape/detail/locale/qnx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/locale/vxworks.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
+#include <syscape/detail/locale/rtems.hpp>
 #else
 #include <syscape/detail/locale/generic.hpp>
 #endif

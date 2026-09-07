@@ -53,6 +53,8 @@
 /// queries report not_supported.
 /// @note Redox hypervisor, container, sandbox, cgroup, and namespace queries
 /// report not_supported.
+/// @note RTEMS hypervisor, container, sandbox, cgroup, and namespace queries
+/// report not_supported.
 
 #include <syscape/detail/config.hpp>
 
@@ -254,7 +256,8 @@ struct cgroup_info {
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
+    !defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/virtualization/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/virtualization/windows.hpp>
@@ -298,6 +301,8 @@ struct cgroup_info {
 #include <syscape/detail/virtualization/qnx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/virtualization/vxworks.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
+#include <syscape/detail/virtualization/rtems.hpp>
 #else
 #include <syscape/detail/virtualization/generic.hpp>
 #endif

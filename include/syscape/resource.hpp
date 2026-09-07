@@ -44,7 +44,8 @@
 /// descriptor limit through getdtablesize; all other resource queries report
 /// not_supported. Redox OS reports not_supported for all resource queries
 /// as load averages, descriptor limits, and system counts lack stable public
-/// implementations. All other targets use the not-supported fallback.
+/// implementations. RTEMS implements only the process file-descriptor limit
+/// through sysconf. All other targets use the not-supported fallback.
 /// @note Every count is an instantaneous snapshot observed during the call;
 /// values change continuously with system activity and must never be
 /// assumed stable after a query returns.
@@ -69,7 +70,8 @@
     !defined(SYSCAPE_TARGET_AIX) && !defined(SYSCAPE_TARGET_HPUX) &&           \
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
-    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS)
+    !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
+    !defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/resource/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/resource/windows.hpp>
@@ -113,6 +115,8 @@
 #include <syscape/detail/resource/qnx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_VXWORKS)
 #include <syscape/detail/resource/vxworks.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
+#include <syscape/detail/resource/rtems.hpp>
 #else
 #include <syscape/detail/resource/generic.hpp>
 #endif
