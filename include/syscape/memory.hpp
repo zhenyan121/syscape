@@ -49,6 +49,11 @@
 /// @note Zephyr reports page size when CONFIG_POSIX_SINGLE_PROCESS is enabled;
 /// other memory queries report not_supported.
 
+/// @note NuttX implements page-size queries through sysconf and RAM and
+/// memory-load snapshots through sysinfo. Swap, commit, huge-page, and pressure
+/// queries report not_supported because the corresponding sysinfo fields or
+/// facilities do not provide usable data.
+
 #include <syscape/detail/config.hpp>
 
 #if SYSCAPE_DETAIL_CPLUSPLUS < 201703L
@@ -66,7 +71,8 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
+    !defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/memory/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/memory/windows.hpp>
@@ -114,6 +120,8 @@
 #include <syscape/detail/memory/rtems.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/memory/zephyr.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
+#include <syscape/detail/memory/nuttx.hpp>
 #else
 #include <syscape/detail/memory/generic.hpp>
 #endif

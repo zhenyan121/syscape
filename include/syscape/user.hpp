@@ -43,6 +43,11 @@
 /// @note Zephyr reports not_supported because it has no multi-user account and
 /// login-session model matching this module's semantics.
 
+/// @note NuttX implements credential and account queries only when user
+/// identity support is configured. Synthetic root credentials exposed by
+/// identity-disabled configurations are not returned; login-session and login
+/// name queries report not_supported.
+
 #include <syscape/detail/config.hpp>
 
 #if SYSCAPE_DETAIL_CPLUSPLUS < 201703L
@@ -64,7 +69,8 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
+    !defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/user/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/user/windows.hpp>
@@ -112,6 +118,8 @@
 #include <syscape/detail/user/rtems.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/user/zephyr.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
+#include <syscape/detail/user/nuttx.hpp>
 #else
 #include <syscape/detail/user/generic.hpp>
 #endif

@@ -90,6 +90,12 @@
 #define SYSCAPE_TARGET_ZEPHYR 1
 #endif
 
+#if defined(__NuttX__)
+#define SYSCAPE_TARGET_NUTTX 1
+#elif defined(NUTTX) || defined(SYSCAPE_TARGET_NUTTX)
+#define SYSCAPE_TARGET_NUTTX 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1

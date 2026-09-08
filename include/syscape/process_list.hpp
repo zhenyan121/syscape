@@ -48,6 +48,11 @@
 /// @note Zephyr reports not_supported because it has no portable process table
 /// matching this module's semantics.
 
+/// @note NuttX can enumerate task identifiers and parse task names and states
+/// when the procfs process entries are enabled and mounted. Other task metadata
+/// remains absent, and configurations without that procfs facility report
+/// not_supported.
+
 #include <syscape/detail/config.hpp>
 
 #if SYSCAPE_DETAIL_CPLUSPLUS < 201703L
@@ -148,7 +153,8 @@ struct process_entry {
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
+    !defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/process_list/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process_list/windows.hpp>
@@ -196,6 +202,8 @@ struct process_entry {
 #include <syscape/detail/process_list/rtems.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/process_list/zephyr.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
+#include <syscape/detail/process_list/nuttx.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif

@@ -39,6 +39,9 @@
 /// @note Zephyr reports not_supported because no capability-gated connection
 /// inspection backend with these portable semantics is implemented.
 
+/// @note NuttX reports not_supported because no connection-table interface
+/// with these portable semantics is available in the initial backend.
+
 #include <syscape/detail/config.hpp>
 
 #if SYSCAPE_DETAIL_CPLUSPLUS < 201703L
@@ -61,7 +64,8 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
+    !defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/connection/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/connection/windows.hpp>
@@ -109,6 +113,8 @@
 #include <syscape/detail/connection/rtems.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/connection/zephyr.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
+#include <syscape/detail/connection/nuttx.hpp>
 #else
 #include <syscape/detail/connection/generic.hpp>
 #endif

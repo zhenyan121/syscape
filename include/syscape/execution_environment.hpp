@@ -117,7 +117,7 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::rtems;
 #elif defined(__ZEPHYR__) || defined(ZEPHYR) || defined(SYSCAPE_TARGET_ZEPHYR)
     return operating_system::zephyr;
-#elif defined(__NuttX__)
+#elif defined(__NuttX__) || defined(NUTTX) || defined(SYSCAPE_TARGET_NUTTX)
     return operating_system::nuttx;
 #elif defined(__linux__)
     return operating_system::linux_os;
@@ -145,7 +145,8 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(_WRS_KERNEL) || defined(VXWORKS) ||                                \
     defined(SYSCAPE_TARGET_VXWORKS) || defined(__rtems__) || defined(RTEMS) || \
     defined(SYSCAPE_TARGET_RTEMS) || defined(__ZEPHYR__) || defined(ZEPHYR) || \
-    defined(SYSCAPE_TARGET_ZEPHYR) || defined(__NuttX__)
+    defined(SYSCAPE_TARGET_ZEPHYR) || defined(__NuttX__) || defined(NUTTX) ||  \
+    defined(SYSCAPE_TARGET_NUTTX)
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
