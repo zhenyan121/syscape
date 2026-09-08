@@ -18,6 +18,8 @@
 /// architectures and reports a single unified node or unsupported. AIX,
 /// HP-UX, GNU/Hurd, SerenityOS, and Redox OS report not_supported for NUMA
 /// topology. Other targets use the not-supported generic fallback.
+/// @note Zephyr reports not_supported because no portable NUMA topology source
+/// matching this module's semantics is available.
 
 #include <syscape/detail/config.hpp>
 
@@ -38,7 +40,7 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/numa/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/numa/windows.hpp>
@@ -84,6 +86,8 @@
 #include <syscape/detail/numa/vxworks.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/numa/rtems.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
+#include <syscape/detail/numa/zephyr.hpp>
 #else
 #include <syscape/detail/numa/generic.hpp>
 #endif

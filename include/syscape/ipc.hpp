@@ -31,6 +31,8 @@
 /// GNU/Hurd, SerenityOS, and Redox OS report not_supported for IPC enumeration.
 /// Windows and macOS targets use their respective platform mechanisms or
 /// generic fallbacks.
+/// @note Zephyr reports not_supported because no portable IPC inventory source
+/// matching this module's semantics is available.
 
 #include <syscape/detail/config.hpp>
 
@@ -53,7 +55,7 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/ipc/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/ipc/windows.hpp>
@@ -99,6 +101,8 @@
 #include <syscape/detail/ipc/vxworks.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/ipc/rtems.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
+#include <syscape/detail/ipc/zephyr.hpp>
 #else
 #include <syscape/detail/ipc/generic.hpp>
 #endif

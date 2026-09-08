@@ -84,6 +84,21 @@
 #define SYSCAPE_TARGET_RTEMS 1
 #endif
 
+#if defined(__ZEPHYR__)
+#define SYSCAPE_TARGET_ZEPHYR 1
+#elif defined(ZEPHYR) || defined(SYSCAPE_TARGET_ZEPHYR)
+#define SYSCAPE_TARGET_ZEPHYR 1
+#endif
+
+#if defined(SYSCAPE_TARGET_ZEPHYR)
+#if defined(CONFIG_POSIX_SINGLE_PROCESS)
+#define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1
+#endif
+#if defined(CONFIG_POSIX_TIMERS)
+#define SYSCAPE_ZEPHYR_HAS_POSIX_TIMERS 1
+#endif
+#endif
+
 #if defined(__APPLE__) && defined(__MACH__)
 #if defined(__has_include)
 #if __has_include(<TargetConditionals.h>)

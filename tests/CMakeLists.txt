@@ -1003,6 +1003,56 @@ if(CMAKE_SYSTEM_NAME STREQUAL "RTEMS" OR RTEMS)
     endforeach()
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Zephyr" OR ZEPHYR)
+    set(ZEPHYR_TEST_TARGETS
+        os_zephyr
+        cpu_zephyr
+        memory_zephyr
+        process_zephyr
+        user_zephyr
+        filesystem_zephyr
+        network_zephyr
+        locale_zephyr
+        environment_zephyr
+        resource_zephyr
+        virtualization_zephyr
+        hardware_zephyr
+        power_zephyr
+        sensor_zephyr
+        security_zephyr
+        numa_zephyr
+        process_list_zephyr
+        printer_zephyr
+        audio_zephyr
+        software_zephyr
+        storage_zephyr
+        ipc_zephyr
+        connection_zephyr)
+    foreach(zephyr_target IN LISTS ZEPHYR_TEST_TARGETS)
+        syscape_add_test(${zephyr_target} 17 syscape::hosted ${zephyr_target}.cpp)
+        target_compile_definitions(${zephyr_target} PRIVATE __ZEPHYR__=1 ZEPHYR=1)
+    endforeach()
+
+    syscape_add_test(posix_zephyr 17 syscape::hosted posix_zephyr.cpp)
+    target_compile_definitions(
+        posix_zephyr
+        PRIVATE
+            __ZEPHYR__=1
+            ZEPHYR=1
+            CONFIG_POSIX_SINGLE_PROCESS=1
+            CONFIG_POSIX_TIMERS=1)
+
+    syscape_add_test(macro_zephyr 17 syscape::hosted macro_zephyr.cpp)
+    target_compile_definitions(
+        macro_zephyr
+        PRIVATE
+            __ZEPHYR__=1
+            ZEPHYR=1
+            CONFIG_POSIX_SINGLE_PROCESS=1
+            CONFIG_POSIX_TIMERS=1
+            CONFIG_POSIX_SYSCONF_IMPL_MACRO=1)
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")

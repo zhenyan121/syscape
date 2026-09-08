@@ -40,6 +40,8 @@
 /// process environment state (TZ and TZDIR on Linux), and platform user
 /// preference configuration; concurrent changes to that state are an
 /// unavoidable platform race and are documented as such rather than hidden.
+/// @note Zephyr reports not_supported because no verified locale source
+/// provides these portable semantics.
 
 #include <syscape/detail/config.hpp>
 
@@ -60,7 +62,7 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/locale/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/locale/windows.hpp>
@@ -106,6 +108,8 @@
 #include <syscape/detail/locale/vxworks.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/locale/rtems.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
+#include <syscape/detail/locale/zephyr.hpp>
 #else
 #include <syscape/detail/locale/generic.hpp>
 #endif

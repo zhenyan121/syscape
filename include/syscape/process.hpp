@@ -42,6 +42,8 @@
 /// @<psapi.h@>,
 /// which map into kernel32.dll on Windows 7 and later SDKs or require linking
 /// the Psapi import library on older declarations.
+/// @note Zephyr reports not_supported because its single-address-space task
+/// model does not provide the portable process semantics required here.
 
 #include <syscape/detail/config.hpp>
 
@@ -63,7 +65,7 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/process/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process/windows.hpp>
@@ -109,6 +111,8 @@
 #include <syscape/detail/process/vxworks.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/process/rtems.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
+#include <syscape/detail/process/zephyr.hpp>
 #else
 #include <syscape/detail/process/generic.hpp>
 #endif
