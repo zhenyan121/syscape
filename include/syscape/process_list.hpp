@@ -45,6 +45,8 @@
 /// @note Processes and their metadata change continuously. Queries do not cache
 /// results. Unprivileged callers gracefully receive partial observable metadata
 /// for restricted processes rather than failing the enumeration.
+/// @note Zephyr reports not_supported because it has no portable process table
+/// matching this module's semantics.
 
 #include <syscape/detail/config.hpp>
 
@@ -146,7 +148,7 @@ struct process_entry {
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/process_list/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process_list/windows.hpp>
@@ -192,6 +194,8 @@ struct process_entry {
 #include <syscape/detail/process_list/vxworks.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/process_list/rtems.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
+#include <syscape/detail/process_list/zephyr.hpp>
 #else
 #include <syscape/detail/process_list/generic.hpp>
 #endif

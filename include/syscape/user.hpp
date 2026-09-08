@@ -40,6 +40,8 @@
 /// persons or accounts. Every query here is explicit, performs no logging,
 /// persistence, telemetry, or network access, and preserves platform permission
 /// errors.
+/// @note Zephyr reports not_supported because it has no multi-user account and
+/// login-session model matching this module's semantics.
 
 #include <syscape/detail/config.hpp>
 
@@ -62,7 +64,7 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/user/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/user/windows.hpp>
@@ -108,6 +110,8 @@
 #include <syscape/detail/user/vxworks.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/user/rtems.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
+#include <syscape/detail/user/zephyr.hpp>
 #else
 #include <syscape/detail/user/generic.hpp>
 #endif

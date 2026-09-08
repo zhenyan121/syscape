@@ -20,6 +20,10 @@
 /// @note Expected failures are returned as native error codes where available,
 /// or as syscape::errc values for missing, malformed, or unsupported data.
 /// @note The Windows backend requires Windows Vista or later SDK declarations.
+/// @note Zephyr always reports the product and kernel name. Product and kernel
+/// versions, the build identifier, and host name require
+/// CONFIG_POSIX_SINGLE_PROCESS; uptime requires CONFIG_POSIX_TIMERS. Boot time
+/// and the boot identifier report not_supported.
 
 #include <syscape/detail/config.hpp>
 
@@ -39,7 +43,7 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/os/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/os/windows.hpp>
@@ -85,6 +89,8 @@
 #include <syscape/detail/os/vxworks.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/os/rtems.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
+#include <syscape/detail/os/zephyr.hpp>
 #else
 #include <syscape/detail/os/generic.hpp>
 #endif

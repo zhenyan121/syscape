@@ -35,6 +35,8 @@
 /// report not_supported for system software management queries.
 /// @note Software and service states change dynamically. Queries query on
 /// demand without caching.
+/// @note Zephyr reports not_supported because it has no system software
+/// inventory matching this module's portable semantics.
 
 #include <syscape/detail/config.hpp>
 
@@ -59,7 +61,7 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/software/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/software/windows.hpp>
@@ -105,6 +107,8 @@
 #include <syscape/detail/software/vxworks.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/software/rtems.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
+#include <syscape/detail/software/zephyr.hpp>
 #else
 #include <syscape/detail/software/generic.hpp>
 #endif

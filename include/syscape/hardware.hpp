@@ -41,6 +41,8 @@
 /// not_found. Firmware settings, motherboard replacement, and reimaging can
 /// change or clear the value, so it must not be presented as a permanent
 /// identity guarantee.
+/// @note Zephyr reports not_supported because board-specific identity requires
+/// an explicit provider and is not guessed from the build target.
 
 #include <syscape/detail/config.hpp>
 
@@ -320,7 +322,7 @@ struct memory_device {
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/hardware/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/hardware/windows.hpp>
@@ -366,6 +368,8 @@ struct memory_device {
 #include <syscape/detail/hardware/vxworks.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/hardware/rtems.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
+#include <syscape/detail/hardware/zephyr.hpp>
 #else
 #include <syscape/detail/hardware/generic.hpp>
 #endif

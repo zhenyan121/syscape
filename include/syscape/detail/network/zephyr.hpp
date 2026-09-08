@@ -1,0 +1,47 @@
+#ifndef SYSCAPE_DETAIL_NETWORK_ZEPHYR_HPP
+#define SYSCAPE_DETAIL_NETWORK_ZEPHYR_HPP
+
+#include <syscape/detail/config.hpp>
+
+#include <cstdint>
+#include <string_view>
+#include <vector>
+
+#include <syscape/detail/network/common.hpp>
+#include <syscape/result.hpp>
+
+namespace syscape {
+namespace detail {
+namespace network_backend {
+
+inline result<std::vector<network_common::interface_record>> interfaces() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<network_common::route_record>> routes() {
+    return fail(errc::not_supported);
+}
+
+inline result<network_common::dns_record> dns() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<network_common::statistics_record>> statistics() {
+    return fail(errc::not_supported);
+}
+
+inline result<network_common::statistics_record>
+statistics_by_name(std::string_view) {
+    return fail(errc::not_supported);
+}
+
+inline result<network_common::statistics_record>
+statistics_by_index(std::uint32_t) {
+    return fail(errc::not_supported);
+}
+
+} // namespace network_backend
+} // namespace detail
+} // namespace syscape
+
+#endif

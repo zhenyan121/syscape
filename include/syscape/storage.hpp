@@ -30,6 +30,8 @@
 /// Other targets use the not-supported fallback.
 /// @note Windows callers that use drives(), partitions(), or health queries
 /// must link Setupapi.lib.
+/// @note Zephyr reports not_supported because storage devices are
+/// configuration- and board-specific and no explicit provider is implemented.
 
 #include <syscape/detail/config.hpp>
 
@@ -132,7 +134,7 @@ enum class drive_health_status : std::uint8_t {
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/storage/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/storage/windows.hpp>
@@ -178,6 +180,8 @@ enum class drive_health_status : std::uint8_t {
 #include <syscape/detail/storage/vxworks.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/storage/rtems.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
+#include <syscape/detail/storage/zephyr.hpp>
 #else
 #include <syscape/detail/storage/generic.hpp>
 #endif

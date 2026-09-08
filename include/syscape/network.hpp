@@ -68,6 +68,8 @@
 /// unsupported data. On macOS this header also requires linking the
 /// SystemConfiguration and CoreFoundation frameworks; on Windows it requires
 /// the Iphlpapi import library documented below.
+/// @note Zephyr reports not_supported because networking is optional and no
+/// capability-gated backend with these portable semantics is implemented.
 
 #include <syscape/detail/config.hpp>
 
@@ -91,7 +93,7 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/network/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/network/windows.hpp>
@@ -137,6 +139,8 @@
 #include <syscape/detail/network/vxworks.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RTEMS)
 #include <syscape/detail/network/rtems.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
+#include <syscape/detail/network/zephyr.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif
