@@ -16,6 +16,13 @@ function(syscape_configure_test target standard library_target)
             CXX_STANDARD_REQUIRED YES
             CXX_EXTENSIONS NO)
 
+    # Ubuntu's packaged Emscripten can emit Node.js launchers that use the
+    # global fetch implementation for local .wasm paths.  Modern Node.js
+    # rejects those paths as invalid URLs, so load test binaries synchronously.
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten" OR EMSCRIPTEN)
+        target_link_options(${target} PRIVATE -sWASM_ASYNC_COMPILATION=0)
+    endif()
+
     if(MSVC)
         target_compile_options(${target} PRIVATE /W4 /WX /permissive- /utf-8)
     else()
