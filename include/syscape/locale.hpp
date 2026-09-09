@@ -5,7 +5,8 @@
 /// @brief Hosted locale, text-encoding, language-preference, and time-zone
 /// queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17
-/// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
+/// (Sandboxed/Restricted on Apple mobile platforms, Android, OpenHarmony, and
+/// Emscripten).
 /// @note Linux, macOS, Apple mobile platforms (iOS, iPadOS, tvOS, watchOS,
 /// visionOS, and Mac Catalyst), FreeBSD, Solaris, and Haiku share POSIX
 /// backends for locale identity, text encoding, and UTC offset; Windows
@@ -24,8 +25,10 @@
 /// locale and TZ facilities, reporting language preferences and region codes as
 /// not_supported. RTEMS implements locale identity, text encoding, UTC offset,
 /// and time-zone identification through Newlib and local zoneinfo data;
-/// language and region queries report not_supported. Other targets use the
-/// generic not-supported fallback. On
+/// language and region queries report not_supported. Emscripten reports the
+/// active C locale and text encoding; UTC offset, language preferences, region,
+/// and time-zone queries report not_supported. Other targets use the generic
+/// not-supported fallback. On
 /// Android, text_encoding() requires API level 26 or later and reports
 /// not_supported on earlier API levels.
 /// @note On Windows the preference queries require _WIN32_WINNT and WINVER
@@ -67,7 +70,8 @@
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
     !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
-    !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI)
+    !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI) &&         \
+    !defined(SYSCAPE_TARGET_EMSCRIPTEN)
 #include <syscape/detail/locale/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/locale/windows.hpp>
@@ -119,6 +123,9 @@
 #include <syscape/detail/locale/nuttx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_WASI)
 #include <syscape/detail/locale/wasi.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_EMSCRIPTEN)
+#include <syscape/detail/locale/emscripten.hpp>
 #else
 #include <syscape/detail/locale/generic.hpp>
 #endif

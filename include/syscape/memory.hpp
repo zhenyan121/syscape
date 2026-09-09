@@ -5,7 +5,8 @@
 /// @brief Hosted system memory capacity, commit accounting, huge pages,
 /// utilization, and pressure-stall usage queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17
-/// (Sandboxed/Restricted on Apple mobile platforms, Android, and OpenHarmony).
+/// (Sandboxed/Restricted on Apple mobile platforms, Android, OpenHarmony, and
+/// Emscripten).
 /// @note Linux implements every query through the kernel-documented
 /// /proc/meminfo interface, POSIX sysconf values, and the kernel-documented
 /// /proc/pressure/memory records. Windows implements the capacity, commit,
@@ -42,7 +43,9 @@
 /// through getpagesize; all other memory queries report not_supported. Redox OS
 /// implements page size through getpagesize; all other memory queries report
 /// not_supported. RTEMS implements only the page-size query through sysconf.
-/// Other targets use the not-supported fallback.
+/// Emscripten reports the page size through sysconf when available; all other
+/// memory queries report not_supported. Other targets use the not-supported
+/// fallback.
 /// @note The Windows commit query uses GetPerformanceInfo declared in
 /// <psapi.h>, which maps to Kernel32.lib on Windows 7 or later SDKs and may
 /// require Psapi.lib with older declarations.
@@ -72,7 +75,8 @@
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
     !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
-    !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI)
+    !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI) &&         \
+    !defined(SYSCAPE_TARGET_EMSCRIPTEN)
 #include <syscape/detail/memory/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/memory/windows.hpp>
@@ -124,6 +128,9 @@
 #include <syscape/detail/memory/nuttx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_WASI)
 #include <syscape/detail/memory/wasi.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_EMSCRIPTEN)
+#include <syscape/detail/memory/emscripten.hpp>
 #else
 #include <syscape/detail/memory/generic.hpp>
 #endif
