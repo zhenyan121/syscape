@@ -1115,6 +1115,61 @@ if(CMAKE_SYSTEM_NAME STREQUAL "NuttX" OR NUTTX)
             CONFIG_DISABLE_ENVIRON=1)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI" OR WASI)
+    set(WASI_TEST_TARGETS
+        os_wasi
+        cpu_wasi
+        memory_wasi
+        process_wasi
+        user_wasi
+        filesystem_wasi
+        network_wasi
+        locale_wasi
+        environment_wasi
+        resource_wasi
+        virtualization_wasi
+        hardware_wasi
+        power_wasi
+        sensor_wasi
+        security_wasi
+        numa_wasi
+        process_list_wasi
+        printer_wasi
+        audio_wasi
+        software_wasi
+        storage_wasi
+        ipc_wasi
+        connection_wasi)
+    foreach(wasi_target IN LISTS WASI_TEST_TARGETS)
+        syscape_add_test(${wasi_target} 17 syscape::hosted ${wasi_target}.cpp)
+        target_compile_definitions(${wasi_target} PRIVATE WASI=1 __wasi__=1)
+    endforeach()
+
+    foreach(wasi_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection)
+        set(wasi_header_target "header_${wasi_domain}_wasi")
+        syscape_add_test(
+            ${wasi_header_target}
+            17
+            syscape::hosted
+            header_${wasi_domain}.cpp)
+        target_compile_definitions(${wasi_header_target} PRIVATE WASI=1 __wasi__=1)
+    endforeach()
+
+    syscape_add_test(
+        wasi_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(wasi_odr PRIVATE WASI=1 __wasi__=1)
+
+    syscape_add_test(wasi_detection 11 syscape::syscape wasi_detection.cpp)
+    target_compile_definitions(wasi_detection PRIVATE WASI=1 __wasi__=1)
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")

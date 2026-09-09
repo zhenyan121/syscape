@@ -76,7 +76,7 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
     !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
-    !defined(SYSCAPE_TARGET_NUTTX)
+    !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI)
 #include <syscape/detail/environment/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/environment/windows.hpp>
@@ -126,6 +126,8 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
 #include <syscape/detail/environment/zephyr.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/environment/nuttx.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_WASI)
+#include <syscape/detail/environment/wasi.hpp>
 #else
 #include <syscape/detail/environment/generic.hpp>
 #endif
@@ -185,6 +187,11 @@ inline result<std::string> current_working_directory() {
 /// \param name The executable file name or command to find. Must be non-empty, valid UTF-8, and contain no '\0'.
 /// \return The full normalized UTF-8 path to the executable, or \c errc::not_found if not found.
 inline result<std::string> find_executable(std::string_view name) {
+    const auto valid =
+        detail::environment_common::validate_executable_name(name);
+    if (!valid) {
+        return fail(valid.error());
+    }
     return detail::environment_backend::find_executable(name);
 }
 

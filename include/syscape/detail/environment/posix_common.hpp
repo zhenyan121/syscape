@@ -21,7 +21,9 @@ extern "C" char** environ;
 #endif
 
 #include <syscape/detail/environment/common.hpp>
+#if !defined(SYSCAPE_TARGET_WASI)
 #include <syscape/detail/posix/passwd.hpp>
+#endif
 #include <syscape/result.hpp>
 
 namespace syscape {
@@ -259,6 +261,9 @@ inline result<std::string> find_executable(std::string_view name) {
 }
 
 inline result<std::string> passwd_home_directory() {
+#if defined(SYSCAPE_TARGET_WASI)
+    return fail(errc::not_supported);
+#else
     const result<posix_passwd::fields> fields = posix_passwd::current_entry();
     if (!fields) {
         return fail(fields.error());
@@ -267,6 +272,7 @@ inline result<std::string> passwd_home_directory() {
         return fail(errc::not_found);
     }
     return fields->directory;
+#endif
 }
 
 inline result<std::string> home_directory() {

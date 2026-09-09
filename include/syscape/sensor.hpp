@@ -164,7 +164,7 @@ struct thermal_zone {
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
     !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
-    !defined(SYSCAPE_TARGET_NUTTX)
+    !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI)
 #include <syscape/detail/sensor/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/sensor/windows.hpp>
@@ -214,6 +214,8 @@ struct thermal_zone {
 #include <syscape/detail/sensor/zephyr.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/sensor/nuttx.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_WASI)
+#include <syscape/detail/sensor/wasi.hpp>
 #else
 #include <syscape/detail/sensor/generic.hpp>
 #endif

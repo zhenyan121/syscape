@@ -1,6 +1,8 @@
 #ifndef SYSCAPE_DETAIL_POSIX_PASSWD_HPP
 #define SYSCAPE_DETAIL_POSIX_PASSWD_HPP
 
+#include <syscape/detail/config.hpp>
+
 #include <cerrno>
 #include <cstddef>
 #include <limits>
@@ -8,7 +10,9 @@
 #include <system_error>
 #include <vector>
 
+#if !defined(SYSCAPE_TARGET_WASI)
 #include <pwd.h>
+#endif
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -24,6 +28,18 @@ struct fields {
     std::string directory;
     std::string shell;
 };
+
+#if defined(SYSCAPE_TARGET_WASI)
+
+inline result<fields> entry_by_uid(::uid_t /*uid*/) {
+    return fail(errc::not_supported);
+}
+
+inline result<fields> current_entry() {
+    return fail(errc::not_supported);
+}
+
+#else
 
 /// Invokes a getpwuid_r interface using a size_t buffer length.
 ///
@@ -114,6 +130,8 @@ inline result<fields> entry_by_uid(::uid_t uid) {
 inline result<fields> current_entry() {
     return entry_by_uid(::geteuid());
 }
+
+#endif
 
 } // namespace posix_passwd
 } // namespace detail
