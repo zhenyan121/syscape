@@ -61,7 +61,7 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::unknown;
 #elif defined(__EMSCRIPTEN__)
     return operating_system::emscripten;
-#elif defined(__wasi__)
+#elif defined(__wasi__) || defined(WASI) || defined(SYSCAPE_TARGET_WASI)
     return operating_system::wasi;
 #elif defined(__ANDROID__)
     return operating_system::android;
@@ -130,7 +130,8 @@ constexpr operating_system target_operating_system() noexcept {
 constexpr execution_environment target_execution_environment() noexcept {
 #if defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return execution_environment::unknown;
-#elif defined(__EMSCRIPTEN__) || defined(__wasi__) || defined(__ANDROID__) ||  \
+#elif defined(__EMSCRIPTEN__) || defined(__wasi__) || defined(WASI) ||         \
+    defined(SYSCAPE_TARGET_WASI) || defined(__ANDROID__) ||                    \
     defined(__OHOS__) || defined(__OpenHarmony__) ||                           \
     (defined(__APPLE__) &&                                                     \
      (defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) ||               \

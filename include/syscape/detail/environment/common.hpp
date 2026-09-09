@@ -29,6 +29,23 @@ inline result<void> validate_variable_name(std::string_view name) {
     return {};
 }
 
+/// Validates an executable name or path before query.
+///
+/// An executable name must be non-empty, must not contain null characters,
+/// and must be valid UTF-8.
+inline result<void> validate_executable_name(std::string_view name) {
+    if (name.empty()) {
+        return fail(errc::invalid_argument);
+    }
+    if (name.find('\0') != std::string_view::npos) {
+        return fail(errc::invalid_argument);
+    }
+    if (!is_valid_utf8(name)) {
+        return fail(errc::invalid_encoding);
+    }
+    return {};
+}
+
 /// Validates a UTF-8 directory path string returned by a platform backend.
 ///
 /// A valid directory path must be non-empty and well-formed UTF-8.

@@ -138,7 +138,7 @@ enum class drive_health_status : std::uint8_t {
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
     !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
-    !defined(SYSCAPE_TARGET_NUTTX)
+    !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI)
 #include <syscape/detail/storage/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/storage/windows.hpp>
@@ -188,6 +188,8 @@ enum class drive_health_status : std::uint8_t {
 #include <syscape/detail/storage/zephyr.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/storage/nuttx.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_WASI)
+#include <syscape/detail/storage/wasi.hpp>
 #else
 #include <syscape/detail/storage/generic.hpp>
 #endif

@@ -65,7 +65,7 @@
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
     !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
-    !defined(SYSCAPE_TARGET_NUTTX)
+    !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI)
 #include <syscape/detail/connection/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/connection/windows.hpp>
@@ -115,6 +115,8 @@
 #include <syscape/detail/connection/zephyr.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/connection/nuttx.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_WASI)
+#include <syscape/detail/connection/wasi.hpp>
 #else
 #include <syscape/detail/connection/generic.hpp>
 #endif

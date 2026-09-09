@@ -96,6 +96,12 @@
 #define SYSCAPE_TARGET_NUTTX 1
 #endif
 
+#if defined(__wasi__)
+#define SYSCAPE_TARGET_WASI 1
+#elif defined(WASI) || defined(SYSCAPE_TARGET_WASI)
+#define SYSCAPE_TARGET_WASI 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1
