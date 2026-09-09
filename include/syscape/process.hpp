@@ -45,6 +45,11 @@
 /// @note Zephyr reports not_supported because its single-address-space task
 /// model does not provide the portable process semantics required here.
 
+/// @note NuttX implements current task identifiers, working directory,
+/// scheduling priority, CPU affinity, and the implemented open-file and stack
+/// limits. Queries backed only by zero-filled accounting or resource-limit
+/// stubs report not_supported.
+
 #include <syscape/detail/config.hpp>
 
 #if SYSCAPE_DETAIL_CPLUSPLUS < 201703L
@@ -65,7 +70,8 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
+    !defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/process/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/process/windows.hpp>
@@ -113,6 +119,8 @@
 #include <syscape/detail/process/rtems.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/process/zephyr.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
+#include <syscape/detail/process/nuttx.hpp>
 #else
 #include <syscape/detail/process/generic.hpp>
 #endif

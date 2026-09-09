@@ -25,6 +25,11 @@
 /// @note Zephyr reports not_supported because no verified base configuration
 /// provides these process-environment path and terminal semantics.
 
+/// @note NuttX implements configuration-gated process environment queries,
+/// working-directory and terminal queries, and validated temporary and home
+/// directory lookups. Standard config, data, and cache directories report
+/// not_supported.
+
 #include <syscape/detail/config.hpp>
 
 #if SYSCAPE_DETAIL_CPLUSPLUS < 201703L
@@ -70,7 +75,8 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
+    !defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/environment/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/environment/windows.hpp>
@@ -118,6 +124,8 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
 #include <syscape/detail/environment/rtems.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/environment/zephyr.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
+#include <syscape/detail/environment/nuttx.hpp>
 #else
 #include <syscape/detail/environment/generic.hpp>
 #endif

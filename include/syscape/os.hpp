@@ -25,6 +25,11 @@
 /// CONFIG_POSIX_SINGLE_PROCESS; uptime requires CONFIG_POSIX_TIMERS. Boot time
 /// and the boot identifier report not_supported.
 
+/// @note NuttX implements product, host, release, version, architecture, and
+/// monotonic-uptime queries through uname and clock_gettime. Boot time and boot
+/// identifier report not_supported because wall-clock initialization and a
+/// stable boot identifier are not guaranteed.
+
 #include <syscape/detail/config.hpp>
 
 #if SYSCAPE_DETAIL_CPLUSPLUS < 201703L
@@ -43,7 +48,8 @@
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
+    !defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/os/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/os/windows.hpp>
@@ -91,6 +97,8 @@
 #include <syscape/detail/os/rtems.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/os/zephyr.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
+#include <syscape/detail/os/nuttx.hpp>
 #else
 #include <syscape/detail/os/generic.hpp>
 #endif

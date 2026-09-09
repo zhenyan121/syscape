@@ -58,6 +58,9 @@
 /// @note Zephyr reports not_supported for hypervisor, container, sandbox,
 /// cgroup, and namespace queries.
 
+/// @note NuttX reports not_supported because no portable hypervisor,
+/// container, sandbox, cgroup, or namespace inspection backend is implemented.
+
 #include <syscape/detail/config.hpp>
 
 #if SYSCAPE_DETAIL_CPLUSPLUS < 201703L
@@ -259,7 +262,8 @@ struct cgroup_info {
     !defined(SYSCAPE_TARGET_HURD) && !defined(SYSCAPE_TARGET_SERENITY) &&      \
     !defined(SYSCAPE_TARGET_REDOX) && !defined(SYSCAPE_TARGET_MINIX) &&        \
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
-    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR)
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
+    !defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/virtualization/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/virtualization/windows.hpp>
@@ -307,6 +311,8 @@ struct cgroup_info {
 #include <syscape/detail/virtualization/rtems.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZEPHYR)
 #include <syscape/detail/virtualization/zephyr.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
+#include <syscape/detail/virtualization/nuttx.hpp>
 #else
 #include <syscape/detail/virtualization/generic.hpp>
 #endif

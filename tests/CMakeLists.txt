@@ -1053,6 +1053,68 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Zephyr" OR ZEPHYR)
             CONFIG_POSIX_SYSCONF_IMPL_MACRO=1)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "NuttX" OR NUTTX)
+    set(NUTTX_TEST_TARGETS
+        os_nuttx
+        cpu_nuttx
+        memory_nuttx
+        process_nuttx
+        user_nuttx
+        filesystem_nuttx
+        network_nuttx
+        locale_nuttx
+        environment_nuttx
+        resource_nuttx
+        virtualization_nuttx
+        hardware_nuttx
+        power_nuttx
+        sensor_nuttx
+        security_nuttx
+        numa_nuttx
+        process_list_nuttx
+        printer_nuttx
+        audio_nuttx
+        software_nuttx
+        storage_nuttx
+        ipc_nuttx
+        connection_nuttx)
+    foreach(nuttx_target IN LISTS NUTTX_TEST_TARGETS)
+        syscape_add_test(${nuttx_target} 17 syscape::hosted ${nuttx_target}.cpp)
+        target_compile_definitions(${nuttx_target} PRIVATE NUTTX=1)
+    endforeach()
+
+    foreach(nuttx_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection)
+        set(nuttx_header_target "header_${nuttx_domain}_nuttx")
+        syscape_add_test(
+            ${nuttx_header_target}
+            17
+            syscape::hosted
+            header_${nuttx_domain}.cpp)
+        target_compile_definitions(${nuttx_header_target} PRIVATE NUTTX=1)
+    endforeach()
+
+    syscape_add_test(
+        nuttx_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(nuttx_odr PRIVATE NUTTX=1)
+
+    syscape_add_test(nuttx_detection 11 syscape::syscape nuttx_detection.cpp)
+    target_compile_definitions(nuttx_detection PRIVATE __NuttX__=1)
+
+    syscape_add_test(disabled_nuttx 17 syscape::hosted disabled_nuttx.cpp)
+    target_compile_definitions(
+        disabled_nuttx
+        PRIVATE
+            __NuttX__=1
+            CONFIG_DISABLE_ENVIRON=1)
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")
