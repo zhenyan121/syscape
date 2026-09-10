@@ -1239,6 +1239,68 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten" OR EMSCRIPTEN)
     target_compile_definitions(emscripten_detection PRIVATE EMSCRIPTEN=1 __EMSCRIPTEN__=1)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Fuchsia" OR FUCHSIA)
+    set(FUCHSIA_TEST_TARGETS
+        os_fuchsia
+        cpu_fuchsia
+        memory_fuchsia
+        process_fuchsia
+        user_fuchsia
+        filesystem_fuchsia
+        network_fuchsia
+        locale_fuchsia
+        environment_fuchsia
+        resource_fuchsia
+        virtualization_fuchsia
+        hardware_fuchsia
+        power_fuchsia
+        sensor_fuchsia
+        security_fuchsia
+        numa_fuchsia
+        process_list_fuchsia
+        printer_fuchsia
+        audio_fuchsia
+        software_fuchsia
+        storage_fuchsia
+        ipc_fuchsia
+        connection_fuchsia
+        gpu_fuchsia
+        display_fuchsia
+        input_fuchsia
+        camera_fuchsia
+        bluetooth_fuchsia
+        wifi_fuchsia)
+    foreach(fuchsia_target IN LISTS FUCHSIA_TEST_TARGETS)
+        syscape_add_test(${fuchsia_target} 17 syscape::hosted ${fuchsia_target}.cpp)
+        target_compile_definitions(${fuchsia_target} PRIVATE FUCHSIA=1 __Fuchsia__=1)
+    endforeach()
+
+    foreach(fuchsia_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(fuchsia_header_target "header_${fuchsia_domain}_fuchsia")
+        syscape_add_test(
+            ${fuchsia_header_target}
+            17
+            syscape::hosted
+            header_${fuchsia_domain}.cpp)
+        target_compile_definitions(${fuchsia_header_target} PRIVATE FUCHSIA=1 __Fuchsia__=1)
+    endforeach()
+
+    syscape_add_test(
+        fuchsia_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(fuchsia_odr PRIVATE FUCHSIA=1 __Fuchsia__=1)
+
+    syscape_add_test(fuchsia_detection 11 syscape::syscape fuchsia_detection.cpp)
+    target_compile_definitions(fuchsia_detection PRIVATE FUCHSIA=1 __Fuchsia__=1)
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")

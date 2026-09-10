@@ -42,7 +42,8 @@ enum class operating_system {
     nuttx,
     wasi,
     emscripten,
-    openharmony
+    openharmony,
+    fuchsia
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -68,6 +69,9 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::android;
 #elif defined(__OHOS__) || defined(__OpenHarmony__)
     return operating_system::openharmony;
+#elif defined(__Fuchsia__) || defined(FUCHSIA) ||                              \
+    defined(SYSCAPE_TARGET_FUCHSIA)
+    return operating_system::fuchsia;
 #elif defined(__CYGWIN__) || defined(_WIN32)
     return operating_system::windows;
 #elif defined(__APPLE__) && defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
@@ -134,7 +138,8 @@ constexpr execution_environment target_execution_environment() noexcept {
 #elif defined(__EMSCRIPTEN__) || defined(EMSCRIPTEN) ||                        \
     defined(SYSCAPE_TARGET_EMSCRIPTEN) || defined(__wasi__) ||                 \
     defined(WASI) || defined(SYSCAPE_TARGET_WASI) || defined(__ANDROID__) ||   \
-    defined(__OHOS__) || defined(__OpenHarmony__) ||                           \
+    defined(__OHOS__) || defined(__OpenHarmony__) || defined(__Fuchsia__) ||   \
+    defined(FUCHSIA) || defined(SYSCAPE_TARGET_FUCHSIA) ||                     \
     (defined(__APPLE__) &&                                                     \
      (defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) ||               \
       defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) ||                \
@@ -196,6 +201,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "openharmony";
     case operating_system::wasi: return "wasi";
     case operating_system::emscripten: return "emscripten";
+    case operating_system::fuchsia:
+        return "fuchsia";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";
