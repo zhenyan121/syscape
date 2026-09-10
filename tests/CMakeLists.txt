@@ -16,6 +16,13 @@ function(syscape_configure_test target standard library_target)
             CXX_STANDARD_REQUIRED YES
             CXX_EXTENSIONS NO)
 
+    # Ubuntu's packaged Emscripten can emit Node.js launchers that use the
+    # global fetch implementation for local .wasm paths.  Modern Node.js
+    # rejects those paths as invalid URLs, so load test binaries synchronously.
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten" OR EMSCRIPTEN)
+        target_link_options(${target} PRIVATE -sWASM_ASYNC_COMPILATION=0)
+    endif()
+
     if(MSVC)
         target_compile_options(${target} PRIVATE /W4 /WX /permissive- /utf-8)
     else()
@@ -1168,6 +1175,68 @@ if(CMAKE_SYSTEM_NAME STREQUAL "WASI" OR WASI)
 
     syscape_add_test(wasi_detection 11 syscape::syscape wasi_detection.cpp)
     target_compile_definitions(wasi_detection PRIVATE WASI=1 __wasi__=1)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten" OR EMSCRIPTEN)
+    set(EMSCRIPTEN_TEST_TARGETS
+        os_emscripten
+        cpu_emscripten
+        memory_emscripten
+        process_emscripten
+        user_emscripten
+        filesystem_emscripten
+        network_emscripten
+        locale_emscripten
+        environment_emscripten
+        resource_emscripten
+        virtualization_emscripten
+        hardware_emscripten
+        power_emscripten
+        sensor_emscripten
+        security_emscripten
+        numa_emscripten
+        process_list_emscripten
+        printer_emscripten
+        audio_emscripten
+        software_emscripten
+        storage_emscripten
+        ipc_emscripten
+        connection_emscripten
+        gpu_emscripten
+        display_emscripten
+        input_emscripten
+        camera_emscripten
+        bluetooth_emscripten
+        wifi_emscripten)
+    foreach(emscripten_target IN LISTS EMSCRIPTEN_TEST_TARGETS)
+        syscape_add_test(${emscripten_target} 17 syscape::hosted ${emscripten_target}.cpp)
+        target_compile_definitions(${emscripten_target} PRIVATE EMSCRIPTEN=1 __EMSCRIPTEN__=1)
+    endforeach()
+
+    foreach(emscripten_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(emscripten_header_target "header_${emscripten_domain}_emscripten")
+        syscape_add_test(
+            ${emscripten_header_target}
+            17
+            syscape::hosted
+            header_${emscripten_domain}.cpp)
+        target_compile_definitions(${emscripten_header_target} PRIVATE EMSCRIPTEN=1 __EMSCRIPTEN__=1)
+    endforeach()
+
+    syscape_add_test(
+        emscripten_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(emscripten_odr PRIVATE EMSCRIPTEN=1 __EMSCRIPTEN__=1)
+
+    syscape_add_test(emscripten_detection 11 syscape::syscape emscripten_detection.cpp)
+    target_compile_definitions(emscripten_detection PRIVATE EMSCRIPTEN=1 __EMSCRIPTEN__=1)
 endif()
 
 if(APPLE)

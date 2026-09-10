@@ -579,6 +579,40 @@ jobs:
             --output-on-failure \
             -R wasi
 
+  emscripten-backend:
+    name: Emscripten backend (WebAssembly/Node.js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake emscripten ninja-build nodejs
+
+      - name: Report toolchain versions
+        run: |
+          em++ --version
+          node --version
+
+      - name: Configure Emscripten tests
+        run: |
+          emcmake cmake -B build-emscripten -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CROSSCOMPILING_EMULATOR="$(command -v node)" \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build-emscripten -j
+
+      - name: Run Emscripten tests with Node.js
+        run: |
+          ctest \
+            --test-dir build-emscripten \
+            --output-on-failure \
+            -R emscripten
+
   android-ndk-emulator:
     runs-on: ubuntu-latest
     steps:
