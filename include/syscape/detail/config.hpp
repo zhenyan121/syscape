@@ -108,6 +108,10 @@
 #define SYSCAPE_TARGET_EMSCRIPTEN 1
 #endif
 
+#if defined(__Fuchsia__) || defined(FUCHSIA) || defined(SYSCAPE_TARGET_FUCHSIA)
+#define SYSCAPE_TARGET_FUCHSIA 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1
