@@ -238,7 +238,8 @@ struct configured_network {
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA)
+    !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA) && \
+    !defined(SYSCAPE_TARGET_FREERTOS)
 #include <syscape/detail/wifi/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/wifi/windows.hpp>
@@ -247,6 +248,9 @@ struct configured_network {
 #include <syscape/detail/wifi/emscripten.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_FUCHSIA)
 #include <syscape/detail/wifi/fuchsia.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_FREERTOS)
+#include <syscape/detail/wifi/freertos.hpp>
 #else
 #include <syscape/detail/wifi/generic.hpp>
 #endif

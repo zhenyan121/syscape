@@ -137,7 +137,8 @@ struct input_device {
 
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
-    !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA)
+    !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA) && \
+    !defined(SYSCAPE_TARGET_FREERTOS)
 #include <syscape/detail/input/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/input/windows.hpp>
@@ -148,6 +149,9 @@ struct input_device {
 #include <syscape/detail/input/emscripten.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_FUCHSIA)
 #include <syscape/detail/input/fuchsia.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_FREERTOS)
+#include <syscape/detail/input/freertos.hpp>
 #else
 #include <syscape/detail/input/generic.hpp>
 #endif

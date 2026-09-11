@@ -1301,6 +1301,75 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Fuchsia" OR FUCHSIA)
     target_compile_definitions(fuchsia_detection PRIVATE FUCHSIA=1 __Fuchsia__=1)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "FreeRTOS" OR FREERTOS)
+    add_library(freertos_compat STATIC compat/freertos/freertos_compat.cpp)
+    target_include_directories(freertos_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/freertos)
+    target_compile_features(freertos_compat PUBLIC cxx_std_17)
+
+    set(FREERTOS_TEST_TARGETS
+        os_freertos
+        cpu_freertos
+        memory_freertos
+        process_freertos
+        user_freertos
+        filesystem_freertos
+        network_freertos
+        locale_freertos
+        environment_freertos
+        resource_freertos
+        virtualization_freertos
+        hardware_freertos
+        power_freertos
+        sensor_freertos
+        security_freertos
+        numa_freertos
+        process_list_freertos
+        printer_freertos
+        audio_freertos
+        software_freertos
+        storage_freertos
+        ipc_freertos
+        connection_freertos
+        gpu_freertos
+        display_freertos
+        input_freertos
+        camera_freertos
+        bluetooth_freertos
+        wifi_freertos)
+    foreach(freertos_target IN LISTS FREERTOS_TEST_TARGETS)
+        syscape_add_test(${freertos_target} 17 syscape::hosted ${freertos_target}.cpp)
+        target_compile_definitions(${freertos_target} PRIVATE FREERTOS=1 __FREERTOS__=1)
+        target_link_libraries(${freertos_target} PRIVATE freertos_compat)
+    endforeach()
+
+    foreach(freertos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(freertos_header_target "header_${freertos_domain}_freertos")
+        syscape_add_test(
+            ${freertos_header_target}
+            17
+            syscape::hosted
+            header_${freertos_domain}.cpp)
+        target_compile_definitions(${freertos_header_target} PRIVATE FREERTOS=1 __FREERTOS__=1)
+        target_link_libraries(${freertos_header_target} PRIVATE freertos_compat)
+    endforeach()
+
+    syscape_add_test(
+        freertos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(freertos_odr PRIVATE FREERTOS=1 __FREERTOS__=1)
+    target_link_libraries(freertos_odr PRIVATE freertos_compat)
+
+    syscape_add_test(freertos_detection 11 syscape::syscape freertos_detection.cpp)
+    target_compile_definitions(freertos_detection PRIVATE FREERTOS=1 __FREERTOS__=1)
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")
