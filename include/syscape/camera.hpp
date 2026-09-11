@@ -157,7 +157,7 @@ struct camera_device {
 #if !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(__linux__) &&           \
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA) && \
-    !defined(SYSCAPE_TARGET_FREERTOS)
+    !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX)
 #include <syscape/detail/camera/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/camera/windows.hpp>
@@ -171,6 +171,8 @@ struct camera_device {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_FREERTOS)
 #include <syscape/detail/camera/freertos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_THREADX)
+#include <syscape/detail/camera/threadx.hpp>
 #else
 #include <syscape/detail/camera/generic.hpp>
 #endif

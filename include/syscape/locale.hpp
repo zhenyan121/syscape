@@ -72,7 +72,7 @@
     !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
     !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI) &&         \
     !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA) && \
-    !defined(SYSCAPE_TARGET_FREERTOS)
+    !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX)
 #include <syscape/detail/locale/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/locale/windows.hpp>
@@ -132,6 +132,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_FREERTOS)
 #include <syscape/detail/locale/freertos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_THREADX)
+#include <syscape/detail/locale/threadx.hpp>
 #else
 #include <syscape/detail/locale/generic.hpp>
 #endif

@@ -44,7 +44,8 @@ enum class operating_system {
     emscripten,
     openharmony,
     fuchsia,
-    freertos
+    freertos,
+    threadx
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -128,6 +129,9 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(FREERTOS) || defined(__FREERTOS__) ||                            \
     defined(SYSCAPE_TARGET_FREERTOS)
     return operating_system::freertos;
+#elif defined(THREADX) || defined(__THREADX__) || defined(TX_API_H) ||         \
+    defined(SYSCAPE_TARGET_THREADX)
+    return operating_system::threadx;
 #elif defined(__linux__)
     return operating_system::linux_os;
 #else
@@ -159,7 +163,9 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(SYSCAPE_TARGET_RTEMS) || defined(__ZEPHYR__) || defined(ZEPHYR) || \
     defined(SYSCAPE_TARGET_ZEPHYR) || defined(__NuttX__) || defined(NUTTX) ||  \
     defined(SYSCAPE_TARGET_NUTTX) || defined(FREERTOS) ||                      \
-    defined(__FREERTOS__) || defined(SYSCAPE_TARGET_FREERTOS)
+    defined(__FREERTOS__) || defined(SYSCAPE_TARGET_FREERTOS) ||               \
+    defined(THREADX) || defined(__THREADX__) || defined(TX_API_H) ||           \
+    defined(SYSCAPE_TARGET_THREADX)
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
@@ -210,6 +216,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "fuchsia";
     case operating_system::freertos:
         return "freertos";
+    case operating_system::threadx:
+        return "threadx";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";
