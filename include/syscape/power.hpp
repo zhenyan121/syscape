@@ -147,7 +147,7 @@ enum class power_source_type : std::uint8_t {
     !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI) &&         \
     !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA) && \
     !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX) &&   \
-    !defined(SYSCAPE_TARGET_EMBOS)
+    !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS)
 #include <syscape/detail/power/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/power/windows.hpp>
@@ -211,6 +211,8 @@ enum class power_source_type : std::uint8_t {
 #include <syscape/detail/power/threadx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_EMBOS)
 #include <syscape/detail/power/embos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_UCOS)
+#include <syscape/detail/power/ucos.hpp>
 #else
 #include <syscape/detail/power/generic.hpp>
 #endif

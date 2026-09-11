@@ -62,7 +62,7 @@
     !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI) &&         \
     !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA) && \
     !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX) &&   \
-    !defined(SYSCAPE_TARGET_EMBOS)
+    !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS)
 #include <syscape/detail/ipc/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/ipc/windows.hpp>
@@ -126,6 +126,8 @@
 #include <syscape/detail/ipc/threadx.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_EMBOS)
 #include <syscape/detail/ipc/embos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_UCOS)
+#include <syscape/detail/ipc/ucos.hpp>
 #else
 #include <syscape/detail/ipc/generic.hpp>
 #endif

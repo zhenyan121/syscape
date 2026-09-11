@@ -1508,6 +1508,75 @@ if(CMAKE_SYSTEM_NAME STREQUAL "embOS" OR EMBOS)
     target_compile_definitions(embos_detection PRIVATE EMBOS=1 __EMBOS__=1)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "uCOS" OR CMAKE_SYSTEM_NAME STREQUAL "uC/OS" OR UCOS)
+    add_library(ucos_compat STATIC compat/ucos/ucos_compat.cpp)
+    target_include_directories(ucos_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/ucos)
+    target_compile_features(ucos_compat PUBLIC cxx_std_17)
+
+    set(UCOS_TEST_TARGETS
+        os_ucos
+        cpu_ucos
+        memory_ucos
+        process_ucos
+        user_ucos
+        filesystem_ucos
+        network_ucos
+        locale_ucos
+        environment_ucos
+        resource_ucos
+        virtualization_ucos
+        hardware_ucos
+        power_ucos
+        sensor_ucos
+        security_ucos
+        numa_ucos
+        process_list_ucos
+        printer_ucos
+        audio_ucos
+        software_ucos
+        storage_ucos
+        ipc_ucos
+        connection_ucos
+        gpu_ucos
+        display_ucos
+        input_ucos
+        camera_ucos
+        bluetooth_ucos
+        wifi_ucos)
+    foreach(ucos_target IN LISTS UCOS_TEST_TARGETS)
+        syscape_add_test(${ucos_target} 17 syscape::hosted ${ucos_target}.cpp)
+        target_compile_definitions(${ucos_target} PRIVATE UCOS=1 __UCOS__=1 UCOS_III=1)
+        target_link_libraries(${ucos_target} PRIVATE ucos_compat)
+    endforeach()
+
+    foreach(ucos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(ucos_header_target "header_${ucos_domain}_ucos")
+        syscape_add_test(
+            ${ucos_header_target}
+            17
+            syscape::hosted
+            header_${ucos_domain}.cpp)
+        target_compile_definitions(${ucos_header_target} PRIVATE UCOS=1 __UCOS__=1 UCOS_III=1)
+        target_link_libraries(${ucos_header_target} PRIVATE ucos_compat)
+    endforeach()
+
+    syscape_add_test(
+        ucos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(ucos_odr PRIVATE UCOS=1 __UCOS__=1 UCOS_III=1)
+    target_link_libraries(ucos_odr PRIVATE ucos_compat)
+
+    syscape_add_test(ucos_detection 11 syscape::syscape ucos_detection.cpp)
+    target_compile_definitions(ucos_detection PRIVATE UCOS=1 __UCOS__=1 UCOS_III=1)
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")
