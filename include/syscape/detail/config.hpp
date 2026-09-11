@@ -112,6 +112,11 @@
 #define SYSCAPE_TARGET_FUCHSIA 1
 #endif
 
+#if defined(FREERTOS) || defined(__FREERTOS__) ||                              \
+    defined(SYSCAPE_TARGET_FREERTOS)
+#define SYSCAPE_TARGET_FREERTOS 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1

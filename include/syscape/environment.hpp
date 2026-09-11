@@ -81,7 +81,8 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
     !defined(SYSCAPE_TARGET_QNX) && !defined(SYSCAPE_TARGET_VXWORKS) &&        \
     !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
     !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI) &&         \
-    !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA)
+    !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA) && \
+    !defined(SYSCAPE_TARGET_FREERTOS)
 #include <syscape/detail/environment/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/environment/windows.hpp>
@@ -138,6 +139,9 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
 #include <syscape/detail/environment/emscripten.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_FUCHSIA)
 #include <syscape/detail/environment/fuchsia.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_FREERTOS)
+#include <syscape/detail/environment/freertos.hpp>
 #else
 #include <syscape/detail/environment/generic.hpp>
 #endif
