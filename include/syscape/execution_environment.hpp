@@ -46,7 +46,8 @@ enum class operating_system {
     fuchsia,
     freertos,
     threadx,
-    embos
+    embos,
+    ucos
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -136,6 +137,11 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(EMBOS) || defined(__EMBOS__) || defined(RTOS_H) ||               \
     defined(SYSCAPE_TARGET_EMBOS)
     return operating_system::embos;
+#elif defined(UCOS) || defined(__UCOS__) || defined(UCOS_II) ||                \
+    defined(__UCOS_II__) || defined(UCOS_III) || defined(__UCOS_III__) ||      \
+    defined(OS_uCOS_II) || defined(OS_uCOS_III) ||                             \
+    defined(SYSCAPE_TARGET_UCOS)
+    return operating_system::ucos;
 #elif defined(__linux__)
     return operating_system::linux_os;
 #else
@@ -170,7 +176,10 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(__FREERTOS__) || defined(SYSCAPE_TARGET_FREERTOS) ||               \
     defined(THREADX) || defined(__THREADX__) || defined(TX_API_H) ||           \
     defined(SYSCAPE_TARGET_THREADX) || defined(EMBOS) || defined(__EMBOS__) || \
-    defined(RTOS_H) || defined(SYSCAPE_TARGET_EMBOS)
+    defined(RTOS_H) || defined(SYSCAPE_TARGET_EMBOS) || defined(UCOS) ||       \
+    defined(__UCOS__) || defined(UCOS_II) || defined(__UCOS_II__) ||           \
+    defined(UCOS_III) || defined(__UCOS_III__) || defined(OS_uCOS_II) ||       \
+    defined(OS_uCOS_III) || defined(SYSCAPE_TARGET_UCOS)
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
@@ -225,6 +234,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "threadx";
     case operating_system::embos:
         return "embos";
+    case operating_system::ucos:
+        return "ucos";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";
