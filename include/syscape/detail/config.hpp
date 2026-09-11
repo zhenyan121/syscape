@@ -117,6 +117,11 @@
 #define SYSCAPE_TARGET_FREERTOS 1
 #endif
 
+#if defined(THREADX) || defined(__THREADX__) || defined(TX_API_H) ||           \
+    defined(SYSCAPE_TARGET_THREADX)
+#define SYSCAPE_TARGET_THREADX 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1

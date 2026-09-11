@@ -1370,6 +1370,75 @@ if(CMAKE_SYSTEM_NAME STREQUAL "FreeRTOS" OR FREERTOS)
     target_compile_definitions(freertos_detection PRIVATE FREERTOS=1 __FREERTOS__=1)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "ThreadX" OR THREADX)
+    add_library(threadx_compat STATIC compat/threadx/threadx_compat.cpp)
+    target_include_directories(threadx_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/threadx)
+    target_compile_features(threadx_compat PUBLIC cxx_std_17)
+
+    set(THREADX_TEST_TARGETS
+        os_threadx
+        cpu_threadx
+        memory_threadx
+        process_threadx
+        user_threadx
+        filesystem_threadx
+        network_threadx
+        locale_threadx
+        environment_threadx
+        resource_threadx
+        virtualization_threadx
+        hardware_threadx
+        power_threadx
+        sensor_threadx
+        security_threadx
+        numa_threadx
+        process_list_threadx
+        printer_threadx
+        audio_threadx
+        software_threadx
+        storage_threadx
+        ipc_threadx
+        connection_threadx
+        gpu_threadx
+        display_threadx
+        input_threadx
+        camera_threadx
+        bluetooth_threadx
+        wifi_threadx)
+    foreach(threadx_target IN LISTS THREADX_TEST_TARGETS)
+        syscape_add_test(${threadx_target} 17 syscape::hosted ${threadx_target}.cpp)
+        target_compile_definitions(${threadx_target} PRIVATE THREADX=1 __THREADX__=1)
+        target_link_libraries(${threadx_target} PRIVATE threadx_compat)
+    endforeach()
+
+    foreach(threadx_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(threadx_header_target "header_${threadx_domain}_threadx")
+        syscape_add_test(
+            ${threadx_header_target}
+            17
+            syscape::hosted
+            header_${threadx_domain}.cpp)
+        target_compile_definitions(${threadx_header_target} PRIVATE THREADX=1 __THREADX__=1)
+        target_link_libraries(${threadx_header_target} PRIVATE threadx_compat)
+    endforeach()
+
+    syscape_add_test(
+        threadx_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(threadx_odr PRIVATE THREADX=1 __THREADX__=1)
+    target_link_libraries(threadx_odr PRIVATE threadx_compat)
+
+    syscape_add_test(threadx_detection 11 syscape::syscape threadx_detection.cpp)
+    target_compile_definitions(threadx_detection PRIVATE THREADX=1 __THREADX__=1)
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")

@@ -1,0 +1,59 @@
+#include <iostream>
+
+#include <syscape/memory.hpp>
+
+namespace {
+
+int failures = 0;
+
+void expect(bool condition, const char* message) {
+    if (!condition) {
+        std::cerr << "FAIL: " << message << '\n';
+        ++failures;
+    }
+}
+
+void test_memory_queries() {
+    const auto phys = syscape::memory::physical_memory_bytes();
+    expect(!phys && phys.error() == syscape::errc::not_supported,
+           "physical memory must report not_supported on ThreadX");
+
+    const auto avail = syscape::memory::available_memory_bytes();
+    expect(!avail && avail.error() == syscape::errc::not_supported,
+           "available memory must report not_supported on ThreadX");
+
+    const auto load = syscape::memory::memory_load_percent();
+    expect(!load && load.error() == syscape::errc::not_supported,
+           "memory load percent must report not_supported on ThreadX");
+
+    const auto page = syscape::memory::page_size_bytes();
+    expect(!page && page.error() == syscape::errc::not_supported,
+           "page size must report not_supported on ThreadX");
+
+    const auto swap = syscape::memory::swap_status();
+    expect(!swap && swap.error() == syscape::errc::not_supported,
+           "swap status must report not_supported on ThreadX");
+
+    const auto commit = syscape::memory::commit_status();
+    expect(!commit && commit.error() == syscape::errc::not_supported,
+           "commit status must report not_supported on ThreadX");
+
+    const auto huge_size = syscape::memory::huge_page_size_bytes();
+    expect(!huge_size && huge_size.error() == syscape::errc::not_supported,
+           "huge page size must report not_supported on ThreadX");
+
+    const auto huge_pool = syscape::memory::huge_page_pool_status();
+    expect(!huge_pool && huge_pool.error() == syscape::errc::not_supported,
+           "huge page pool must report not_supported on ThreadX");
+
+    const auto press = syscape::memory::memory_pressure();
+    expect(!press && press.error() == syscape::errc::not_supported,
+           "memory pressure must report not_supported on ThreadX");
+}
+
+} // namespace
+
+int main() {
+    test_memory_queries();
+    return failures == 0 ? 0 : 1;
+}
