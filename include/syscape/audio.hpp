@@ -130,7 +130,8 @@ struct audio_device {
     !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_ZEPHYR) &&       \
     !defined(SYSCAPE_TARGET_NUTTX) && !defined(SYSCAPE_TARGET_WASI) &&         \
     !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA) && \
-    !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX)
+    !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX) &&   \
+    !defined(SYSCAPE_TARGET_EMBOS)
 #include <syscape/detail/audio/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/audio/windows.hpp>
@@ -192,6 +193,8 @@ struct audio_device {
 #include <syscape/detail/audio/freertos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_THREADX)
 #include <syscape/detail/audio/threadx.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_EMBOS)
+#include <syscape/detail/audio/embos.hpp>
 #else
 #include <syscape/detail/audio/generic.hpp>
 #endif

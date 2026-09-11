@@ -122,6 +122,11 @@
 #define SYSCAPE_TARGET_THREADX 1
 #endif
 
+#if defined(EMBOS) || defined(__EMBOS__) || defined(RTOS_H) ||                 \
+    defined(SYSCAPE_TARGET_EMBOS)
+#define SYSCAPE_TARGET_EMBOS 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1

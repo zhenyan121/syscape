@@ -1439,6 +1439,75 @@ if(CMAKE_SYSTEM_NAME STREQUAL "ThreadX" OR THREADX)
     target_compile_definitions(threadx_detection PRIVATE THREADX=1 __THREADX__=1)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "embOS" OR EMBOS)
+    add_library(embos_compat STATIC compat/embos/embos_compat.cpp)
+    target_include_directories(embos_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/embos)
+    target_compile_features(embos_compat PUBLIC cxx_std_17)
+
+    set(EMBOS_TEST_TARGETS
+        os_embos
+        cpu_embos
+        memory_embos
+        process_embos
+        user_embos
+        filesystem_embos
+        network_embos
+        locale_embos
+        environment_embos
+        resource_embos
+        virtualization_embos
+        hardware_embos
+        power_embos
+        sensor_embos
+        security_embos
+        numa_embos
+        process_list_embos
+        printer_embos
+        audio_embos
+        software_embos
+        storage_embos
+        ipc_embos
+        connection_embos
+        gpu_embos
+        display_embos
+        input_embos
+        camera_embos
+        bluetooth_embos
+        wifi_embos)
+    foreach(embos_target IN LISTS EMBOS_TEST_TARGETS)
+        syscape_add_test(${embos_target} 17 syscape::hosted ${embos_target}.cpp)
+        target_compile_definitions(${embos_target} PRIVATE EMBOS=1 __EMBOS__=1)
+        target_link_libraries(${embos_target} PRIVATE embos_compat)
+    endforeach()
+
+    foreach(embos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(embos_header_target "header_${embos_domain}_embos")
+        syscape_add_test(
+            ${embos_header_target}
+            17
+            syscape::hosted
+            header_${embos_domain}.cpp)
+        target_compile_definitions(${embos_header_target} PRIVATE EMBOS=1 __EMBOS__=1)
+        target_link_libraries(${embos_header_target} PRIVATE embos_compat)
+    endforeach()
+
+    syscape_add_test(
+        embos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(embos_odr PRIVATE EMBOS=1 __EMBOS__=1)
+    target_link_libraries(embos_odr PRIVATE embos_compat)
+
+    syscape_add_test(embos_detection 11 syscape::syscape embos_detection.cpp)
+    target_compile_definitions(embos_detection PRIVATE EMBOS=1 __EMBOS__=1)
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")
