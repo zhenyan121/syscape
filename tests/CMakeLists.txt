@@ -1577,6 +1577,75 @@ if(CMAKE_SYSTEM_NAME STREQUAL "uCOS" OR CMAKE_SYSTEM_NAME STREQUAL "uC/OS" OR UC
     target_compile_definitions(ucos_detection PRIVATE UCOS=1 __UCOS__=1 UCOS_III=1)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "INTEGRITY" OR INTEGRITY)
+    add_library(integrity_compat STATIC compat/integrity/integrity_compat.cpp)
+    target_include_directories(integrity_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/integrity)
+    target_compile_features(integrity_compat PUBLIC cxx_std_17)
+
+    set(INTEGRITY_TEST_TARGETS
+        os_integrity
+        cpu_integrity
+        memory_integrity
+        process_integrity
+        user_integrity
+        filesystem_integrity
+        network_integrity
+        locale_integrity
+        environment_integrity
+        resource_integrity
+        virtualization_integrity
+        hardware_integrity
+        power_integrity
+        sensor_integrity
+        security_integrity
+        numa_integrity
+        process_list_integrity
+        printer_integrity
+        audio_integrity
+        software_integrity
+        storage_integrity
+        ipc_integrity
+        connection_integrity
+        gpu_integrity
+        display_integrity
+        input_integrity
+        camera_integrity
+        bluetooth_integrity
+        wifi_integrity)
+    foreach(integrity_target IN LISTS INTEGRITY_TEST_TARGETS)
+        syscape_add_test(${integrity_target} 17 syscape::hosted ${integrity_target}.cpp)
+        target_compile_definitions(${integrity_target} PRIVATE __INTEGRITY=1 INTEGRITY=1)
+        target_link_libraries(${integrity_target} PRIVATE integrity_compat)
+    endforeach()
+
+    foreach(integrity_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(integrity_header_target "header_${integrity_domain}_integrity")
+        syscape_add_test(
+            ${integrity_header_target}
+            17
+            syscape::hosted
+            header_${integrity_domain}.cpp)
+        target_compile_definitions(${integrity_header_target} PRIVATE __INTEGRITY=1 INTEGRITY=1)
+        target_link_libraries(${integrity_header_target} PRIVATE integrity_compat)
+    endforeach()
+
+    syscape_add_test(
+        integrity_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(integrity_odr PRIVATE __INTEGRITY=1 INTEGRITY=1)
+    target_link_libraries(integrity_odr PRIVATE integrity_compat)
+
+    syscape_add_test(integrity_detection 11 syscape::syscape integrity_detection.cpp)
+    target_compile_definitions(integrity_detection PRIVATE __INTEGRITY=1 INTEGRITY=1)
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")
@@ -1635,6 +1704,12 @@ foreach(standard IN ITEMS 11 14 17)
 endforeach()
 
 function(syscape_expect_cpp11_rejection header expected_message)
+    if(DEFINED CMAKE_CXX_STANDARD AND CMAKE_CXX_STANDARD GREATER 11)
+        return()
+    endif()
+    if(INTEGRITY OR CMAKE_SYSTEM_NAME STREQUAL "INTEGRITY")
+        return()
+    endif()
     string(REPLACE "/" "_" probe_name "${header}")
     string(REPLACE "." "_" probe_name "${probe_name}")
     set(source "${CMAKE_CURRENT_BINARY_DIR}/${probe_name}_cpp11.cpp")
