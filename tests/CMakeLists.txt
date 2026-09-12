@@ -1646,6 +1646,83 @@ if(CMAKE_SYSTEM_NAME STREQUAL "INTEGRITY" OR INTEGRITY)
     target_compile_definitions(integrity_detection PRIVATE __INTEGRITY=1 INTEGRITY=1)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "TKERNEL" OR TKERNEL)
+    add_library(tkernel_compat STATIC compat/tkernel/tkernel_compat.cpp)
+    target_include_directories(tkernel_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/tkernel)
+    target_compile_features(tkernel_compat PUBLIC cxx_std_17)
+
+    set(TKERNEL_TEST_TARGETS
+        os_tkernel
+        cpu_tkernel
+        memory_tkernel
+        process_tkernel
+        user_tkernel
+        filesystem_tkernel
+        network_tkernel
+        locale_tkernel
+        environment_tkernel
+        resource_tkernel
+        virtualization_tkernel
+        hardware_tkernel
+        power_tkernel
+        sensor_tkernel
+        security_tkernel
+        numa_tkernel
+        process_list_tkernel
+        printer_tkernel
+        audio_tkernel
+        software_tkernel
+        storage_tkernel
+        ipc_tkernel
+        connection_tkernel
+        gpu_tkernel
+        display_tkernel
+        input_tkernel
+        camera_tkernel
+        bluetooth_tkernel
+        wifi_tkernel)
+    foreach(tkernel_target IN LISTS TKERNEL_TEST_TARGETS)
+        syscape_add_test(${tkernel_target} 17 syscape::hosted ${tkernel_target}.cpp)
+        target_compile_definitions(${tkernel_target} PRIVATE _TKERNEL_=1 __TKERNEL__=1)
+        target_link_libraries(${tkernel_target} PRIVATE tkernel_compat)
+    endforeach()
+
+    foreach(tkernel_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(tkernel_header_target "header_${tkernel_domain}_tkernel")
+        syscape_add_test(
+            ${tkernel_header_target}
+            17
+            syscape::hosted
+            header_${tkernel_domain}.cpp)
+        target_compile_definitions(${tkernel_header_target} PRIVATE _TKERNEL_=1 __TKERNEL__=1)
+        target_link_libraries(${tkernel_header_target} PRIVATE tkernel_compat)
+    endforeach()
+
+    syscape_add_test(
+        tkernel_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(tkernel_odr PRIVATE _TKERNEL_=1 __TKERNEL__=1)
+    target_link_libraries(tkernel_odr PRIVATE tkernel_compat)
+
+    syscape_add_test(tkernel_detection 11 syscape::syscape tkernel_detection.cpp)
+    target_compile_definitions(tkernel_detection PRIVATE _TKERNEL_=1 __TKERNEL__=1)
+
+    syscape_add_test(os_tkernel_ref_ver 17 syscape::hosted os_tkernel.cpp)
+    target_compile_definitions(os_tkernel_ref_ver PRIVATE _TKERNEL_=1 __TKERNEL__=1 TK_NO_VERSION_MACRO=1)
+    target_link_libraries(os_tkernel_ref_ver PRIVATE tkernel_compat)
+
+    syscape_add_test(os_tkernel_macro_version 17 syscape::hosted os_tkernel.cpp)
+    target_compile_definitions(os_tkernel_macro_version PRIVATE _TKERNEL_=1 __TKERNEL__=1 TK_MAJOR_VERSION=3 TK_MINOR_VERSION=0 TK_PATCH_VERSION=1)
+    target_link_libraries(os_tkernel_macro_version PRIVATE tkernel_compat)
+endif()
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")
