@@ -23,12 +23,9 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/llvm-22.list
           sudo apt-get update
           sudo apt-get install -y clang-format-22
-          sudo update-alternatives --install \
-            /usr/bin/clang-format clang-format \
-            /usr/bin/clang-format-22 100
-          sudo update-alternatives --install \
-            /usr/bin/git-clang-format git-clang-format \
-            /usr/bin/git-clang-format-22 100
+          sudo ln -sf /usr/bin/clang-format-22 /usr/bin/clang-format
+          sudo ln -sf /usr/bin/git-clang-format-22 /usr/bin/git-clang-format
+          clang-format --version
 
       - name: Check changed C++ lines
         env:
@@ -39,6 +36,7 @@ jobs:
           fi
           FORMAT_STATUS=0
           FORMAT_DIFF="$(git clang-format \
+            --binary clang-format-22 \
             --diff \
             --style file \
             --extensions cpp,hpp \
