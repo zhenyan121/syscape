@@ -48,7 +48,8 @@ enum class operating_system {
     threadx,
     embos,
     ucos,
-    integrity
+    integrity,
+    tkernel
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -146,6 +147,11 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(__INTEGRITY) || defined(INTEGRITY) ||                            \
     defined(SYSCAPE_TARGET_INTEGRITY)
     return operating_system::integrity;
+#elif defined(_TKERNEL_) || defined(_TKERNEL) || defined(__TKERNEL__) ||       \
+    defined(__tkernel__) || defined(_uTKERNEL_) || defined(_UTKERNEL_) ||      \
+    defined(__uTKERNEL__) || defined(__UTKERNEL__) ||                          \
+    defined(SYSCAPE_TARGET_TKERNEL)
+    return operating_system::tkernel;
 #elif defined(__linux__)
     return operating_system::linux_os;
 #else
@@ -185,7 +191,10 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(UCOS_III) || defined(__UCOS_III__) || defined(OS_uCOS_II) ||       \
     defined(OS_uCOS_III) || defined(SYSCAPE_TARGET_UCOS) ||                    \
     defined(__INTEGRITY) || defined(INTEGRITY) ||                              \
-    defined(SYSCAPE_TARGET_INTEGRITY)
+    defined(SYSCAPE_TARGET_INTEGRITY) || defined(_TKERNEL_) ||                 \
+    defined(_TKERNEL) || defined(__TKERNEL__) || defined(__tkernel__) ||       \
+    defined(_uTKERNEL_) || defined(_UTKERNEL_) || defined(__uTKERNEL__) ||     \
+    defined(__UTKERNEL__) || defined(SYSCAPE_TARGET_TKERNEL)
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
@@ -244,6 +253,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "ucos";
     case operating_system::integrity:
         return "integrity";
+    case operating_system::tkernel:
+        return "tkernel";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";

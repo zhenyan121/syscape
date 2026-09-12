@@ -139,6 +139,13 @@
 #define SYSCAPE_TARGET_INTEGRITY 1
 #endif
 
+#if defined(_TKERNEL_) || defined(_TKERNEL) || defined(__TKERNEL__) ||         \
+    defined(__tkernel__) || defined(_uTKERNEL_) || defined(_UTKERNEL_) ||      \
+    defined(__uTKERNEL__) || defined(__UTKERNEL__) ||                          \
+    defined(SYSCAPE_TARGET_TKERNEL)
+#define SYSCAPE_TARGET_TKERNEL 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1
