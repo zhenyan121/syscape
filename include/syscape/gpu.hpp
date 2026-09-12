@@ -106,7 +106,8 @@ struct gpu_device {
     !defined(__ANDROID__) && !defined(SYSCAPE_TARGET_OPENHARMONY) &&           \
     !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA) && \
     !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX) &&   \
-    !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS)
+    !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS) &&         \
+    !defined(SYSCAPE_TARGET_INTEGRITY)
 #include <syscape/detail/gpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/gpu/windows.hpp>
@@ -126,6 +127,9 @@ struct gpu_device {
 #include <syscape/detail/gpu/embos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_UCOS)
 #include <syscape/detail/gpu/ucos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_INTEGRITY)
+#include <syscape/detail/gpu/integrity.hpp>
 #else
 #include <syscape/detail/gpu/generic.hpp>
 #endif

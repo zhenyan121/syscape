@@ -134,6 +134,11 @@
 #define SYSCAPE_TARGET_UCOS 1
 #endif
 
+#if defined(__INTEGRITY) || defined(INTEGRITY) ||                              \
+    defined(SYSCAPE_TARGET_INTEGRITY)
+#define SYSCAPE_TARGET_INTEGRITY 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1
