@@ -187,7 +187,8 @@ struct device_info {
     !defined(SYSCAPE_TARGET_EMSCRIPTEN) && !defined(SYSCAPE_TARGET_FUCHSIA) && \
     !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX) &&   \
     !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS) &&         \
-    !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_TKERNEL)
+    !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_TKERNEL) &&  \
+    !defined(SYSCAPE_TARGET_CHIBIOS)
 #include <syscape/detail/bluetooth/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/bluetooth/windows.hpp>
@@ -212,6 +213,8 @@ struct device_info {
 #include <syscape/detail/bluetooth/integrity.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_TKERNEL)
 #include <syscape/detail/bluetooth/tkernel.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_CHIBIOS)
+#include <syscape/detail/bluetooth/chibios.hpp>
 #else
 #include <syscape/detail/bluetooth/generic.hpp>
 #endif

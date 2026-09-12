@@ -1723,6 +1723,84 @@ if(CMAKE_SYSTEM_NAME STREQUAL "TKERNEL" OR TKERNEL)
     target_link_libraries(os_tkernel_macro_version PRIVATE tkernel_compat)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "CHIBIOS" OR CHIBIOS)
+    add_library(chibios_compat STATIC compat/chibios/chibios_compat.cpp)
+    target_include_directories(chibios_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/chibios)
+    target_compile_features(chibios_compat PUBLIC cxx_std_17)
+
+    set(CHIBIOS_TEST_TARGETS
+        os_chibios
+        cpu_chibios
+        memory_chibios
+        process_chibios
+        user_chibios
+        filesystem_chibios
+        network_chibios
+        locale_chibios
+        environment_chibios
+        resource_chibios
+        virtualization_chibios
+        hardware_chibios
+        power_chibios
+        sensor_chibios
+        security_chibios
+        numa_chibios
+        process_list_chibios
+        printer_chibios
+        audio_chibios
+        software_chibios
+        storage_chibios
+        ipc_chibios
+        connection_chibios
+        gpu_chibios
+        display_chibios
+        input_chibios
+        camera_chibios
+        bluetooth_chibios
+        wifi_chibios)
+    foreach(chibios_target IN LISTS CHIBIOS_TEST_TARGETS)
+        syscape_add_test(${chibios_target} 17 syscape::hosted ${chibios_target}.cpp)
+        target_compile_definitions(${chibios_target} PRIVATE __CHIBIOS__=1 CHIBIOS=1)
+        target_link_libraries(${chibios_target} PRIVATE chibios_compat)
+    endforeach()
+
+    foreach(chibios_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(chibios_header_target "header_${chibios_domain}_chibios")
+        syscape_add_test(
+            ${chibios_header_target}
+            17
+            syscape::hosted
+            header_${chibios_domain}.cpp)
+        target_compile_definitions(${chibios_header_target} PRIVATE __CHIBIOS__=1 CHIBIOS=1)
+        target_link_libraries(${chibios_header_target} PRIVATE chibios_compat)
+    endforeach()
+
+    syscape_add_test(
+        chibios_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(chibios_odr PRIVATE __CHIBIOS__=1 CHIBIOS=1)
+    target_link_libraries(chibios_odr PRIVATE chibios_compat)
+
+    syscape_add_test(chibios_detection 11 syscape::syscape chibios_detection.cpp)
+    target_compile_definitions(chibios_detection PRIVATE __CHIBIOS__=1 CHIBIOS=1)
+
+    syscape_add_test(os_chibios_nil 17 syscape::hosted os_chibios.cpp)
+    target_compile_definitions(os_chibios_nil PRIVATE __CHIBIOS__=1 CHIBIOS=1 __CHIBIOS_NIL__=1)
+    target_link_libraries(os_chibios_nil PRIVATE chibios_compat)
+
+    syscape_add_test(os_chibios_macro_version 17 syscape::hosted os_chibios.cpp)
+    target_compile_definitions(os_chibios_macro_version PRIVATE __CHIBIOS__=1 CHIBIOS=1 CH_NO_VERSION_MACRO=1 CH_KERNEL_MAJOR=8 CH_KERNEL_MINOR=0 CH_KERNEL_PATCH=1)
+    target_link_libraries(os_chibios_macro_version PRIVATE chibios_compat)
+endif()
+
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")

@@ -731,6 +731,45 @@ jobs:
             --output-on-failure \
             -R tkernel
 
+  chibios-backend-host-check:
+    name: ChibiOS backend selection host check (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC
+            cxx: g++
+          - compiler: Clang
+            cxx: clang++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang gcc g++ cmake ninja-build
+
+      - name: Configure ChibiOS backend selection checks
+        run: |
+          cmake -B build-chibios -G Ninja \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCHIBIOS=ON \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build-chibios -j
+
+      - name: Run ChibiOS backend selection tests
+        run: |
+          ctest \
+            --test-dir build-chibios \
+            --output-on-failure \
+            -R chibios
+
+
   nuttx-backend-host-check:
 
     name: NuttX backend selection host check (${{ matrix.compiler }})

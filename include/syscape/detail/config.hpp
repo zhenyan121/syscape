@@ -146,6 +146,12 @@
 #define SYSCAPE_TARGET_TKERNEL 1
 #endif
 
+#if defined(__CHIBIOS__) || defined(CHIBIOS) || defined(__CHIBIOS_RT__) ||     \
+    defined(__CHIBIOS_NIL__) || defined(CH_KERNEL_MAJOR) ||                    \
+    defined(SYSCAPE_TARGET_CHIBIOS)
+#define SYSCAPE_TARGET_CHIBIOS 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1
