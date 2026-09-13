@@ -1,5 +1,7 @@
 #include <iostream>
 
+#include "ch.h"
+
 #include <syscape/memory.hpp>
 
 namespace {
@@ -25,6 +27,13 @@ void test_memory_queries() {
     const auto load = syscape::memory::memory_load_percent();
     expect(load.has_value() && *load == 50U,
            "memory load percent must report 50% on ChibiOS");
+
+    ch_mock_set_free_heap(70000, 70000);
+    const auto invalid_load = syscape::memory::memory_load_percent();
+    expect(!invalid_load &&
+               invalid_load.error() == syscape::errc::malformed_data,
+           "memory load percent must reject free heap exceeding total heap");
+    ch_mock_set_free_heap(32768, 16384);
 
     const auto page = syscape::memory::page_size_bytes();
     expect(!page && page.error() == syscape::errc::not_supported,

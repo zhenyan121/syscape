@@ -53,4 +53,21 @@ thread_t* chRegNextThread(thread_t* tp) {
     return nullptr;
 }
 
+void ch_mock_set_systime(systime_t t) {
+    s_mock_systime = t;
+}
+
+void ch_mock_set_free_heap(size_t total_free, size_t largest_free) {
+    s_mock_total_free = total_free;
+    s_mock_largest_free = largest_free;
+}
+
+systime_t ch_mock_get_systime(void) {
+    return s_mock_systime;
+}
+
+tprio_t ch_mock_get_prio(void) {
+    return s_mock_prio;
+}
+
 } // extern "C"

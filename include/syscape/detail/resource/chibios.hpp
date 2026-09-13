@@ -42,16 +42,18 @@ inline result<std::uint64_t> thread_count() {
     ((defined(CH_CFG_USE_REGISTRY) && (CH_CFG_USE_REGISTRY != 0)) ||           \
      (defined(CH_USE_REGISTRY) && (CH_USE_REGISTRY != 0)))
     std::uint64_t count = 0;
-    for (thread_t* tp = ::chRegFirstThread(); tp != nullptr;
-         tp = ::chRegNextThread(tp)) {
+    for (thread_t* tp = chRegFirstThread(); tp != nullptr;
+         tp = chRegNextThread(tp)) {
         ++count;
     }
     return count;
-#elif defined(CH_TASK_COUNT)
+#elif defined(CH_CFG_MAX_THREADS) && (CH_CFG_MAX_THREADS > 0)
+    return static_cast<std::uint64_t>(CH_CFG_MAX_THREADS);
+#elif defined(CH_TASK_COUNT) && (CH_TASK_COUNT > 0)
     return static_cast<std::uint64_t>(CH_TASK_COUNT);
-#elif defined(CH_CFG_NUM_THREADS)
+#elif defined(CH_CFG_NUM_THREADS) && (CH_CFG_NUM_THREADS > 0)
     return static_cast<std::uint64_t>(CH_CFG_NUM_THREADS);
-#elif defined(CH_NUM_THREADS)
+#elif defined(CH_NUM_THREADS) && (CH_NUM_THREADS > 0)
     return static_cast<std::uint64_t>(CH_NUM_THREADS);
 #else
     return fail(errc::not_supported);

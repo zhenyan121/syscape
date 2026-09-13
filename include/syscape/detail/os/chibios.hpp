@@ -5,6 +5,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <limits>
 #include <string>
 
 #if defined(__cplusplus)
@@ -87,16 +88,36 @@ inline result<std::chrono::milliseconds> uptime() {
     const std::uint64_t freq = static_cast<std::uint64_t>(CH_CFG_ST_FREQUENCY);
 #elif defined(CH_ST_FREQUENCY)
     const std::uint64_t freq = static_cast<std::uint64_t>(CH_ST_FREQUENCY);
+#elif defined(CH_FREQUENCY)
+    const std::uint64_t freq = static_cast<std::uint64_t>(CH_FREQUENCY);
 #else
     const std::uint64_t freq = 1000ULL;
 #endif
     if (freq == 0ULL) {
         return fail(errc::malformed_data);
     }
+    constexpr std::uint64_t max_ms =
+        static_cast<std::uint64_t>(std::chrono::milliseconds::max().count());
     const std::uint64_t ticks =
-        static_cast<std::uint64_t>(::chVTGetSystemTimeX());
-    const std::uint64_t ms = (ticks * 1000ULL) / freq;
-    return std::chrono::milliseconds(ms);
+        static_cast<std::uint64_t>(chVTGetSystemTimeX());
+    std::uint64_t ms = 0;
+    if (freq == 1000ULL) {
+        ms = ticks;
+    } else if (ticks <= UINT64_MAX / 1000ULL) {
+        ms = (ticks * 1000ULL) / freq;
+    } else {
+        const std::uint64_t q = ticks / freq;
+        const std::uint64_t r = ticks % freq;
+        if (q > max_ms / 1000ULL) {
+            return fail(errc::value_too_large);
+        }
+        ms = q * 1000ULL + (r * 1000ULL) / freq;
+    }
+    if (ms > max_ms) {
+        return fail(errc::value_too_large);
+    }
+    return std::chrono::milliseconds(
+        static_cast<std::chrono::milliseconds::rep>(ms));
 #else
     return fail(errc::not_supported);
 #endif

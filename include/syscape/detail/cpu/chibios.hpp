@@ -36,11 +36,11 @@ inline result<std::vector<std::string>> model_names() {
 }
 
 inline result<std::uint32_t> online_logical_processor_count() {
-#if defined(PORT_CORES_NUMBER)
+#if defined(PORT_CORES_NUMBER) && (PORT_CORES_NUMBER > 0)
     return static_cast<std::uint32_t>(PORT_CORES_NUMBER);
-#elif defined(CH_PORT_CORES_NUMBER)
+#elif defined(CH_PORT_CORES_NUMBER) && (CH_PORT_CORES_NUMBER > 0)
     return static_cast<std::uint32_t>(CH_PORT_CORES_NUMBER);
-#elif defined(CH_NUM_CORES)
+#elif defined(CH_NUM_CORES) && (CH_NUM_CORES > 0)
     return static_cast<std::uint32_t>(CH_NUM_CORES);
 #elif defined(SYSCAPE_CHIBIOS_HAS_KERNEL_HEADERS)
     return 1U;

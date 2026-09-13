@@ -1792,8 +1792,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "CHIBIOS" OR CHIBIOS)
     target_compile_definitions(chibios_detection PRIVATE __CHIBIOS__=1 CHIBIOS=1)
 
     syscape_add_test(os_chibios_nil 17 syscape::hosted os_chibios.cpp)
-    target_compile_definitions(os_chibios_nil PRIVATE __CHIBIOS__=1 CHIBIOS=1 __CHIBIOS_NIL__=1)
+    target_compile_definitions(os_chibios_nil PRIVATE __CHIBIOS__=1 CHIBIOS=1 __CHIBIOS_NIL__=1 CH_USE_MACRO_APIS=1)
     target_link_libraries(os_chibios_nil PRIVATE chibios_compat)
+
+    syscape_add_test(process_chibios_nil 17 syscape::hosted process_chibios.cpp)
+    target_compile_definitions(process_chibios_nil PRIVATE __CHIBIOS__=1 CHIBIOS=1 __CHIBIOS_NIL__=1 CH_USE_MACRO_APIS=1)
+    target_link_libraries(process_chibios_nil PRIVATE chibios_compat)
+
+    syscape_add_test(resource_chibios_nil 17 syscape::hosted resource_chibios.cpp)
+    target_compile_definitions(resource_chibios_nil PRIVATE __CHIBIOS__=1 CHIBIOS=1 __CHIBIOS_NIL__=1 CH_CFG_USE_REGISTRY=0 CH_CFG_MAX_THREADS=4)
+    target_link_libraries(resource_chibios_nil PRIVATE chibios_compat)
 
     syscape_add_test(os_chibios_macro_version 17 syscape::hosted os_chibios.cpp)
     target_compile_definitions(os_chibios_macro_version PRIVATE __CHIBIOS__=1 CHIBIOS=1 CH_NO_VERSION_MACRO=1 CH_KERNEL_MAJOR=8 CH_KERNEL_MINOR=0 CH_KERNEL_PATCH=1)

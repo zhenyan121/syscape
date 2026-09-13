@@ -66,7 +66,7 @@ inline result<std::uint32_t> thread_count() {
 
 inline result<int> priority() {
 #if defined(SYSCAPE_CHIBIOS_HAS_KERNEL_HEADERS)
-    return static_cast<int>(::chThdGetPriorityX());
+    return static_cast<int>(chThdGetPriorityX());
 #else
     return fail(errc::not_supported);
 #endif

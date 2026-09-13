@@ -2,6 +2,8 @@
 #include <string>
 #include <string_view>
 
+#include "ch.h"
+
 #include <syscape/execution_environment.hpp>
 #include <syscape/os.hpp>
 
@@ -57,6 +59,12 @@ void test_runtime_queries() {
     const auto elapsed = syscape::os::uptime();
     expect(elapsed.has_value() && elapsed->count() == 42000,
            "uptime must succeed and match mock milliseconds");
+
+    ch_mock_set_systime(100000);
+    const auto elapsed2 = syscape::os::uptime();
+    expect(elapsed2.has_value() && elapsed2->count() == 100000,
+           "uptime must dynamically reflect updated ticks");
+    ch_mock_set_systime(42000);
 
     const auto started = syscape::os::boot_time();
     expect(!started && started.error() == syscape::errc::not_supported,

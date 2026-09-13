@@ -46,15 +46,27 @@ typedef struct ch_memory_heap {
     void* dummy;
 } memory_heap_t;
 
+#if defined(CH_USE_MACRO_APIS)
+systime_t ch_mock_get_systime(void);
+tprio_t ch_mock_get_prio(void);
+#define chVTGetSystemTimeX() (ch_mock_get_systime())
+#define chVTGetSystemTime() (ch_mock_get_systime())
+#define chThdGetPriorityX(void) ((tprio_t)(ch_mock_get_prio()))
+#else
 systime_t chVTGetSystemTimeX(void);
 systime_t chVTGetSystemTime(void);
 tprio_t chThdGetPriorityX(void);
+#endif
+
 thread_t* chThdGetSelfX(void);
 
 size_t chHeapStatus(memory_heap_t* heapp, size_t* totalp, size_t* largestp);
 
 thread_t* chRegFirstThread(void);
 thread_t* chRegNextThread(thread_t* tp);
+
+void ch_mock_set_systime(systime_t t);
+void ch_mock_set_free_heap(size_t total_free, size_t largest_free);
 
 #ifdef __cplusplus
 }

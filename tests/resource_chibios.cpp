@@ -15,8 +15,13 @@ void expect(bool condition, const char* message) {
 
 void test_resource_queries() {
     const auto threads = syscape::resource::thread_count();
+#if defined(__CHIBIOS_NIL__)
+    expect(threads.has_value() && *threads == 4U,
+           "thread count must match CH_CFG_MAX_THREADS on ChibiOS/NIL");
+#else
     expect(threads.has_value() && *threads == 3U,
            "thread count must match mock ChibiOS thread registry count of 3");
+#endif
 
     const auto procs = syscape::resource::process_count();
     expect(!procs && procs.error() == syscape::errc::not_supported,
