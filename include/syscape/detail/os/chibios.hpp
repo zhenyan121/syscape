@@ -46,11 +46,9 @@ inline result<std::string> kernel_name() {
 
 namespace detail {
 
-inline result<std::string> format_chibios_version_numbers(int major, int minor,
-                                                          int patch) {
-    if (major < 0 || minor < 0 || patch < 0) {
-        return fail(errc::malformed_data);
-    }
+inline result<std::string> format_chibios_version_numbers(std::uint32_t major,
+                                                          std::uint32_t minor,
+                                                          std::uint32_t patch) {
     return std::to_string(major) + "." + std::to_string(minor) + "." +
            std::to_string(patch);
 }
@@ -63,10 +61,13 @@ inline result<std::string> product_version() {
 #elif defined(CH_KERNEL_MAJOR) && defined(CH_KERNEL_MINOR) &&                  \
     defined(CH_KERNEL_PATCH)
     return detail::format_chibios_version_numbers(
-        CH_KERNEL_MAJOR, CH_KERNEL_MINOR, CH_KERNEL_PATCH);
+        static_cast<std::uint32_t>(CH_KERNEL_MAJOR),
+        static_cast<std::uint32_t>(CH_KERNEL_MINOR),
+        static_cast<std::uint32_t>(CH_KERNEL_PATCH));
 #elif defined(CH_KERNEL_MAJOR) && defined(CH_KERNEL_MINOR)
-    return detail::format_chibios_version_numbers(CH_KERNEL_MAJOR,
-                                                  CH_KERNEL_MINOR, 0);
+    return detail::format_chibios_version_numbers(
+        static_cast<std::uint32_t>(CH_KERNEL_MAJOR),
+        static_cast<std::uint32_t>(CH_KERNEL_MINOR), 0U);
 #elif defined(CH_VERSION)
     return std::string(CH_VERSION);
 #else
@@ -91,8 +92,11 @@ inline result<std::chrono::milliseconds> uptime() {
 #elif defined(CH_FREQUENCY)
     const std::uint64_t freq = static_cast<std::uint64_t>(CH_FREQUENCY);
 #else
-    const std::uint64_t freq = 1000ULL;
+    return fail(errc::not_supported);
 #endif
+
+#if defined(CH_CFG_ST_FREQUENCY) || defined(CH_ST_FREQUENCY) ||                \
+    defined(CH_FREQUENCY)
     if (freq == 0ULL) {
         return fail(errc::malformed_data);
     }
@@ -118,6 +122,7 @@ inline result<std::chrono::milliseconds> uptime() {
     }
     return std::chrono::milliseconds(
         static_cast<std::chrono::milliseconds::rep>(ms));
+#endif
 #else
     return fail(errc::not_supported);
 #endif

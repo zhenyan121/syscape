@@ -16,8 +16,10 @@ extern "C" {
 #define CH_KERNEL_PATCH 1
 #endif
 
+#ifndef CH_NO_ST_FREQUENCY
 #ifndef CH_CFG_ST_FREQUENCY
 #define CH_CFG_ST_FREQUENCY 1000U
+#endif
 #endif
 
 #ifndef PORT_CORES_NUMBER
@@ -46,12 +48,13 @@ typedef struct ch_memory_heap {
     void* dummy;
 } memory_heap_t;
 
-#if defined(CH_USE_MACRO_APIS)
 systime_t ch_mock_get_systime(void);
 tprio_t ch_mock_get_prio(void);
+
+#if defined(CH_USE_MACRO_APIS)
 #define chVTGetSystemTimeX() (ch_mock_get_systime())
 #define chVTGetSystemTime() (ch_mock_get_systime())
-#define chThdGetPriorityX(void) ((tprio_t)(ch_mock_get_prio()))
+#define chThdGetPriorityX() ((tprio_t)(ch_mock_get_prio()))
 #else
 systime_t chVTGetSystemTimeX(void);
 systime_t chVTGetSystemTime(void);

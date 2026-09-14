@@ -1788,16 +1788,21 @@ if(CMAKE_SYSTEM_NAME STREQUAL "CHIBIOS" OR CHIBIOS)
     target_compile_definitions(chibios_odr PRIVATE __CHIBIOS__=1 CHIBIOS=1)
     target_link_libraries(chibios_odr PRIVATE chibios_compat)
 
+    add_library(chibios_compat_nil STATIC compat/chibios/chibios_compat.cpp)
+    target_include_directories(chibios_compat_nil PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/chibios)
+    target_compile_features(chibios_compat_nil PUBLIC cxx_std_17)
+    target_compile_definitions(chibios_compat_nil PRIVATE __CHIBIOS__=1 CHIBIOS=1 __CHIBIOS_NIL__=1 CH_USE_MACRO_APIS=1)
+
     syscape_add_test(chibios_detection 11 syscape::syscape chibios_detection.cpp)
     target_compile_definitions(chibios_detection PRIVATE __CHIBIOS__=1 CHIBIOS=1)
 
     syscape_add_test(os_chibios_nil 17 syscape::hosted os_chibios.cpp)
     target_compile_definitions(os_chibios_nil PRIVATE __CHIBIOS__=1 CHIBIOS=1 __CHIBIOS_NIL__=1 CH_USE_MACRO_APIS=1)
-    target_link_libraries(os_chibios_nil PRIVATE chibios_compat)
+    target_link_libraries(os_chibios_nil PRIVATE chibios_compat_nil)
 
     syscape_add_test(process_chibios_nil 17 syscape::hosted process_chibios.cpp)
     target_compile_definitions(process_chibios_nil PRIVATE __CHIBIOS__=1 CHIBIOS=1 __CHIBIOS_NIL__=1 CH_USE_MACRO_APIS=1)
-    target_link_libraries(process_chibios_nil PRIVATE chibios_compat)
+    target_link_libraries(process_chibios_nil PRIVATE chibios_compat_nil)
 
     syscape_add_test(resource_chibios_nil 17 syscape::hosted resource_chibios.cpp)
     target_compile_definitions(resource_chibios_nil PRIVATE __CHIBIOS__=1 CHIBIOS=1 __CHIBIOS_NIL__=1 CH_CFG_USE_REGISTRY=0 CH_CFG_MAX_THREADS=4)
@@ -1806,6 +1811,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "CHIBIOS" OR CHIBIOS)
     syscape_add_test(os_chibios_macro_version 17 syscape::hosted os_chibios.cpp)
     target_compile_definitions(os_chibios_macro_version PRIVATE __CHIBIOS__=1 CHIBIOS=1 CH_NO_VERSION_MACRO=1 CH_KERNEL_MAJOR=8 CH_KERNEL_MINOR=0 CH_KERNEL_PATCH=1)
     target_link_libraries(os_chibios_macro_version PRIVATE chibios_compat)
+
+    syscape_add_test(os_chibios_no_freq 17 syscape::hosted os_chibios.cpp)
+    target_compile_definitions(os_chibios_no_freq PRIVATE __CHIBIOS__=1 CHIBIOS=1 CH_NO_ST_FREQUENCY=1)
+    target_link_libraries(os_chibios_no_freq PRIVATE chibios_compat)
 endif()
 
 

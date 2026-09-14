@@ -57,6 +57,11 @@ void test_runtime_queries() {
            "host name must report not_supported on ChibiOS");
 
     const auto elapsed = syscape::os::uptime();
+#if defined(CH_NO_ST_FREQUENCY)
+    expect(!elapsed && elapsed.error() == syscape::errc::not_supported,
+           "uptime must report not_supported when frequency macros are not "
+           "defined");
+#else
     expect(elapsed.has_value() && elapsed->count() == 42000,
            "uptime must succeed and match mock milliseconds");
 
@@ -65,6 +70,7 @@ void test_runtime_queries() {
     expect(elapsed2.has_value() && elapsed2->count() == 100000,
            "uptime must dynamically reflect updated ticks");
     ch_mock_set_systime(42000);
+#endif
 
     const auto started = syscape::os::boot_time();
     expect(!started && started.error() == syscape::errc::not_supported,
@@ -83,19 +89,14 @@ void test_version_formatting() {
     using syscape::detail::os_backend::detail::format_chibios_version_numbers;
 
     {
-        const auto res = format_chibios_version_numbers(8, 0, 1);
+        const auto res = format_chibios_version_numbers(8U, 0U, 1U);
         expect(res.has_value() && *res == "8.0.1",
                "version 8, 0, 1 must format to '8.0.1'");
     }
     {
-        const auto res = format_chibios_version_numbers(21, 11, 3);
+        const auto res = format_chibios_version_numbers(21U, 11U, 3U);
         expect(res.has_value() && *res == "21.11.3",
                "version 21, 11, 3 must format to '21.11.3'");
-    }
-    {
-        const auto res = format_chibios_version_numbers(-1, 0, 0);
-        expect(!res.has_value() && res.error() == syscape::errc::malformed_data,
-               "negative version must report malformed_data");
     }
 }
 

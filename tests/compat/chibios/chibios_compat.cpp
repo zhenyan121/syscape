@@ -15,6 +15,7 @@ thread_t s_mock_threads[3] = {{&s_mock_threads[1], "main", 64},
 
 extern "C" {
 
+#if !defined(CH_USE_MACRO_APIS)
 systime_t chVTGetSystemTimeX(void) {
     return s_mock_systime;
 }
@@ -26,6 +27,7 @@ systime_t chVTGetSystemTime(void) {
 tprio_t chThdGetPriorityX(void) {
     return s_mock_prio;
 }
+#endif
 
 thread_t* chThdGetSelfX(void) {
     return &s_mock_threads[0];

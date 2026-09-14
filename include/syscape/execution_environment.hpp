@@ -204,7 +204,6 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(__CHIBIOS_NIL__) || defined(CH_KERNEL_MAJOR) ||                    \
     defined(SYSCAPE_TARGET_CHIBIOS)
     return execution_environment::rtos;
-
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 1)
