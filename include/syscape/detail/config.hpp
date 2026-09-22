@@ -152,6 +152,11 @@
 #define SYSCAPE_TARGET_CHIBIOS 1
 #endif
 
+#if defined(__MYNEWT__) || defined(MYNEWT) || defined(MYNEWT_VAL) ||           \
+    defined(SYSCAPE_TARGET_MYNEWT)
+#define SYSCAPE_TARGET_MYNEWT 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1

@@ -103,7 +103,7 @@
     !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX) &&   \
     !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS) &&         \
     !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_TKERNEL) &&  \
-    !defined(SYSCAPE_TARGET_CHIBIOS)
+    !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT)
 #include <syscape/detail/network/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/network/windows.hpp>
@@ -176,6 +176,8 @@
 #include <syscape/detail/network/tkernel.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_CHIBIOS)
 #include <syscape/detail/network/chibios.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MYNEWT)
+#include <syscape/detail/network/mynewt.hpp>
 #else
 #include <syscape/detail/network/generic.hpp>
 #endif
