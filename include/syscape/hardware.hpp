@@ -331,7 +331,8 @@ struct memory_device {
     !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX) &&   \
     !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS) &&         \
     !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_TKERNEL) &&  \
-    !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT)
+    !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT) &&     \
+    !defined(SYSCAPE_TARGET_MBED)
 #include <syscape/detail/hardware/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/hardware/windows.hpp>
@@ -406,6 +407,8 @@ struct memory_device {
 #include <syscape/detail/hardware/chibios.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MYNEWT)
 #include <syscape/detail/hardware/mynewt.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MBED)
+#include <syscape/detail/hardware/mbed.hpp>
 #else
 #include <syscape/detail/hardware/generic.hpp>
 #endif
