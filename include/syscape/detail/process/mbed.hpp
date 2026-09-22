@@ -58,7 +58,11 @@ inline result<process_common::memory_usage_snapshot> memory_usage() {
 }
 
 inline result<std::uint32_t> thread_count() {
+#if defined(SYSCAPE_MBED_HAS_KERNEL_HEADERS)
+    return static_cast<std::uint32_t>(osThreadGetCount());
+#else
     return fail(errc::not_supported);
+#endif
 }
 
 inline result<int> priority() {

@@ -64,8 +64,14 @@ void test_process_queries() {
            "memory usage must report not_supported on Mbed OS");
 
     const auto threads = syscape::process::thread_count();
-    expect(!threads && threads.error() == syscape::errc::not_supported,
-           "thread count must report not_supported on Mbed OS");
+    expect(threads.has_value() && *threads == 4U,
+           "thread count must match mock value on Mbed OS");
+
+    mbed_mock_set_thread_count(7U);
+    const auto threads2 = syscape::process::thread_count();
+    expect(threads2.has_value() && *threads2 == 7U,
+           "thread count must dynamically reflect updated mock value");
+    mbed_mock_set_thread_count(4U);
 
     const auto aff = syscape::process::cpu_affinity();
     expect(!aff && aff.error() == syscape::errc::not_supported,
