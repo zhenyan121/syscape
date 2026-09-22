@@ -26,6 +26,13 @@ void test_process_queries() {
            "priority must dynamically reflect updated priority");
     riot_mock_set_priority(5);
 
+    riot_mock_set_current_pid(KERNEL_PID_UNDEF);
+    const auto prio_not_found = syscape::process::priority();
+    expect(!prio_not_found &&
+               prio_not_found.error() == syscape::errc::not_found,
+           "priority must return not_found when active thread is not in table");
+    riot_mock_set_current_pid(1);
+
     const auto pid = syscape::process::process_id();
     expect(!pid && pid.error() == syscape::errc::not_supported,
            "process id must report not_supported on RIOT OS");
@@ -66,6 +73,11 @@ void test_process_queries() {
     const auto threads2 = syscape::process::thread_count();
     expect(threads2.has_value() && *threads2 == 7U,
            "thread count must dynamically reflect updated mock value");
+    riot_mock_set_thread_count(-1);
+    const auto threads_neg = syscape::process::thread_count();
+    expect(!threads_neg && threads_neg.error() == syscape::errc::malformed_data,
+           "thread count must report malformed_data when sched_num_threads is "
+           "negative");
     riot_mock_set_thread_count(4);
 
     const auto aff = syscape::process::cpu_affinity();

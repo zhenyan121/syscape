@@ -8,6 +8,9 @@
 #include <string>
 #include <vector>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
 #if defined(__has_include)
 #if __has_include(<kernel_defines.h>)
 #include <kernel_defines.h>
@@ -17,6 +20,9 @@
 #include <thread.h>
 #define SYSCAPE_RIOT_HAS_KERNEL_HEADERS 1
 #endif
+#endif
+#if defined(__cplusplus)
+}
 #endif
 
 #include <syscape/detail/process/common.hpp>
@@ -60,6 +66,9 @@ inline result<process_common::memory_usage_snapshot> memory_usage() {
 
 inline result<std::uint32_t> thread_count() {
 #if defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
+    if (sched_num_threads < 0) {
+        return fail(errc::malformed_data);
+    }
     return static_cast<std::uint32_t>(sched_num_threads);
 #else
     return fail(errc::not_supported);
@@ -73,7 +82,7 @@ inline result<int> priority() {
     if (t != nullptr) {
         return static_cast<int>(thread_get_priority(t));
     }
-    return fail(errc::not_supported);
+    return fail(errc::not_found);
 #else
     return fail(errc::not_supported);
 #endif

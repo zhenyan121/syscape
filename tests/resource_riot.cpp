@@ -24,6 +24,11 @@ void test_resource_queries() {
     const auto threads2 = syscape::resource::thread_count();
     expect(threads2.has_value() && *threads2 == 8U,
            "thread count must dynamically reflect updated count");
+    riot_mock_set_thread_count(-1);
+    const auto threads_neg = syscape::resource::thread_count();
+    expect(!threads_neg && threads_neg.error() == syscape::errc::malformed_data,
+           "thread count must report malformed_data when sched_num_threads is "
+           "negative");
     riot_mock_set_thread_count(4);
 
     const auto load = syscape::resource::load_average();

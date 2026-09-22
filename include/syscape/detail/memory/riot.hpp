@@ -6,11 +6,17 @@
 #include <cstddef>
 #include <cstdint>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
 #if defined(__has_include)
 #if __has_include(<kernel_defines.h>)
 #include <kernel_defines.h>
 #define SYSCAPE_RIOT_HAS_KERNEL_HEADERS 1
 #endif
+#endif
+#if defined(__cplusplus)
+}
 #endif
 
 #include <syscape/detail/memory/common.hpp>

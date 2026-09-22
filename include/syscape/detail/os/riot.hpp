@@ -8,6 +8,9 @@
 #include <limits>
 #include <string>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
 #if defined(__has_include)
 #if __has_include(<kernel_defines.h>)
 #include <kernel_defines.h>
@@ -31,7 +34,11 @@
 #if __has_include(<xtimer.h>)
 #include <xtimer.h>
 #define SYSCAPE_RIOT_HAS_KERNEL_HEADERS 1
+#define SYSCAPE_RIOT_HAS_XTIMER 1
 #endif
+#endif
+#if defined(__cplusplus)
+}
 #endif
 
 #include <syscape/detail/utf8.hpp>
@@ -114,6 +121,17 @@ inline result<std::chrono::milliseconds> uptime() {
     }
     return std::chrono::milliseconds(
         static_cast<std::chrono::milliseconds::rep>(ms));
+#elif defined(MODULE_XTIMER) || defined(XTIMER_H) ||                           \
+    defined(SYSCAPE_RIOT_HAS_XTIMER)
+    constexpr std::uint64_t max_ms =
+        static_cast<std::uint64_t>(std::chrono::milliseconds::max().count());
+    const std::uint64_t usec = static_cast<std::uint64_t>(xtimer_now_usec64());
+    const std::uint64_t ms = usec / 1000ULL;
+    if (ms > max_ms) {
+        return fail(errc::value_too_large);
+    }
+    return std::chrono::milliseconds(
+        static_cast<std::chrono::milliseconds::rep>(ms));
 #else
     return fail(errc::not_supported);
 #endif
@@ -138,6 +156,10 @@ inline result<std::string> boot_identifier() {
 } // namespace os_backend
 } // namespace detail
 } // namespace syscape
+
+#if defined(SYSCAPE_RIOT_HAS_XTIMER)
+#undef SYSCAPE_RIOT_HAS_XTIMER
+#endif
 
 #if defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
 #undef SYSCAPE_RIOT_HAS_KERNEL_HEADERS
