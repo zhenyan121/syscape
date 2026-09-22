@@ -49,7 +49,8 @@ enum class operating_system {
     embos,
     ucos,
     integrity,
-    tkernel
+    tkernel,
+    chibios
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -152,6 +153,10 @@ constexpr operating_system target_operating_system() noexcept {
     defined(__uTKERNEL__) || defined(__UTKERNEL__) ||                          \
     defined(SYSCAPE_TARGET_TKERNEL)
     return operating_system::tkernel;
+#elif defined(__CHIBIOS__) || defined(CHIBIOS) || defined(__CHIBIOS_RT__) ||   \
+    defined(__CHIBIOS_NIL__) || defined(CH_KERNEL_MAJOR) ||                    \
+    defined(SYSCAPE_TARGET_CHIBIOS)
+    return operating_system::chibios;
 #elif defined(__linux__)
     return operating_system::linux_os;
 #else
@@ -194,7 +199,10 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(SYSCAPE_TARGET_INTEGRITY) || defined(_TKERNEL_) ||                 \
     defined(_TKERNEL) || defined(__TKERNEL__) || defined(__tkernel__) ||       \
     defined(_uTKERNEL_) || defined(_UTKERNEL_) || defined(__uTKERNEL__) ||     \
-    defined(__UTKERNEL__) || defined(SYSCAPE_TARGET_TKERNEL)
+    defined(__UTKERNEL__) || defined(SYSCAPE_TARGET_TKERNEL) ||                \
+    defined(__CHIBIOS__) || defined(CHIBIOS) || defined(__CHIBIOS_RT__) ||     \
+    defined(__CHIBIOS_NIL__) || defined(CH_KERNEL_MAJOR) ||                    \
+    defined(SYSCAPE_TARGET_CHIBIOS)
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
@@ -255,6 +263,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "integrity";
     case operating_system::tkernel:
         return "tkernel";
+    case operating_system::chibios:
+        return "chibios";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";
