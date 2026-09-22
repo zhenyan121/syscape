@@ -42,6 +42,10 @@ inline result<std::uint32_t> online_logical_processor_count() {
 #elif defined(MYNEWT_VAL) && defined(MYNEWT_VAL_OS_NUM_CORES) &&               \
     (MYNEWT_VAL_OS_NUM_CORES > 0)
     return static_cast<std::uint32_t>(MYNEWT_VAL(OS_NUM_CORES));
+#elif defined(OS_CORES) && (OS_CORES > 0)
+    return static_cast<std::uint32_t>(OS_CORES);
+#elif defined(NUM_CORES) && (NUM_CORES > 0)
+    return static_cast<std::uint32_t>(NUM_CORES);
 #elif defined(MYNEWT_CORES) && (MYNEWT_CORES > 0)
     return static_cast<std::uint32_t>(MYNEWT_CORES);
 #elif defined(SYSCAPE_MYNEWT_HAS_KERNEL_HEADERS)

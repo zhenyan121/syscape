@@ -53,13 +53,17 @@ struct os_task {
 
 os_time_t os_time_get(void);
 struct os_task* os_sched_get_current_task(void);
-uint32_t os_task_count(void);
-size_t os_get_free_heap_size(void);
+uint8_t os_task_count(void);
+
+size_t mynewt_mock_get_free_heap(void);
+#ifndef MYNEWT_FREE_HEAP_SIZE
+#define MYNEWT_FREE_HEAP_SIZE mynewt_mock_get_free_heap()
+#endif
 
 void mynewt_mock_set_time(os_time_t t);
 void mynewt_mock_set_task_prio(uint8_t prio);
 void mynewt_mock_set_free_heap(size_t free_bytes);
-void mynewt_mock_set_task_count(uint32_t count);
+void mynewt_mock_set_task_count(uint8_t count);
 
 #ifdef __cplusplus
 }

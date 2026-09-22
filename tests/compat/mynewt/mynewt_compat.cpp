@@ -5,7 +5,7 @@ namespace {
 os_time_t s_mock_time = 50000;
 struct os_task s_mock_task = {nullptr, "main", 10, 1, 1};
 size_t s_mock_free_heap = 32768;
-uint32_t s_mock_task_count = 3;
+uint8_t s_mock_task_count = 3;
 
 } // namespace
 
@@ -19,11 +19,11 @@ struct os_task* os_sched_get_current_task(void) {
     return &s_mock_task;
 }
 
-uint32_t os_task_count(void) {
+uint8_t os_task_count(void) {
     return s_mock_task_count;
 }
 
-size_t os_get_free_heap_size(void) {
+size_t mynewt_mock_get_free_heap(void) {
     return s_mock_free_heap;
 }
 
@@ -39,7 +39,7 @@ void mynewt_mock_set_free_heap(size_t free_bytes) {
     s_mock_free_heap = free_bytes;
 }
 
-void mynewt_mock_set_task_count(uint32_t count) {
+void mynewt_mock_set_task_count(uint8_t count) {
     s_mock_task_count = count;
 }
 

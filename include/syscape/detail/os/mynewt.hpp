@@ -56,6 +56,12 @@ inline result<std::string> product_version() {
         static_cast<std::uint32_t>(MYNEWT_VERSION_MAJOR),
         static_cast<std::uint32_t>(MYNEWT_VERSION_MINOR),
         static_cast<std::uint32_t>(MYNEWT_VERSION_REVISION));
+#elif defined(MYNEWT_VERSION_MAJOR) && defined(MYNEWT_VERSION_MINOR) &&        \
+    defined(MYNEWT_VERSION_PATCH)
+    return detail::format_mynewt_version_numbers(
+        static_cast<std::uint32_t>(MYNEWT_VERSION_MAJOR),
+        static_cast<std::uint32_t>(MYNEWT_VERSION_MINOR),
+        static_cast<std::uint32_t>(MYNEWT_VERSION_PATCH));
 #elif defined(MYNEWT_VERSION_MAJOR) && defined(MYNEWT_VERSION_MINOR)
     return detail::format_mynewt_version_numbers(
         static_cast<std::uint32_t>(MYNEWT_VERSION_MAJOR),
@@ -77,9 +83,10 @@ inline result<std::string> host_name() {
 
 inline result<std::chrono::milliseconds> uptime() {
 #if defined(SYSCAPE_MYNEWT_HAS_KERNEL_HEADERS)
-#if defined(OS_TICKS_PER_SEC)
+#if defined(OS_TICKS_PER_SEC) && (OS_TICKS_PER_SEC > 0)
     const std::uint64_t freq = static_cast<std::uint64_t>(OS_TICKS_PER_SEC);
-#elif defined(MYNEWT_VAL) && defined(MYNEWT_VAL_OS_TICKS_PER_SEC)
+#elif defined(MYNEWT_VAL) && defined(MYNEWT_VAL_OS_TICKS_PER_SEC) &&           \
+    (MYNEWT_VAL_OS_TICKS_PER_SEC > 0)
     const std::uint64_t freq =
         static_cast<std::uint64_t>(MYNEWT_VAL(OS_TICKS_PER_SEC));
 #else

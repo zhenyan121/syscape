@@ -46,8 +46,12 @@ inline result<std::uint64_t> physical_memory_bytes() {
 }
 
 inline result<std::uint64_t> available_memory_bytes() {
-#if defined(SYSCAPE_MYNEWT_HAS_KERNEL_HEADERS)
-    return static_cast<std::uint64_t>(os_get_free_heap_size());
+#if defined(MYNEWT_FREE_HEAP_SIZE)
+    return static_cast<std::uint64_t>(MYNEWT_FREE_HEAP_SIZE);
+#elif defined(MYNEWT_VAL) && defined(MYNEWT_VAL_OS_FREE_HEAP_SIZE)
+    return static_cast<std::uint64_t>(MYNEWT_VAL(OS_FREE_HEAP_SIZE));
+#elif defined(OS_FREE_HEAP_SIZE)
+    return static_cast<std::uint64_t>(OS_FREE_HEAP_SIZE);
 #else
     return fail(errc::not_supported);
 #endif
