@@ -1894,6 +1894,87 @@ if(CMAKE_SYSTEM_NAME STREQUAL "MYNEWT" OR MYNEWT)
     target_link_libraries(os_mynewt_no_freq PRIVATE mynewt_compat)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "MBED" OR MBED)
+    add_library(mbed_compat STATIC compat/mbed/mbed_compat.cpp)
+    target_include_directories(mbed_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/mbed)
+    target_compile_features(mbed_compat PUBLIC cxx_std_17)
+
+    set(MBED_TEST_TARGETS
+        os_mbed
+        cpu_mbed
+        memory_mbed
+        process_mbed
+        user_mbed
+        filesystem_mbed
+        network_mbed
+        locale_mbed
+        environment_mbed
+        resource_mbed
+        virtualization_mbed
+        hardware_mbed
+        power_mbed
+        sensor_mbed
+        security_mbed
+        numa_mbed
+        process_list_mbed
+        printer_mbed
+        audio_mbed
+        software_mbed
+        storage_mbed
+        ipc_mbed
+        connection_mbed
+        gpu_mbed
+        display_mbed
+        input_mbed
+        camera_mbed
+        bluetooth_mbed
+        wifi_mbed)
+    foreach(mbed_target IN LISTS MBED_TEST_TARGETS)
+        syscape_add_test(${mbed_target} 17 syscape::hosted ${mbed_target}.cpp)
+        target_compile_definitions(${mbed_target} PRIVATE __MBED__=1 MBED=1)
+        target_link_libraries(${mbed_target} PRIVATE mbed_compat)
+    endforeach()
+
+    foreach(mbed_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(mbed_header_target "header_${mbed_domain}_mbed")
+        syscape_add_test(
+            ${mbed_header_target}
+            17
+            syscape::hosted
+            header_${mbed_domain}.cpp)
+        target_compile_definitions(${mbed_header_target} PRIVATE __MBED__=1 MBED=1)
+        target_link_libraries(${mbed_header_target} PRIVATE mbed_compat)
+    endforeach()
+
+    syscape_add_test(
+        mbed_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(mbed_odr PRIVATE __MBED__=1 MBED=1)
+    target_link_libraries(mbed_odr PRIVATE mbed_compat)
+
+    syscape_add_test(mbed_detection 11 syscape::syscape mbed_detection.cpp)
+    target_compile_definitions(mbed_detection PRIVATE __MBED__=1 MBED=1)
+
+    syscape_add_test(os_mbed_macro_version 17 syscape::hosted os_mbed.cpp)
+    target_compile_definitions(os_mbed_macro_version PRIVATE __MBED__=1 MBED=1 MBED_NO_VERSION_MACRO=1 MBED_MAJOR_VERSION=6 MBED_MINOR_VERSION=15 MBED_PATCH_VERSION=0)
+    target_link_libraries(os_mbed_macro_version PRIVATE mbed_compat)
+
+    syscape_add_test(os_mbed_no_freq 17 syscape::hosted os_mbed.cpp)
+    target_compile_definitions(os_mbed_no_freq PRIVATE __MBED__=1 MBED=1 MBED_NO_TICK_FREQ=1)
+    target_link_libraries(os_mbed_no_freq PRIVATE mbed_compat)
+
+    syscape_add_test(os_mbed_macro_freq 17 syscape::hosted os_mbed.cpp)
+    target_compile_definitions(os_mbed_macro_freq PRIVATE __MBED__=1 MBED=1 MBED_USE_TICK_FREQ_MACRO=1)
+    target_link_libraries(os_mbed_macro_freq PRIVATE mbed_compat)
+endif()
+
 
 
 if(APPLE)

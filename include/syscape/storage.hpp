@@ -143,7 +143,8 @@ enum class drive_health_status : std::uint8_t {
     !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX) &&   \
     !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS) &&         \
     !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_TKERNEL) &&  \
-    !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT)
+    !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT) &&     \
+    !defined(SYSCAPE_TARGET_MBED)
 #include <syscape/detail/storage/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/storage/windows.hpp>
@@ -218,6 +219,8 @@ enum class drive_health_status : std::uint8_t {
 #include <syscape/detail/storage/chibios.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MYNEWT)
 #include <syscape/detail/storage/mynewt.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MBED)
+#include <syscape/detail/storage/mbed.hpp>
 #else
 #include <syscape/detail/storage/generic.hpp>
 #endif

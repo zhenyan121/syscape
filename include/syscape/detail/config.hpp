@@ -157,6 +157,11 @@
 #define SYSCAPE_TARGET_MYNEWT 1
 #endif
 
+#if defined(__MBED__) || defined(MBED) || defined(MBED_MAJOR_VERSION) ||       \
+    defined(SYSCAPE_TARGET_MBED)
+#define SYSCAPE_TARGET_MBED 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1

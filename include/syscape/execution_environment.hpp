@@ -51,7 +51,8 @@ enum class operating_system {
     integrity,
     tkernel,
     chibios,
-    mynewt
+    mynewt,
+    mbed
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -161,6 +162,9 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(__MYNEWT__) || defined(MYNEWT) || defined(MYNEWT_VAL) ||         \
     defined(SYSCAPE_TARGET_MYNEWT)
     return operating_system::mynewt;
+#elif defined(__MBED__) || defined(MBED) || defined(MBED_MAJOR_VERSION) ||     \
+    defined(SYSCAPE_TARGET_MBED)
+    return operating_system::mbed;
 #elif defined(__linux__)
     return operating_system::linux_os;
 #else
@@ -207,7 +211,9 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(__CHIBIOS__) || defined(CHIBIOS) || defined(__CHIBIOS_RT__) ||     \
     defined(__CHIBIOS_NIL__) || defined(CH_KERNEL_MAJOR) ||                    \
     defined(SYSCAPE_TARGET_CHIBIOS) || defined(__MYNEWT__) ||                  \
-    defined(MYNEWT) || defined(MYNEWT_VAL) || defined(SYSCAPE_TARGET_MYNEWT)
+    defined(MYNEWT) || defined(MYNEWT_VAL) ||                                  \
+    defined(SYSCAPE_TARGET_MYNEWT) || defined(__MBED__) || defined(MBED) ||    \
+    defined(MBED_MAJOR_VERSION) || defined(SYSCAPE_TARGET_MBED)
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
@@ -272,6 +278,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "chibios";
     case operating_system::mynewt:
         return "mynewt";
+    case operating_system::mbed:
+        return "mbed";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";
