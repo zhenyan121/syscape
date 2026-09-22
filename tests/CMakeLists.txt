@@ -1817,6 +1817,84 @@ if(CMAKE_SYSTEM_NAME STREQUAL "CHIBIOS" OR CHIBIOS)
     target_link_libraries(os_chibios_no_freq PRIVATE chibios_compat)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "MYNEWT" OR MYNEWT)
+    add_library(mynewt_compat STATIC compat/mynewt/mynewt_compat.cpp)
+    target_include_directories(mynewt_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/mynewt)
+    target_compile_features(mynewt_compat PUBLIC cxx_std_17)
+
+    set(MYNEWT_TEST_TARGETS
+        os_mynewt
+        cpu_mynewt
+        memory_mynewt
+        process_mynewt
+        user_mynewt
+        filesystem_mynewt
+        network_mynewt
+        locale_mynewt
+        environment_mynewt
+        resource_mynewt
+        virtualization_mynewt
+        hardware_mynewt
+        power_mynewt
+        sensor_mynewt
+        security_mynewt
+        numa_mynewt
+        process_list_mynewt
+        printer_mynewt
+        audio_mynewt
+        software_mynewt
+        storage_mynewt
+        ipc_mynewt
+        connection_mynewt
+        gpu_mynewt
+        display_mynewt
+        input_mynewt
+        camera_mynewt
+        bluetooth_mynewt
+        wifi_mynewt)
+    foreach(mynewt_target IN LISTS MYNEWT_TEST_TARGETS)
+        syscape_add_test(${mynewt_target} 17 syscape::hosted ${mynewt_target}.cpp)
+        target_compile_definitions(${mynewt_target} PRIVATE __MYNEWT__=1 MYNEWT=1)
+        target_link_libraries(${mynewt_target} PRIVATE mynewt_compat)
+    endforeach()
+
+    foreach(mynewt_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(mynewt_header_target "header_${mynewt_domain}_mynewt")
+        syscape_add_test(
+            ${mynewt_header_target}
+            17
+            syscape::hosted
+            header_${mynewt_domain}.cpp)
+        target_compile_definitions(${mynewt_header_target} PRIVATE __MYNEWT__=1 MYNEWT=1)
+        target_link_libraries(${mynewt_header_target} PRIVATE mynewt_compat)
+    endforeach()
+
+    syscape_add_test(
+        mynewt_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(mynewt_odr PRIVATE __MYNEWT__=1 MYNEWT=1)
+    target_link_libraries(mynewt_odr PRIVATE mynewt_compat)
+
+    syscape_add_test(mynewt_detection 11 syscape::syscape mynewt_detection.cpp)
+    target_compile_definitions(mynewt_detection PRIVATE __MYNEWT__=1 MYNEWT=1)
+
+    syscape_add_test(os_mynewt_macro_version 17 syscape::hosted os_mynewt.cpp)
+    target_compile_definitions(os_mynewt_macro_version PRIVATE __MYNEWT__=1 MYNEWT=1 MYNEWT_NO_VERSION_MACRO=1 MYNEWT_VERSION_MAJOR=1 MYNEWT_VERSION_MINOR=10 MYNEWT_VERSION_REVISION=0)
+    target_link_libraries(os_mynewt_macro_version PRIVATE mynewt_compat)
+
+    syscape_add_test(os_mynewt_no_freq 17 syscape::hosted os_mynewt.cpp)
+    target_compile_definitions(os_mynewt_no_freq PRIVATE __MYNEWT__=1 MYNEWT=1 MYNEWT_NO_TICKS_PER_SEC=1)
+    target_link_libraries(os_mynewt_no_freq PRIVATE mynewt_compat)
+endif()
+
+
 
 if(APPLE)
     target_link_libraries(
