@@ -162,6 +162,11 @@
 #define SYSCAPE_TARGET_MBED 1
 #endif
 
+#if defined(RIOT_VERSION) || defined(__RIOT__) || defined(RIOT) ||             \
+    defined(MODULE_CORE) || defined(SYSCAPE_TARGET_RIOT)
+#define SYSCAPE_TARGET_RIOT 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1
