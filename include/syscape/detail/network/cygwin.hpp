@@ -19,6 +19,11 @@
 #include <vector>
 
 #include <syscape/detail/network/common.hpp>
+// Design note: Cygwin provides standard POSIX getifaddrs() and socket ioctls.
+// Including network/posix.hpp intentionally imports POSIX interface enumeration
+// helpers (such as interfaces(), interface_by_name(), and interface_by_index())
+// into namespace syscape::detail::network_backend to share implementation
+// logic.
 #include <syscape/detail/network/posix.hpp>
 #include <syscape/result.hpp>
 

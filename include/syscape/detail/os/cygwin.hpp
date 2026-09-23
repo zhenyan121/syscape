@@ -124,7 +124,9 @@ inline result<std::string> host_name() {
         }
     }
     std::vector<char> buffer(256U);
-    while (buffer.size() <= 64U * 1024U) {
+    constexpr std::size_t maximum_size = 64U * 1024U;
+    while (buffer.size() <= maximum_size) {
+        errno = 0;
         if (::gethostname(buffer.data(), buffer.size()) == 0) {
             std::size_t end = 0U;
             while (end < buffer.size() && buffer[end] != '\0') {
@@ -133,11 +135,12 @@ inline result<std::string> host_name() {
             if (end < buffer.size()) {
                 return parse_host_name(std::string_view(buffer.data(), end));
             }
-        } else {
-            const int err = errno;
-            if (err != ENAMETOOLONG && err != EINVAL) {
-                return fail(std::error_code(err, std::generic_category()));
-            }
+            buffer.resize(buffer.size() * 2U);
+            continue;
+        }
+        const int err = errno;
+        if (err != ENAMETOOLONG && err != EINVAL) {
+            return fail(std::error_code(err, std::generic_category()));
         }
         buffer.resize(buffer.size() * 2U);
     }

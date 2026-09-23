@@ -167,7 +167,9 @@
 #define SYSCAPE_TARGET_RIOT 1
 #endif
 
-#if defined(__CYGWIN__) || defined(CYGWIN) || defined(SYSCAPE_TARGET_CYGWIN)
+#if (defined(__CYGWIN__) || defined(CYGWIN) ||                                 \
+     defined(SYSCAPE_TARGET_CYGWIN)) &&                                        \
+    !defined(__MSYS__)
 #define SYSCAPE_TARGET_CYGWIN 1
 #endif
 

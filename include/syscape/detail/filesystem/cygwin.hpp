@@ -55,10 +55,13 @@ inline result<std::string> volume_id(const std::string& path) {
                                 sizeof(first),
                             sizeof(second));
                 return filesystem_common::render_hex_word_pair(first, second);
+            } else if (sizeof(vfs.f_fsid) >= sizeof(std::uint32_t)) {
+                std::uint32_t word = 0U;
+                std::memcpy(&word, &vfs.f_fsid, sizeof(word));
+                return filesystem_common::render_hex32(word);
+            } else {
+                return fail(errc::not_supported);
             }
-            std::uint32_t word = 0U;
-            std::memcpy(&word, &vfs.f_fsid, sizeof(vfs.f_fsid));
-            return filesystem_common::render_hex32(word);
         }
         if (errno != EINTR) {
             return fail(std::error_code(errno, std::generic_category()));
