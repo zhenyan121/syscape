@@ -84,11 +84,31 @@ inline result<release_information> parse_os_release(std::string_view input) {
             decode_os_release_value(line.substr(separator + 1U));
         if (!value) { return fail(value.error()); }
 
-        if (key == "NAME") { output.name = *value; }
-        else if (key == "PRETTY_NAME") { output.pretty_name = *value; }
-        else if (key == "VERSION_ID") { output.version_id = *value; }
-        else if (key == "BUILD_ID") { output.build_id = *value; }
-        else if (key == "IMAGE_ID") { output.image_id = *value; }
+        if (key == "NAME") {
+            output.name = *value;
+        } else if (key == "PRETTY_NAME") {
+            output.pretty_name = *value;
+        } else if (key == "VERSION_ID") {
+            output.version_id = *value;
+        } else if (key == "BUILD_ID") {
+            output.build_id = *value;
+        } else if (key == "IMAGE_ID") {
+            output.image_id = *value;
+        } else if (key == "DISTRIB_ID" && output.name.empty()) {
+            output.name = *value;
+        } else if (key == "DISTRIB_DESCRIPTION" && output.pretty_name.empty()) {
+            output.pretty_name = *value;
+        } else if (key == "DISTRIB_RELEASE" && output.version_id.empty()) {
+            output.version_id = *value;
+        } else if (key == "CHROMEOS_RELEASE_NAME" && output.name.empty()) {
+            output.name = *value;
+        } else if (key == "CHROMEOS_RELEASE_VERSION" &&
+                   output.version_id.empty()) {
+            output.version_id = *value;
+        } else if (key == "CHROMEOS_RELEASE_BUILD_NUMBER" &&
+                   output.build_id.empty()) {
+            output.build_id = *value;
+        }
     }
     return output;
 }
@@ -98,6 +118,9 @@ inline result<release_information> read_os_release() {
         linux_platform::read_text_file("/etc/os-release");
     if (!content && content.error() == std::errc::no_such_file_or_directory) {
         content = linux_platform::read_text_file("/usr/lib/os-release");
+    }
+    if (!content && content.error() == std::errc::no_such_file_or_directory) {
+        content = linux_platform::read_text_file("/etc/lsb-release");
     }
     if (!content) { return fail(content.error()); }
     return parse_os_release(*content);

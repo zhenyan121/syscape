@@ -183,6 +183,59 @@ inline result<std::uint32_t> wsl_version() {
     return fail(errc::not_found);
 }
 
+struct wine_info {
+    bool is_wine = false;
+    std::string version;
+    std::string build_id;
+};
+
+inline wine_info detect_wine() noexcept {
+    wine_info info;
+    ::HMODULE ntdll = ::GetModuleHandleA("ntdll.dll");
+    if (ntdll != nullptr) {
+        using wine_get_version_fn = const char* (*)();
+        auto p_get_version = reinterpret_cast<wine_get_version_fn>(
+            ::GetProcAddress(ntdll, "wine_get_version"));
+        if (p_get_version != nullptr) {
+            info.is_wine = true;
+            const char* ver = p_get_version();
+            if (ver != nullptr) {
+                info.version = ver;
+            }
+            using wine_get_build_id_fn = const char* (*)();
+            auto p_get_build = reinterpret_cast<wine_get_build_id_fn>(
+                ::GetProcAddress(ntdll, "wine_get_build_id"));
+            if (p_get_build != nullptr) {
+                const char* bid = p_get_build();
+                if (bid != nullptr) {
+                    info.build_id = bid;
+                }
+            }
+        }
+    }
+    return info;
+}
+
+inline result<bool> is_wine() {
+    return detect_wine().is_wine;
+}
+
+inline result<std::string> wine_version() {
+    const wine_info info = detect_wine();
+    if (!info.is_wine || info.version.empty()) {
+        return fail(errc::not_found);
+    }
+    return info.version;
+}
+
+inline result<std::string> wine_build_id() {
+    const wine_info info = detect_wine();
+    if (!info.is_wine || info.build_id.empty()) {
+        return fail(errc::not_found);
+    }
+    return info.build_id;
+}
+
 inline result<bool> is_sandboxed() {
     const result<sandbox_info> info = detect_sandbox();
     if (!info) { return fail(info.error()); }

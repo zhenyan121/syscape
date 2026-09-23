@@ -247,6 +247,18 @@ inline result<std::uint32_t> wsl_version() {
     return fail(errc::not_found);
 }
 
+inline result<bool> is_wine() {
+    return false;
+}
+
+inline result<std::string> wine_version() {
+    return fail(errc::not_found);
+}
+
+inline result<std::string> wine_build_id() {
+    return fail(errc::not_found);
+}
+
 inline result<bool> is_sandboxed() {
     const result<sandbox_info> info = detect_sandbox();
     if (!info) {

@@ -53,7 +53,8 @@ enum class operating_system {
     chibios,
     mynewt,
     mbed,
-    riot
+    riot,
+    cygwin
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -65,6 +66,10 @@ enum class execution_environment {
     rtos,
     bare_metal
 };
+
+/// Identifies a compatibility runtime or emulation layer selected at compile
+/// time.
+enum class compatibility_environment { none, unknown, cygwin, mingw, msys2 };
 
 /// Returns the operating system or runtime selected for this translation unit.
 constexpr operating_system target_operating_system() noexcept {
@@ -82,7 +87,9 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(__Fuchsia__) || defined(FUCHSIA) ||                              \
     defined(SYSCAPE_TARGET_FUCHSIA)
     return operating_system::fuchsia;
-#elif defined(__CYGWIN__) || defined(_WIN32)
+#elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN)
+    return operating_system::cygwin;
+#elif defined(_WIN32)
     return operating_system::windows;
 #elif defined(__APPLE__) && defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
     return operating_system::visionos;
@@ -191,7 +198,8 @@ constexpr execution_environment target_execution_environment() noexcept {
       defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) ||                   \
       defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)))
     return execution_environment::sandboxed;
-#elif defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
+#elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN) ||                 \
+    defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
     return execution_environment::compatibility;
 #elif defined(__QNXNTO__) || defined(__QNX__) || defined(QNX) ||               \
     defined(SYSCAPE_TARGET_QNX) || defined(__VXWORKS__) ||                     \
@@ -227,6 +235,23 @@ constexpr execution_environment target_execution_environment() noexcept {
     return execution_environment::hosted;
 #else
     return execution_environment::unknown;
+#endif
+}
+
+/// Returns the compile-time compatibility environment selected for this
+/// translation unit.
+constexpr compatibility_environment
+target_compatibility_environment() noexcept {
+#if defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
+    return compatibility_environment::unknown;
+#elif defined(__MSYS__)
+    return compatibility_environment::msys2;
+#elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN)
+    return compatibility_environment::cygwin;
+#elif defined(__MINGW32__) || defined(__MINGW64__)
+    return compatibility_environment::mingw;
+#else
+    return compatibility_environment::none;
 #endif
 }
 
@@ -288,6 +313,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "mbed";
     case operating_system::riot:
         return "riot";
+    case operating_system::cygwin:
+        return "cygwin";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";
@@ -305,6 +332,24 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* execution_environment_name(
     case execution_environment::unknown: return "unknown";
     }
     return "unknown";
+}
+
+/// Returns a stable English name for a compatibility-environment value.
+SYSCAPE_DETAIL_CONSTEXPR14 const char*
+compatibility_environment_name(compatibility_environment value) noexcept {
+    switch (value) {
+    case compatibility_environment::none:
+        return "none";
+    case compatibility_environment::cygwin:
+        return "cygwin";
+    case compatibility_environment::mingw:
+        return "mingw";
+    case compatibility_environment::msys2:
+        return "msys2";
+    case compatibility_environment::unknown:
+    default:
+        return "unknown";
+    }
 }
 
 } // namespace syscape
