@@ -163,7 +163,7 @@
 #endif
 
 #if defined(RIOT_VERSION) || defined(__RIOT__) || defined(RIOT) ||             \
-    defined(MODULE_CORE) || defined(SYSCAPE_TARGET_RIOT)
+    defined(SYSCAPE_TARGET_RIOT)
 #define SYSCAPE_TARGET_RIOT 1
 #endif
 

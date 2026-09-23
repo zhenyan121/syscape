@@ -4,6 +4,8 @@
 #include "ztimer64.h"
 #include "xtimer.h"
 #include "thread.h"
+#include "cpu.h"
+#include "malloc_monitor.h"
 
 struct ztimer_clock {
     int dummy;
@@ -13,24 +15,20 @@ struct ztimer64_clock {
     int dummy;
 };
 
-static uint64_t g_mock_time64_ms = 12345678ULL;
-static uint64_t g_mock_xtimer_usec = 12345678000ULL;
+static uint64_t g_mock_time_usec = 12345678000ULL;
 static kernel_pid_t g_mock_current_pid = 1;
+static thread_t g_mock_idle_thread = {0, 15, 0, "idle"};
 static thread_t g_mock_active_thread = {1, 5, 0, "main"};
-static thread_t* g_mock_threads[KERNEL_PID_LAST + 1] = {nullptr};
 
 volatile int sched_num_threads = 4;
 volatile thread_t* sched_active_thread = &g_mock_active_thread;
-volatile thread_t* sched_threads[KERNEL_PID_LAST + 1] = {nullptr};
+volatile thread_t* sched_threads[KERNEL_PID_LAST + 1] = {
+    &g_mock_idle_thread,
+    &g_mock_active_thread,
+};
 
-static void init_mock_threads() {
-    static bool initialized = false;
-    if (!initialized) {
-        g_mock_threads[1] = &g_mock_active_thread;
-        sched_threads[1] = &g_mock_active_thread;
-        initialized = true;
-    }
-}
+static size_t g_mock_ram_size = 65536;
+static size_t g_mock_available_memory = 32768;
 
 static ztimer_clock dummy_clock_msec = {1};
 static ztimer_clock dummy_clock_usec = {2};
@@ -50,20 +48,20 @@ ztimer64_clock_t* const _ztimer64_sec = &dummy_clock64_sec;
 
 uint32_t ztimer_now(ztimer_clock_t* clock) {
     (void)clock;
-    return static_cast<uint32_t>(g_mock_time64_ms);
+    return static_cast<uint32_t>((g_mock_time_usec / 1000ULL) & 0xFFFFFFFFULL);
 }
 
 uint64_t ztimer64_now(ztimer64_clock_t* clock) {
     (void)clock;
-    return g_mock_time64_ms;
+    return g_mock_time_usec / 1000ULL;
 }
 
 uint32_t xtimer_now_usec(void) {
-    return static_cast<uint32_t>(g_mock_xtimer_usec);
+    return static_cast<uint32_t>(g_mock_time_usec & 0xFFFFFFFFULL);
 }
 
 uint64_t xtimer_now_usec64(void) {
-    return g_mock_xtimer_usec;
+    return g_mock_time_usec;
 }
 
 kernel_pid_t thread_getpid(void) {
@@ -71,9 +69,11 @@ kernel_pid_t thread_getpid(void) {
 }
 
 thread_t* thread_get(kernel_pid_t pid) {
-    init_mock_threads();
     if (pid >= 0 && pid <= KERNEL_PID_LAST) {
-        return g_mock_threads[pid];
+        // C-style cast explicitly acknowledging volatile stripping, matching
+        // RIOT kernel's (thread_t *)sched_threads[pid] in
+        // core/include/thread.h.
+        return (thread_t*)sched_threads[pid];
     }
     return nullptr;
 }
@@ -86,18 +86,15 @@ uint8_t thread_get_priority(const thread_t* thread) {
 }
 
 void riot_mock_set_time_ms(uint32_t ms) {
-    g_mock_time64_ms = static_cast<uint64_t>(ms);
-    g_mock_xtimer_usec = static_cast<uint64_t>(ms) * 1000ULL;
+    g_mock_time_usec = static_cast<uint64_t>(ms) * 1000ULL;
 }
 
 void riot_mock_set_time64_ms(uint64_t ms) {
-    g_mock_time64_ms = ms;
-    g_mock_xtimer_usec = ms * 1000ULL;
+    g_mock_time_usec = ms * 1000ULL;
 }
 
 void riot_mock_set_xtimer_usec(uint64_t usec) {
-    g_mock_xtimer_usec = usec;
-    g_mock_time64_ms = usec / 1000ULL;
+    g_mock_time_usec = usec;
 }
 
 void riot_mock_set_thread_count(int count) {
@@ -114,4 +111,34 @@ void riot_mock_set_priority(uint8_t priority) {
 
 void riot_mock_set_current_pid(kernel_pid_t pid) {
     g_mock_current_pid = pid;
+}
+
+void riot_mock_reset_threads(void) {
+    for (int i = 0; i <= KERNEL_PID_LAST; ++i) {
+        sched_threads[i] = nullptr;
+    }
+    sched_threads[0] = &g_mock_idle_thread;
+    sched_threads[1] = &g_mock_active_thread;
+    sched_num_threads = 4;
+    sched_active_thread = &g_mock_active_thread;
+    g_mock_current_pid = 1;
+    g_mock_active_thread.priority = 5;
+    g_mock_active_thread.status = 0;
+    g_mock_active_thread.name = "main";
+}
+
+size_t cpu_get_ram_size(void) {
+    return g_mock_ram_size;
+}
+
+void riot_mock_set_ram_size(size_t bytes) {
+    g_mock_ram_size = bytes;
+}
+
+size_t get_mem_usage(void) {
+    return g_mock_available_memory;
+}
+
+void riot_mock_set_available_memory(size_t bytes) {
+    g_mock_available_memory = bytes;
 }

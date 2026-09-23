@@ -2054,6 +2054,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "RIOT" OR RIOT)
     syscape_add_test(os_riot_ztimer32 17 syscape::hosted os_riot.cpp)
     target_compile_definitions(os_riot_ztimer32 PRIVATE __RIOT__=1 RIOT=1 RIOT_USE_ZTIMER32=1)
     target_link_libraries(os_riot_ztimer32 PRIVATE riot_compat)
+
+    syscape_add_test(os_riot_ztimer_only 17 syscape::hosted os_riot.cpp)
+    target_compile_definitions(os_riot_ztimer_only PRIVATE __RIOT__=1 RIOT=1 RIOT_NO_ZTIMER64=1)
+    target_link_libraries(os_riot_ztimer_only PRIVATE riot_compat)
 endif()
 
 

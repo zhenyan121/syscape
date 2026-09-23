@@ -56,6 +56,10 @@
 /// memory-load snapshots through sysinfo. Swap, commit, huge-page, and pressure
 /// queries report not_supported because the corresponding sysinfo fields or
 /// facilities do not provide usable data.
+/// @note RIOT OS implements physical memory queries through cpu_get_ram_size
+/// when supported by target CPU/board facilities, and available memory queries
+/// through get_mem_usage when the malloc_monitor module is enabled; other
+/// memory queries report not_supported.
 
 #include <syscape/detail/config.hpp>
 

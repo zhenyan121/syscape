@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <string_view>
 
 #include "kernel_defines.h"
 #include "riot_version.h"

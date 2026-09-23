@@ -5,12 +5,12 @@
 
 #include <chrono>
 #include <cstdint>
-#include <limits>
 #include <string>
 
-#if defined(__cplusplus)
-extern "C" {
+#if !defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
+#define SYSCAPE_RIOT_INTERNAL_KERNEL_HEADERS 1
 #endif
+
 #if defined(__has_include)
 #if __has_include(<kernel_defines.h>)
 #include <kernel_defines.h>
@@ -36,9 +36,6 @@ extern "C" {
 #define SYSCAPE_RIOT_HAS_KERNEL_HEADERS 1
 #define SYSCAPE_RIOT_HAS_XTIMER 1
 #endif
-#endif
-#if defined(__cplusplus)
-}
 #endif
 
 #include <syscape/detail/utf8.hpp>
@@ -91,13 +88,9 @@ inline result<std::chrono::milliseconds> uptime() {
     return std::chrono::milliseconds(
         static_cast<std::chrono::milliseconds::rep>(ms));
 #elif defined(RIOT_USE_ZTIMER32)
-    constexpr std::uint64_t max_ms =
-        static_cast<std::uint64_t>(std::chrono::milliseconds::max().count());
-    const std::uint64_t ms =
-        static_cast<std::uint64_t>(ztimer_now(ZTIMER_MSEC));
-    if (ms > max_ms) {
-        return fail(errc::value_too_large);
-    }
+    // Note: ztimer_now(ZTIMER_MSEC) returns a 32-bit millisecond counter that
+    // wraps after approximately 49.7 days of continuous runtime.
+    const std::uint32_t ms = ztimer_now(ZTIMER_MSEC);
     return std::chrono::milliseconds(
         static_cast<std::chrono::milliseconds::rep>(ms));
 #else
@@ -112,13 +105,9 @@ inline result<std::chrono::milliseconds> uptime() {
     return std::chrono::milliseconds(
         static_cast<std::chrono::milliseconds::rep>(ms));
 #elif defined(ZTIMER_MSEC)
-    constexpr std::uint64_t max_ms =
-        static_cast<std::uint64_t>(std::chrono::milliseconds::max().count());
-    const std::uint64_t ms =
-        static_cast<std::uint64_t>(ztimer_now(ZTIMER_MSEC));
-    if (ms > max_ms) {
-        return fail(errc::value_too_large);
-    }
+    // Note: ztimer_now(ZTIMER_MSEC) returns a 32-bit millisecond counter that
+    // wraps after approximately 49.7 days of continuous runtime.
+    const std::uint32_t ms = ztimer_now(ZTIMER_MSEC);
     return std::chrono::milliseconds(
         static_cast<std::chrono::milliseconds::rep>(ms));
 #elif defined(MODULE_XTIMER) || defined(XTIMER_H) ||                           \
@@ -161,8 +150,9 @@ inline result<std::string> boot_identifier() {
 #undef SYSCAPE_RIOT_HAS_XTIMER
 #endif
 
-#if defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
+#if defined(SYSCAPE_RIOT_INTERNAL_KERNEL_HEADERS)
 #undef SYSCAPE_RIOT_HAS_KERNEL_HEADERS
+#undef SYSCAPE_RIOT_INTERNAL_KERNEL_HEADERS
 #endif
 
 #endif

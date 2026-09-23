@@ -13,6 +13,7 @@ extern ztimer64_clock_t* const _ztimer64_msec;
 extern ztimer64_clock_t* const _ztimer64_usec;
 extern ztimer64_clock_t* const _ztimer64_sec;
 
+#ifndef RIOT_NO_ZTIMER64
 #ifndef ZTIMER64_MSEC
 #define ZTIMER64_MSEC _ztimer64_msec
 #endif
@@ -23,6 +24,7 @@ extern ztimer64_clock_t* const _ztimer64_sec;
 
 #ifndef ZTIMER64_SEC
 #define ZTIMER64_SEC _ztimer64_sec
+#endif
 #endif
 
 uint64_t ztimer64_now(ztimer64_clock_t* clock);

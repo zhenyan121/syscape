@@ -7,9 +7,10 @@
 #include <string>
 #include <vector>
 
-#if defined(__cplusplus)
-extern "C" {
+#if !defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
+#define SYSCAPE_RIOT_INTERNAL_KERNEL_HEADERS 1
 #endif
+
 #if defined(__has_include)
 #if __has_include(<kernel_defines.h>)
 #include <kernel_defines.h>
@@ -18,9 +19,6 @@ extern "C" {
 #include <thread.h>
 #define SYSCAPE_RIOT_HAS_KERNEL_HEADERS 1
 #endif
-#endif
-#if defined(__cplusplus)
-}
 #endif
 
 #include <syscape/detail/cpu/common.hpp>
@@ -88,8 +86,9 @@ inline result<cpu_common::usage_information> cumulative_processor_usage() {
 } // namespace detail
 } // namespace syscape
 
-#if defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
+#if defined(SYSCAPE_RIOT_INTERNAL_KERNEL_HEADERS)
 #undef SYSCAPE_RIOT_HAS_KERNEL_HEADERS
+#undef SYSCAPE_RIOT_INTERNAL_KERNEL_HEADERS
 #endif
 
 #endif

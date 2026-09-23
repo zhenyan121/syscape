@@ -8,9 +8,10 @@
 #include <string>
 #include <vector>
 
-#if defined(__cplusplus)
-extern "C" {
+#if !defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
+#define SYSCAPE_RIOT_INTERNAL_KERNEL_HEADERS 1
 #endif
+
 #if defined(__has_include)
 #if __has_include(<kernel_defines.h>)
 #include <kernel_defines.h>
@@ -20,9 +21,6 @@ extern "C" {
 #include <thread.h>
 #define SYSCAPE_RIOT_HAS_KERNEL_HEADERS 1
 #endif
-#endif
-#if defined(__cplusplus)
-}
 #endif
 
 #include <syscape/detail/process/common.hpp>
@@ -66,19 +64,23 @@ inline result<process_common::memory_usage_snapshot> memory_usage() {
 
 inline result<std::uint32_t> thread_count() {
 #if defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
-    if (sched_num_threads < 0) {
+    const int count = sched_num_threads;
+    if (count < 0) {
         return fail(errc::malformed_data);
     }
-    return static_cast<std::uint32_t>(sched_num_threads);
+    return static_cast<std::uint32_t>(count);
 #else
     return fail(errc::not_supported);
 #endif
 }
 
+// Returns the active thread's scheduling priority on RIOT OS.
+// Note: In RIOT OS, 0 represents the highest priority and higher numeric
+// values represent lower priority, which is the inverse of POSIX conventions.
 inline result<int> priority() {
 #if defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
     const auto pid = thread_getpid();
-    const auto* t = thread_get(pid);
+    const auto t = thread_get(pid);
     if (t != nullptr) {
         return static_cast<int>(thread_get_priority(t));
     }
@@ -102,8 +104,9 @@ resource_limit(process_common::limit_resource resource) {
 } // namespace detail
 } // namespace syscape
 
-#if defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
+#if defined(SYSCAPE_RIOT_INTERNAL_KERNEL_HEADERS)
 #undef SYSCAPE_RIOT_HAS_KERNEL_HEADERS
+#undef SYSCAPE_RIOT_INTERNAL_KERNEL_HEADERS
 #endif
 
 #endif

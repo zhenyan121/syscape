@@ -23,18 +23,6 @@ extern "C" {
 #define RIOT_CPU_COUNT 1U
 #endif
 
-#ifndef RIOT_TOTAL_HEAP_SIZE
-#define RIOT_TOTAL_HEAP_SIZE 65536U
-#endif
-
-#ifndef RIOT_HEAP_SIZE
-#define RIOT_HEAP_SIZE 65536U
-#endif
-
-#ifndef RIOT_FREE_HEAP_SIZE
-#define RIOT_FREE_HEAP_SIZE 32768U
-#endif
-
 #ifdef __cplusplus
 }
 #endif
