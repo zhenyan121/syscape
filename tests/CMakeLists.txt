@@ -2104,22 +2104,22 @@ endif()
 
 # Legacy operating systems and environments (Tier 4)
 syscape_add_test(dos_detection 11 syscape::syscape dos_detection.cpp)
-target_compile_definitions(dos_detection PRIVATE __MSDOS__=1)
+target_compile_definitions(dos_detection PRIVATE __MSDOS__=1 SYSCAPE_TARGET_DOS=1)
 
 syscape_add_test(os2_detection 11 syscape::syscape os2_detection.cpp)
-target_compile_definitions(os2_detection PRIVATE __OS2__=1)
+target_compile_definitions(os2_detection PRIVATE __OS2__=1 SYSCAPE_TARGET_OS2=1)
 
 syscape_add_test(amigaos_detection 11 syscape::syscape amigaos_detection.cpp)
-target_compile_definitions(amigaos_detection PRIVATE SYSCAPE_TARGET_AMIGAOS=1)
+target_compile_definitions(amigaos_detection PRIVATE __AMIGA__=1 SYSCAPE_TARGET_AMIGAOS=1)
 
 syscape_add_test(riscos_detection 11 syscape::syscape riscos_detection.cpp)
-target_compile_definitions(riscos_detection PRIVATE SYSCAPE_TARGET_RISCOS=1)
+target_compile_definitions(riscos_detection PRIVATE __riscos__=1 SYSCAPE_TARGET_RISCOS=1)
 
 syscape_add_test(openvms_detection 11 syscape::syscape openvms_detection.cpp)
-target_compile_definitions(openvms_detection PRIVATE SYSCAPE_TARGET_OPENVMS=1)
+target_compile_definitions(openvms_detection PRIVATE __VMS=1 SYSCAPE_TARGET_OPENVMS=1)
 
 syscape_add_test(zos_detection 11 syscape::syscape zos_detection.cpp)
-target_compile_definitions(zos_detection PRIVATE SYSCAPE_TARGET_ZOS=1)
+target_compile_definitions(zos_detection PRIVATE __MVS__=1 SYSCAPE_TARGET_ZOS=1)
 
 syscape_add_test(legacy_env_strings 11 syscape::syscape legacy_env_strings.cpp)
 
