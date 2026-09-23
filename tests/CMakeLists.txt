@@ -2060,8 +2060,47 @@ if(CMAKE_SYSTEM_NAME STREQUAL "RIOT" OR RIOT)
     target_link_libraries(os_riot_ztimer_only PRIVATE riot_compat)
 endif()
 
+# Compatibility environments and variants (Tier 3)
+syscape_add_test(cygwin_detection 11 syscape::syscape cygwin_detection.cpp)
+target_compile_definitions(cygwin_detection PRIVATE __CYGWIN__=1)
 
+syscape_add_test(mingw_detection 11 syscape::syscape mingw_detection.cpp)
+target_compile_definitions(mingw_detection PRIVATE __MINGW32__=1 _WIN32=1)
 
+syscape_add_test(msys2_detection 11 syscape::syscape msys2_detection.cpp)
+target_compile_definitions(msys2_detection PRIVATE __MSYS__=1 _WIN32=1)
+
+syscape_add_test(compat_env_strings 11 syscape::syscape compat_env_strings.cpp)
+
+syscape_add_test(wine_virtualization 17 syscape::hosted wine_virtualization.cpp)
+
+if(CYGWIN OR CMAKE_SYSTEM_NAME STREQUAL "CYGWIN" OR (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID))
+    # Cygwin tests can run on POSIX host using SYSCAPE_TARGET_CYGWIN=1
+    syscape_add_test(cygwin_functional 17 syscape::hosted cygwin_functional.cpp)
+    target_compile_definitions(cygwin_functional PRIVATE SYSCAPE_TARGET_CYGWIN=1)
+
+    syscape_add_test(
+        cygwin_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(cygwin_odr PRIVATE SYSCAPE_TARGET_CYGWIN=1)
+
+    foreach(cygwin_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(cygwin_header_target "header_${cygwin_domain}_cygwin")
+        syscape_add_test(
+            ${cygwin_header_target}
+            17
+            syscape::hosted
+            header_${cygwin_domain}.cpp)
+        target_compile_definitions(${cygwin_header_target} PRIVATE SYSCAPE_TARGET_CYGWIN=1)
+    endforeach()
+endif()
 
 if(APPLE)
     target_link_libraries(

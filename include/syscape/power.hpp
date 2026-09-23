@@ -150,7 +150,8 @@ enum class power_source_type : std::uint8_t {
     !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS) &&         \
     !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_TKERNEL) &&  \
     !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT) &&     \
-    !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT)
+    !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT) &&          \
+    !defined(SYSCAPE_TARGET_CYGWIN)
 #include <syscape/detail/power/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/power/windows.hpp>
@@ -229,6 +230,8 @@ enum class power_source_type : std::uint8_t {
 #include <syscape/detail/power/mbed.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RIOT)
 #include <syscape/detail/power/riot.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_CYGWIN)
+#include <syscape/detail/power/cygwin.hpp>
 #else
 #include <syscape/detail/power/generic.hpp>
 #endif

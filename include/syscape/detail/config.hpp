@@ -167,6 +167,12 @@
 #define SYSCAPE_TARGET_RIOT 1
 #endif
 
+#if (defined(__CYGWIN__) || defined(CYGWIN) ||                                 \
+     defined(SYSCAPE_TARGET_CYGWIN)) &&                                        \
+    !defined(__MSYS__)
+#define SYSCAPE_TARGET_CYGWIN 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1

@@ -78,13 +78,13 @@ strict language mode and library facilities required by its intended profile.
 
 | Environment | Classification | Backend relationship | State |
 | --- | --- | --- | --- |
-| Cygwin | POSIX compatibility runtime on Windows | Separate compatibility behavior; may combine POSIX and Windows APIs | Not started |
-| MinGW and MinGW-w64 | GCC/Clang Windows toolchain and runtime | Uses the Windows backend with toolchain-specific validation | Not started |
-| MSYS2 | Development and package environment, commonly using MinGW-w64 or Cygwin-like runtimes | Classified by the produced executable's runtime, not by the shell used to build it | Not started |
-| Windows Subsystem for Linux | Linux userspace hosted by Windows | Linux backend plus explicit WSL environment detection | Not started |
-| Wine | Windows compatibility runtime on another host | Windows API backend with explicit compatibility-runtime detection | Not started |
-| ChromeOS | Linux-based product with sandbox and device-policy restrictions | Linux-derived backend with runtime restrictions | Not started |
-| SteamOS and Steam Deck | Linux distribution and x86-64 device family | Linux backend; Steam Deck is not a separate operating-system backend | Not started |
+| Cygwin | POSIX compatibility runtime on Windows | Separate compatibility behavior; may combine POSIX and Windows APIs | Implemented (compile-tested across all 29 query modules under Hosted Full profile using POSIX backends for OS, CPU, memory, process, filesystem, network, resource, and locale, with honest not_supported fallbacks for unsupported subsystems; compile-time detection as compatibility execution environment and cygwin compatibility environment; verified with GCC 16.2.1 and Clang 22.1.8 in test matrix) |
+| MinGW and MinGW-w64 | GCC/Clang Windows toolchain and runtime | Uses the Windows backend with toolchain-specific validation | Implemented (compile-time detection as compatibility execution environment and mingw compatibility environment; uses Windows Hosted Full backend) |
+| MSYS2 | Development and package environment, commonly using MinGW-w64 or Cygwin-like runtimes | Classified by the produced executable's runtime, not by the shell used to build it | Implemented (compile-time detection as compatibility execution environment and msys2 compatibility environment) |
+| Windows Subsystem for Linux | Linux userspace hosted by Windows | Linux backend plus explicit WSL environment detection | Implemented (`syscape::virtualization::is_wsl()` and `wsl_version()` detect WSL 1 and WSL 2 via interop and kernel release inspection) |
+| Wine | Windows compatibility runtime on another host | Windows API backend with explicit compatibility-runtime detection | Implemented (`syscape::virtualization::is_wine()`, `wine_version()`, and `wine_build_id()` dynamically query Wine exports from ntdll.dll with fallback for native Windows and other hosts) |
+| ChromeOS | Linux-based product with sandbox and device-policy restrictions | Linux-derived backend with runtime restrictions | Implemented (Linux OS backend fallback parses `/etc/lsb-release` for ChromeOS release identity and version attributes) |
+| SteamOS and Steam Deck | Linux distribution and x86-64 device family | Linux backend; Steam Deck is not a separate operating-system backend | Implemented (Linux OS backend identifies SteamOS release via `/etc/os-release`, and hardware backend discovers Steam Deck DMI product identity) |
 
 ## Mobile and Consumer Platforms
 

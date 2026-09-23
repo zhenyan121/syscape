@@ -152,6 +152,18 @@ inline result<std::uint32_t> wsl_version() {
     return fail(errc::not_found);
 }
 
+inline result<bool> is_wine() {
+    return false;
+}
+
+inline result<std::string> wine_version() {
+    return fail(errc::not_found);
+}
+
+inline result<std::string> wine_build_id() {
+    return fail(errc::not_found);
+}
+
 inline result<bool> is_sandboxed() {
     const char* container_id = ::getenv("APP_SANDBOX_CONTAINER_ID");
     if (container_id != nullptr && container_id[0] != '\0') {

@@ -269,7 +269,8 @@ struct cgroup_info {
     !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS) &&         \
     !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_TKERNEL) &&  \
     !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT) &&     \
-    !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT)
+    !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT) &&          \
+    !defined(SYSCAPE_TARGET_CYGWIN)
 #include <syscape/detail/virtualization/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/virtualization/windows.hpp>
@@ -348,6 +349,8 @@ struct cgroup_info {
 #include <syscape/detail/virtualization/mbed.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RIOT)
 #include <syscape/detail/virtualization/riot.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_CYGWIN)
+#include <syscape/detail/virtualization/cygwin.hpp>
 #else
 #include <syscape/detail/virtualization/generic.hpp>
 #endif
@@ -414,6 +417,32 @@ inline result<bool> is_wsl() {
 /// @return 1 for WSL 1, 2 for WSL 2, not_found when not running under WSL, or an error.
 inline result<std::uint32_t> wsl_version() {
     return detail::virtualization_backend::wsl_version();
+}
+
+/// Reports whether the process is executing within the Wine Windows
+/// compatibility layer.
+///
+/// @return true if executing under Wine, false otherwise, or an error.
+inline result<bool> is_wine() {
+    return detail::virtualization_backend::is_wine();
+}
+
+/// Returns the Wine release version string when running under Wine.
+///
+/// @return A UTF-8 version string, not_found when not running under Wine, or an
+/// error.
+inline result<std::string> wine_version() {
+    return detail::virtualization_common::validate_identity_text(
+        detail::virtualization_backend::wine_version());
+}
+
+/// Returns the Wine build identifier when running under Wine.
+///
+/// @return A UTF-8 build identifier, not_found when not running under Wine, or
+/// an error.
+inline result<std::string> wine_build_id() {
+    return detail::virtualization_common::validate_identity_text(
+        detail::virtualization_backend::wine_build_id());
 }
 
 /// Reports whether the current process is executing within an application sandbox.
