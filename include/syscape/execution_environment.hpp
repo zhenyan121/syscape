@@ -75,6 +75,10 @@ enum class compatibility_environment { none, unknown, cygwin, mingw, msys2 };
 constexpr operating_system target_operating_system() noexcept {
 #if defined(SYSCAPE_FORCE_GENERIC_BACKEND) || defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return operating_system::unknown;
+#elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN)
+    return operating_system::cygwin;
+#elif defined(_WIN32)
+    return operating_system::windows;
 #elif defined(__EMSCRIPTEN__) || defined(EMSCRIPTEN) ||                        \
     defined(SYSCAPE_TARGET_EMSCRIPTEN)
     return operating_system::emscripten;
@@ -87,10 +91,6 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(__Fuchsia__) || defined(FUCHSIA) ||                              \
     defined(SYSCAPE_TARGET_FUCHSIA)
     return operating_system::fuchsia;
-#elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN)
-    return operating_system::cygwin;
-#elif defined(_WIN32)
-    return operating_system::windows;
 #elif defined(__APPLE__) && defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)
     return operating_system::visionos;
 #elif defined(__APPLE__) && defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__)
@@ -187,6 +187,9 @@ constexpr operating_system target_operating_system() noexcept {
 constexpr execution_environment target_execution_environment() noexcept {
 #if defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return execution_environment::unknown;
+#elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN) ||                 \
+    defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
+    return execution_environment::compatibility;
 #elif defined(__EMSCRIPTEN__) || defined(EMSCRIPTEN) ||                        \
     defined(SYSCAPE_TARGET_EMSCRIPTEN) || defined(__wasi__) ||                 \
     defined(WASI) || defined(SYSCAPE_TARGET_WASI) || defined(__ANDROID__) ||   \
@@ -198,9 +201,6 @@ constexpr execution_environment target_execution_environment() noexcept {
       defined(__ENVIRONMENT_TV_OS_VERSION_MIN_REQUIRED__) ||                   \
       defined(__ENVIRONMENT_VISION_OS_VERSION_MIN_REQUIRED__)))
     return execution_environment::sandboxed;
-#elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN) ||                 \
-    defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
-    return execution_environment::compatibility;
 #elif defined(__QNXNTO__) || defined(__QNX__) || defined(QNX) ||               \
     defined(SYSCAPE_TARGET_QNX) || defined(__VXWORKS__) ||                     \
     defined(_WRS_KERNEL) || defined(VXWORKS) ||                                \
