@@ -139,6 +139,9 @@ inline result<std::string> host_name() {
             continue;
         }
         const int err = errno;
+        if (err == 0) {
+            return fail(errc::io_error);
+        }
         if (err != ENAMETOOLONG && err != EINVAL) {
             return fail(std::error_code(err, std::generic_category()));
         }
