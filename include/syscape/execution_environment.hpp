@@ -54,7 +54,13 @@ enum class operating_system {
     mynewt,
     mbed,
     riot,
-    cygwin
+    cygwin,
+    dos,
+    os2,
+    amigaos,
+    riscos,
+    openvms,
+    zos
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -75,6 +81,23 @@ enum class compatibility_environment { none, unknown, cygwin, mingw, msys2 };
 constexpr operating_system target_operating_system() noexcept {
 #if defined(SYSCAPE_FORCE_GENERIC_BACKEND) || defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return operating_system::unknown;
+#elif defined(__MSDOS__) || defined(MSDOS) || defined(_MSDOS) ||               \
+    defined(__DOS__) || defined(SYSCAPE_TARGET_DOS)
+    return operating_system::dos;
+#elif defined(__OS2__) || defined(OS2) || defined(_OS2) ||                     \
+    defined(SYSCAPE_TARGET_OS2)
+    return operating_system::os2;
+#elif defined(__amigaos__) || defined(__AMIGA__) || defined(AMIGA) ||          \
+    defined(SYSCAPE_TARGET_AMIGAOS)
+    return operating_system::amigaos;
+#elif defined(__riscos__) || defined(__riscos) || defined(RISCOS) ||           \
+    defined(SYSCAPE_TARGET_RISCOS)
+    return operating_system::riscos;
+#elif defined(__VMS) || defined(VMS) || defined(SYSCAPE_TARGET_OPENVMS)
+    return operating_system::openvms;
+#elif defined(__MVS__) || defined(_MVS) || defined(__OS390__) ||               \
+    defined(SYSCAPE_TARGET_ZOS)
+    return operating_system::zos;
 #elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN)
     return operating_system::cygwin;
 #elif defined(_WIN32)
@@ -187,6 +210,17 @@ constexpr operating_system target_operating_system() noexcept {
 constexpr execution_environment target_execution_environment() noexcept {
 #if defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return execution_environment::unknown;
+#elif defined(__MSDOS__) || defined(MSDOS) || defined(_MSDOS) ||               \
+    defined(__DOS__) || defined(SYSCAPE_TARGET_DOS) || defined(__amigaos__) || \
+    defined(__AMIGA__) || defined(AMIGA) || defined(SYSCAPE_TARGET_AMIGAOS) || \
+    defined(__riscos__) || defined(__riscos) || defined(RISCOS) ||             \
+    defined(SYSCAPE_TARGET_RISCOS)
+    return execution_environment::rtos;
+#elif defined(__OS2__) || defined(OS2) || defined(_OS2) ||                     \
+    defined(SYSCAPE_TARGET_OS2) || defined(__VMS) || defined(VMS) ||           \
+    defined(SYSCAPE_TARGET_OPENVMS) || defined(__MVS__) || defined(_MVS) ||    \
+    defined(__OS390__) || defined(SYSCAPE_TARGET_ZOS)
+    return execution_environment::hosted;
 #elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN) ||                 \
     defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
     return execution_environment::compatibility;
@@ -315,6 +349,18 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "riot";
     case operating_system::cygwin:
         return "cygwin";
+    case operating_system::dos:
+        return "dos";
+    case operating_system::os2:
+        return "os2";
+    case operating_system::amigaos:
+        return "amigaos";
+    case operating_system::riscos:
+        return "riscos";
+    case operating_system::openvms:
+        return "openvms";
+    case operating_system::zos:
+        return "zos";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";

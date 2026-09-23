@@ -173,6 +173,35 @@
 #define SYSCAPE_TARGET_CYGWIN 1
 #endif
 
+#if defined(__MSDOS__) || defined(MSDOS) || defined(_MSDOS) ||                 \
+    defined(__DOS__) || defined(SYSCAPE_TARGET_DOS)
+#define SYSCAPE_TARGET_DOS 1
+#endif
+
+#if defined(__OS2__) || defined(OS2) || defined(_OS2) ||                       \
+    defined(SYSCAPE_TARGET_OS2)
+#define SYSCAPE_TARGET_OS2 1
+#endif
+
+#if defined(__amigaos__) || defined(__AMIGA__) || defined(AMIGA) ||            \
+    defined(SYSCAPE_TARGET_AMIGAOS)
+#define SYSCAPE_TARGET_AMIGAOS 1
+#endif
+
+#if defined(__riscos__) || defined(__riscos) || defined(RISCOS) ||             \
+    defined(SYSCAPE_TARGET_RISCOS)
+#define SYSCAPE_TARGET_RISCOS 1
+#endif
+
+#if defined(__VMS) || defined(VMS) || defined(SYSCAPE_TARGET_OPENVMS)
+#define SYSCAPE_TARGET_OPENVMS 1
+#endif
+
+#if defined(__MVS__) || defined(_MVS) || defined(__OS390__) ||                 \
+    defined(SYSCAPE_TARGET_ZOS)
+#define SYSCAPE_TARGET_ZOS 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1
