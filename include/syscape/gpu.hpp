@@ -109,7 +109,7 @@ struct gpu_device {
     !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS) &&         \
     !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_TKERNEL) &&  \
     !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT) &&     \
-    !defined(SYSCAPE_TARGET_MBED)
+    !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT)
 #include <syscape/detail/gpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/gpu/windows.hpp>
@@ -140,6 +140,8 @@ struct gpu_device {
 #include <syscape/detail/gpu/mynewt.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MBED)
 #include <syscape/detail/gpu/mbed.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RIOT)
+#include <syscape/detail/gpu/riot.hpp>
 #else
 #include <syscape/detail/gpu/generic.hpp>
 #endif

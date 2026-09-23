@@ -161,7 +161,7 @@ struct camera_device {
     !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS) &&         \
     !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_TKERNEL) &&  \
     !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT) &&     \
-    !defined(SYSCAPE_TARGET_MBED)
+    !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT)
 #include <syscape/detail/camera/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/camera/windows.hpp>
@@ -192,6 +192,8 @@ struct camera_device {
 #include <syscape/detail/camera/mynewt.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MBED)
 #include <syscape/detail/camera/mbed.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RIOT)
+#include <syscape/detail/camera/riot.hpp>
 #else
 #include <syscape/detail/camera/generic.hpp>
 #endif

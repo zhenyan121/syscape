@@ -56,6 +56,10 @@
 /// memory-load snapshots through sysinfo. Swap, commit, huge-page, and pressure
 /// queries report not_supported because the corresponding sysinfo fields or
 /// facilities do not provide usable data.
+/// @note RIOT OS implements physical memory queries through cpu_get_ram_size
+/// when supported by target CPU/board facilities, and available memory queries
+/// through get_mem_usage when the malloc_monitor module is enabled; other
+/// memory queries report not_supported.
 
 #include <syscape/detail/config.hpp>
 
@@ -81,7 +85,7 @@
     !defined(SYSCAPE_TARGET_EMBOS) && !defined(SYSCAPE_TARGET_UCOS) &&         \
     !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_TKERNEL) &&  \
     !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT) &&     \
-    !defined(SYSCAPE_TARGET_MBED)
+    !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT)
 #include <syscape/detail/memory/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/memory/windows.hpp>
@@ -158,6 +162,8 @@
 #include <syscape/detail/memory/mynewt.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MBED)
 #include <syscape/detail/memory/mbed.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RIOT)
+#include <syscape/detail/memory/riot.hpp>
 #else
 #include <syscape/detail/memory/generic.hpp>
 #endif

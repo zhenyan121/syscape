@@ -1975,6 +1975,92 @@ if(CMAKE_SYSTEM_NAME STREQUAL "MBED" OR MBED)
     target_link_libraries(os_mbed_macro_freq PRIVATE mbed_compat)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "RIOT" OR RIOT)
+    add_library(riot_compat STATIC compat/riot/riot_compat.cpp)
+    target_include_directories(riot_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/riot)
+    target_compile_features(riot_compat PUBLIC cxx_std_17)
+
+    set(RIOT_TEST_TARGETS
+        os_riot
+        cpu_riot
+        memory_riot
+        process_riot
+        user_riot
+        filesystem_riot
+        network_riot
+        locale_riot
+        environment_riot
+        resource_riot
+        virtualization_riot
+        hardware_riot
+        power_riot
+        sensor_riot
+        security_riot
+        numa_riot
+        process_list_riot
+        printer_riot
+        audio_riot
+        software_riot
+        storage_riot
+        ipc_riot
+        connection_riot
+        gpu_riot
+        display_riot
+        input_riot
+        camera_riot
+        bluetooth_riot
+        wifi_riot)
+    foreach(riot_target IN LISTS RIOT_TEST_TARGETS)
+        syscape_add_test(${riot_target} 17 syscape::hosted ${riot_target}.cpp)
+        target_compile_definitions(${riot_target} PRIVATE __RIOT__=1 RIOT=1)
+        target_link_libraries(${riot_target} PRIVATE riot_compat)
+    endforeach()
+
+    foreach(riot_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(riot_header_target "header_${riot_domain}_riot")
+        syscape_add_test(
+            ${riot_header_target}
+            17
+            syscape::hosted
+            header_${riot_domain}.cpp)
+        target_compile_definitions(${riot_header_target} PRIVATE __RIOT__=1 RIOT=1)
+        target_link_libraries(${riot_header_target} PRIVATE riot_compat)
+    endforeach()
+
+    syscape_add_test(
+        riot_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(riot_odr PRIVATE __RIOT__=1 RIOT=1)
+    target_link_libraries(riot_odr PRIVATE riot_compat)
+
+    syscape_add_test(riot_detection 11 syscape::syscape riot_detection.cpp)
+    target_compile_definitions(riot_detection PRIVATE __RIOT__=1 RIOT=1)
+
+    syscape_add_test(os_riot_no_timer 17 syscape::hosted os_riot.cpp)
+    target_compile_definitions(os_riot_no_timer PRIVATE __RIOT__=1 RIOT=1 RIOT_NO_TIMER=1)
+    target_link_libraries(os_riot_no_timer PRIVATE riot_compat)
+
+    syscape_add_test(os_riot_xtimer 17 syscape::hosted os_riot.cpp)
+    target_compile_definitions(os_riot_xtimer PRIVATE __RIOT__=1 RIOT=1 RIOT_USE_XTIMER=1)
+    target_link_libraries(os_riot_xtimer PRIVATE riot_compat)
+
+    syscape_add_test(os_riot_ztimer32 17 syscape::hosted os_riot.cpp)
+    target_compile_definitions(os_riot_ztimer32 PRIVATE __RIOT__=1 RIOT=1 RIOT_USE_ZTIMER32=1)
+    target_link_libraries(os_riot_ztimer32 PRIVATE riot_compat)
+
+    syscape_add_test(os_riot_ztimer_only 17 syscape::hosted os_riot.cpp)
+    target_compile_definitions(os_riot_ztimer_only PRIVATE __RIOT__=1 RIOT=1 RIOT_NO_ZTIMER64=1)
+    target_link_libraries(os_riot_ztimer_only PRIVATE riot_compat)
+endif()
+
+
 
 
 if(APPLE)

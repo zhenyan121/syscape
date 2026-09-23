@@ -1,0 +1,112 @@
+#ifndef SYSCAPE_DETAIL_PROCESS_RIOT_HPP
+#define SYSCAPE_DETAIL_PROCESS_RIOT_HPP
+
+#include <syscape/detail/config.hpp>
+
+#include <chrono>
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#if !defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
+#define SYSCAPE_RIOT_INTERNAL_KERNEL_HEADERS 1
+#endif
+
+#if defined(__has_include)
+#if __has_include(<kernel_defines.h>)
+#include <kernel_defines.h>
+#define SYSCAPE_RIOT_HAS_KERNEL_HEADERS 1
+#endif
+#if __has_include(<thread.h>)
+#include <thread.h>
+#define SYSCAPE_RIOT_HAS_KERNEL_HEADERS 1
+#endif
+#endif
+
+#include <syscape/detail/process/common.hpp>
+#include <syscape/result.hpp>
+
+namespace syscape {
+namespace detail {
+namespace process_backend {
+
+inline result<std::uint32_t> process_id() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::uint32_t> parent_process_id() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::string> executable_path() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<std::string>> command_line() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::string> working_directory() {
+    return fail(errc::not_supported);
+}
+
+inline result<process_common::cpu_time_usage> cpu_time() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::chrono::system_clock::time_point> start_time() {
+    return fail(errc::not_supported);
+}
+
+inline result<process_common::memory_usage_snapshot> memory_usage() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::uint32_t> thread_count() {
+#if defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
+    const int count = sched_num_threads;
+    if (count < 0) {
+        return fail(errc::malformed_data);
+    }
+    return static_cast<std::uint32_t>(count);
+#else
+    return fail(errc::not_supported);
+#endif
+}
+
+// Returns the active thread's scheduling priority on RIOT OS.
+// Note: In RIOT OS, 0 represents the highest priority and higher numeric
+// values represent lower priority, which is the inverse of POSIX conventions.
+inline result<int> priority() {
+#if defined(SYSCAPE_RIOT_HAS_KERNEL_HEADERS)
+    const auto pid = thread_getpid();
+    const auto t = thread_get(pid);
+    if (t != nullptr) {
+        return static_cast<int>(thread_get_priority(t));
+    }
+    return fail(errc::not_found);
+#else
+    return fail(errc::not_supported);
+#endif
+}
+
+inline result<std::vector<std::uint32_t>> cpu_affinity() {
+    return fail(errc::not_supported);
+}
+
+inline result<process_common::resource_limit_snapshot>
+resource_limit(process_common::limit_resource resource) {
+    (void)resource;
+    return fail(errc::not_supported);
+}
+
+} // namespace process_backend
+} // namespace detail
+} // namespace syscape
+
+#if defined(SYSCAPE_RIOT_INTERNAL_KERNEL_HEADERS)
+#undef SYSCAPE_RIOT_HAS_KERNEL_HEADERS
+#undef SYSCAPE_RIOT_INTERNAL_KERNEL_HEADERS
+#endif
+
+#endif
