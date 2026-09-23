@@ -189,7 +189,7 @@ struct wine_info {
     std::string build_id;
 };
 
-inline wine_info detect_wine() noexcept {
+inline wine_info detect_wine() {
     wine_info info;
     ::HMODULE ntdll = ::GetModuleHandleA("ntdll.dll");
     if (ntdll != nullptr) {

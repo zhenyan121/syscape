@@ -432,7 +432,8 @@ inline result<bool> is_wine() {
 /// @return A UTF-8 version string, not_found when not running under Wine, or an
 /// error.
 inline result<std::string> wine_version() {
-    return detail::virtualization_backend::wine_version();
+    return detail::virtualization_common::validate_identity_text(
+        detail::virtualization_backend::wine_version());
 }
 
 /// Returns the Wine build identifier when running under Wine.
@@ -440,7 +441,8 @@ inline result<std::string> wine_version() {
 /// @return A UTF-8 build identifier, not_found when not running under Wine, or
 /// an error.
 inline result<std::string> wine_build_id() {
-    return detail::virtualization_backend::wine_build_id();
+    return detail::virtualization_common::validate_identity_text(
+        detail::virtualization_backend::wine_build_id());
 }
 
 /// Reports whether the current process is executing within an application sandbox.
