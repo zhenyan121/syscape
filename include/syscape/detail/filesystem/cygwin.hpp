@@ -4,6 +4,7 @@
 #include <syscape/detail/config.hpp>
 
 #include <cerrno>
+#include <cstring>
 #include <cstdint>
 #include <string>
 #include <system_error>
@@ -45,16 +46,19 @@ inline result<std::string> volume_id(const std::string& path) {
     for (;;) {
         struct ::statvfs vfs {};
         if (::statvfs(path.c_str(), &vfs) == 0) {
-            const auto fsid = static_cast<std::uint64_t>(vfs.f_fsid);
-            if (sizeof(vfs.f_fsid) > sizeof(std::uint32_t)) {
-                const auto high =
-                    static_cast<std::uint32_t>((fsid >> 32U) & 0xFFFFFFFFU);
-                const auto low = static_cast<std::uint32_t>(
-                    fsid & static_cast<std::uint64_t>(0xFFFFFFFFU));
-                return filesystem_common::render_hex_word_pair(high, low);
+            if (sizeof(vfs.f_fsid) >= sizeof(std::uint64_t)) {
+                std::uint32_t first = 0U;
+                std::uint32_t second = 0U;
+                std::memcpy(&first, &vfs.f_fsid, sizeof(first));
+                std::memcpy(&second,
+                            reinterpret_cast<const char*>(&vfs.f_fsid) +
+                                sizeof(first),
+                            sizeof(second));
+                return filesystem_common::render_hex_word_pair(first, second);
             }
-            return filesystem_common::render_hex32(
-                static_cast<std::uint32_t>(fsid));
+            std::uint32_t word = 0U;
+            std::memcpy(&word, &vfs.f_fsid, sizeof(vfs.f_fsid));
+            return filesystem_common::render_hex32(word);
         }
         if (errno != EINTR) {
             return fail(std::error_code(errno, std::generic_category()));

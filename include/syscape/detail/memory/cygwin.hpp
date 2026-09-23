@@ -41,11 +41,12 @@ inline result<std::uint64_t> available_memory_bytes() {
 #if defined(_SC_AVPHYS_PAGES) && defined(_SC_PAGESIZE)
     const long pages = ::sysconf(_SC_AVPHYS_PAGES);
     const long page_size = ::sysconf(_SC_PAGESIZE);
-    if (pages > 0 && page_size > 0) {
+    if (pages >= 0 && page_size > 0) {
         const auto u_pages = static_cast<std::uint64_t>(pages);
         const auto u_page_size = static_cast<std::uint64_t>(page_size);
-        if (u_pages >
-            (std::numeric_limits<std::uint64_t>::max)() / u_page_size) {
+        if (u_pages > 0 &&
+            u_pages >
+                (std::numeric_limits<std::uint64_t>::max)() / u_page_size) {
             return fail(errc::value_too_large);
         }
         return u_pages * u_page_size;
@@ -79,7 +80,10 @@ inline result<std::uint32_t> memory_load_percent() {
     if (!available) {
         return fail(available.error());
     }
-    return memory_common::utilization_percent(*total, *available);
+    if (*available > *total) {
+        return fail(errc::malformed_data);
+    }
+    return memory_common::utilization_percent(*total - *available, *total);
 }
 
 inline result<memory_common::pressure_status> memory_pressure() {

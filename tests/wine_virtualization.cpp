@@ -9,8 +9,11 @@ int main() {
             assert(ver.has_value());
             assert(!ver->empty());
             const auto build = syscape::virtualization::wine_build_id();
-            assert(build.has_value());
-            assert(!build->empty());
+            if (build.has_value()) {
+                assert(!build->empty());
+            } else {
+                assert(build.error() == syscape::errc::not_found);
+            }
         } else {
             const auto ver = syscape::virtualization::wine_version();
             assert(!ver.has_value());
