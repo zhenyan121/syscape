@@ -32,7 +32,7 @@ inline result<std::vector<std::string>> command_line() {
 }
 
 inline result<std::string> working_directory() {
-    return std::string("C:\\");
+    return fail(errc::not_supported);
 }
 
 inline result<process_common::cpu_time_usage> cpu_time() {

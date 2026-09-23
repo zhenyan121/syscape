@@ -20,14 +20,7 @@ inline result<std::vector<filesystem_common::mount_record>> mounts() {
 
 inline result<filesystem_common::space_snapshot>
 space(const std::string& /*path*/) {
-    filesystem_common::space_snapshot snap;
-    // Standard FAT partition representation (2 GiB FAT16 / 1 GiB free)
-    snap.capacity_bytes = 2147483648ULL;
-    snap.free_bytes = 1073741824ULL;
-    snap.available_bytes = 1073741824ULL;
-    snap.block_size_bytes = 512ULL;
-    snap.read_only = false;
-    return snap;
+    return fail(errc::not_supported);
 }
 
 inline result<filesystem_common::path_length_snapshot>

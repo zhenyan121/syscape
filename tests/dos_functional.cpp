@@ -53,7 +53,8 @@ int main() {
         assert(hname.error() == syscape::errc::not_supported);
 
         const auto up = syscape::os::uptime();
-        assert(up.has_value());
+        assert(!up.has_value());
+        assert(up.error() == syscape::errc::not_supported);
 
         const auto build = syscape::os::build_identifier();
         assert(!build.has_value());
@@ -86,20 +87,20 @@ int main() {
     // 3. Memory backend checks
     {
         const auto page = syscape::memory::page_size_bytes();
-        assert(page.has_value());
-        assert(*page == 4096U);
+        assert(!page.has_value());
+        assert(page.error() == syscape::errc::not_supported);
 
         const auto total = syscape::memory::physical_memory_bytes();
-        assert(total.has_value());
-        assert(*total == 16U * 1024U * 1024U);
+        assert(!total.has_value());
+        assert(total.error() == syscape::errc::not_supported);
 
         const auto avail = syscape::memory::available_memory_bytes();
-        assert(avail.has_value());
-        assert(*avail == 8U * 1024U * 1024U);
+        assert(!avail.has_value());
+        assert(avail.error() == syscape::errc::not_supported);
 
         const auto load = syscape::memory::memory_load_percent();
-        assert(load.has_value());
-        assert(*load == 50U);
+        assert(!load.has_value());
+        assert(load.error() == syscape::errc::not_supported);
 
         const auto swap = syscape::memory::swap_status();
         assert(!swap.has_value());
@@ -121,8 +122,8 @@ int main() {
         assert(*threads == 1U);
 
         const auto cwd = syscape::process::working_directory();
-        assert(cwd.has_value());
-        assert(*cwd == "C:\\");
+        assert(!cwd.has_value());
+        assert(cwd.error() == syscape::errc::not_supported);
 
         const auto exe = syscape::process::executable_path();
         assert(!exe.has_value());
@@ -132,10 +133,8 @@ int main() {
     // 5. Filesystem backend checks
     {
         const auto sp = syscape::filesystem::space("C:\\");
-        assert(sp.has_value());
-        assert(sp->capacity_bytes == 2147483648ULL);
-        assert(sp->free_bytes == 1073741824ULL);
-        assert(sp->available_bytes == 1073741824ULL);
+        assert(!sp.has_value());
+        assert(sp.error() == syscape::errc::not_supported);
 
         const auto max_comp = syscape::filesystem::max_component_length("C:\\");
         assert(max_comp.has_value());

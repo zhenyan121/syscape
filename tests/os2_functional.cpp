@@ -53,11 +53,12 @@ int main() {
         assert(hname.error() == syscape::errc::not_supported);
 
         const auto up = syscape::os::uptime();
-        assert(up.has_value());
-        assert(up->count() == 1000);
+        assert(!up.has_value());
+        assert(up.error() == syscape::errc::not_supported);
 
         const auto boot = syscape::os::boot_time();
-        assert(boot.has_value());
+        assert(!boot.has_value());
+        assert(boot.error() == syscape::errc::not_supported);
 
         const auto build = syscape::os::build_identifier();
         assert(!build.has_value());
@@ -71,12 +72,12 @@ int main() {
         assert(*logical == 1U);
 
         const auto physical = syscape::cpu::online_physical_core_count();
-        assert(physical.has_value());
-        assert(*physical == 1U);
+        assert(!physical.has_value());
+        assert(physical.error() == syscape::errc::not_supported);
 
         const auto packages = syscape::cpu::online_processor_package_count();
-        assert(packages.has_value());
-        assert(*packages == 1U);
+        assert(!packages.has_value());
+        assert(packages.error() == syscape::errc::not_supported);
 
         const auto vendors = syscape::cpu::vendor_identifiers();
         assert(!vendors.has_value());
@@ -90,16 +91,16 @@ int main() {
         assert(*page == 4096U);
 
         const auto total = syscape::memory::physical_memory_bytes();
-        assert(total.has_value());
-        assert(*total == 512U * 1024U * 1024U);
+        assert(!total.has_value());
+        assert(total.error() == syscape::errc::not_supported);
 
         const auto avail = syscape::memory::available_memory_bytes();
-        assert(avail.has_value());
-        assert(*avail == 256U * 1024U * 1024U);
+        assert(!avail.has_value());
+        assert(avail.error() == syscape::errc::not_supported);
 
         const auto load = syscape::memory::memory_load_percent();
-        assert(load.has_value());
-        assert(*load == 50U);
+        assert(!load.has_value());
+        assert(load.error() == syscape::errc::not_supported);
 
         const auto swap = syscape::memory::swap_status();
         assert(!swap.has_value());
@@ -109,20 +110,20 @@ int main() {
     // 4. Process backend checks
     {
         const auto pid = syscape::process::process_id();
-        assert(pid.has_value());
-        assert(*pid == 1U);
+        assert(!pid.has_value());
+        assert(pid.error() == syscape::errc::not_supported);
 
         const auto ppid = syscape::process::parent_process_id();
-        assert(ppid.has_value());
-        assert(*ppid == 0U);
+        assert(!ppid.has_value());
+        assert(ppid.error() == syscape::errc::not_supported);
 
         const auto threads = syscape::process::thread_count();
         assert(threads.has_value());
         assert(*threads == 1U);
 
         const auto cwd = syscape::process::working_directory();
-        assert(cwd.has_value());
-        assert(*cwd == "C:\\");
+        assert(!cwd.has_value());
+        assert(cwd.error() == syscape::errc::not_supported);
 
         const auto exe = syscape::process::executable_path();
         assert(!exe.has_value());
@@ -132,10 +133,8 @@ int main() {
     // 5. Filesystem backend checks
     {
         const auto sp = syscape::filesystem::space("C:\\");
-        assert(sp.has_value());
-        assert(sp->capacity_bytes == 4294967296ULL);
-        assert(sp->free_bytes == 2147483648ULL);
-        assert(sp->available_bytes == 2147483648ULL);
+        assert(!sp.has_value());
+        assert(sp.error() == syscape::errc::not_supported);
 
         const auto max_comp = syscape::filesystem::max_component_length("C:\\");
         assert(max_comp.has_value());

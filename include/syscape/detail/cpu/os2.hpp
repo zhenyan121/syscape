@@ -31,11 +31,11 @@ inline result<std::uint32_t> online_logical_processor_count() {
 }
 
 inline result<std::uint32_t> online_physical_core_count() {
-    return online_logical_processor_count();
+    return fail(errc::not_supported);
 }
 
 inline result<std::uint32_t> online_processor_package_count() {
-    return static_cast<std::uint32_t>(1U);
+    return fail(errc::not_supported);
 }
 
 inline result<std::uint32_t> minimum_frequency_khz() {

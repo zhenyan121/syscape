@@ -188,13 +188,16 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(__OS2__) || defined(OS2) || defined(_OS2) ||                     \
     defined(SYSCAPE_TARGET_OS2)
     return operating_system::os2;
-#elif defined(__amigaos__) || defined(__AMIGA__) || defined(AMIGA)
+#elif defined(__amigaos__) || defined(__AMIGA__) || defined(AMIGA) ||          \
+    defined(SYSCAPE_TARGET_AMIGAOS)
     return operating_system::amigaos;
-#elif defined(__riscos__) || defined(__riscos) || defined(RISCOS)
+#elif defined(__riscos__) || defined(__riscos) || defined(RISCOS) ||           \
+    defined(SYSCAPE_TARGET_RISCOS)
     return operating_system::riscos;
-#elif defined(__VMS) || defined(VMS)
+#elif defined(__VMS) || defined(VMS) || defined(SYSCAPE_TARGET_OPENVMS)
     return operating_system::openvms;
-#elif defined(__MVS__) || defined(_MVS) || defined(__OS390__)
+#elif defined(__MVS__) || defined(_MVS) || defined(__OS390__) ||               \
+    defined(SYSCAPE_TARGET_ZOS)
     return operating_system::zos;
 #elif defined(__linux__)
     return operating_system::linux_os;
@@ -250,14 +253,16 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(SYSCAPE_TARGET_RIOT) || defined(__MSDOS__) || defined(MSDOS) ||    \
     defined(_MSDOS) || defined(__DOS__) || defined(SYSCAPE_TARGET_DOS) ||      \
     defined(__amigaos__) || defined(__AMIGA__) || defined(AMIGA) ||            \
-    defined(__riscos__) || defined(__riscos) || defined(RISCOS)
+    defined(SYSCAPE_TARGET_AMIGAOS) || defined(__riscos__) ||                  \
+    defined(__riscos) || defined(RISCOS) || defined(SYSCAPE_TARGET_RISCOS)
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
 #elif (defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 1)) ||                  \
     defined(__OS2__) || defined(OS2) || defined(_OS2) ||                       \
     defined(SYSCAPE_TARGET_OS2) || defined(__VMS) || defined(VMS) ||           \
-    defined(__MVS__) || defined(_MVS) || defined(__OS390__)
+    defined(SYSCAPE_TARGET_OPENVMS) || defined(__MVS__) || defined(_MVS) ||    \
+    defined(__OS390__) || defined(SYSCAPE_TARGET_ZOS)
     return execution_environment::hosted;
 #else
     return execution_environment::unknown;

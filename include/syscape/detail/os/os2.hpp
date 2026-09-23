@@ -51,7 +51,7 @@ inline result<std::chrono::milliseconds> uptime() {
 #if defined(SYSCAPE_OS2_UPTIME_MS)
     return std::chrono::milliseconds(SYSCAPE_OS2_UPTIME_MS);
 #else
-    return std::chrono::milliseconds(1000);
+    return fail(errc::not_supported);
 #endif
 }
 

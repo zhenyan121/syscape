@@ -14,16 +14,14 @@ namespace detail {
 namespace memory_backend {
 
 inline result<std::uint64_t> page_size_bytes() {
-    // 4096 bytes is standard DPMI/x86 protected mode page size
-    return static_cast<std::uint64_t>(4096U);
+    return fail(errc::not_supported);
 }
 
 inline result<std::uint64_t> physical_memory_bytes() {
 #if defined(SYSCAPE_DOS_TOTAL_RAM_BYTES)
     return static_cast<std::uint64_t>(SYSCAPE_DOS_TOTAL_RAM_BYTES);
 #else
-    // Default 16 MiB typical for DPMI/386+ DOS environments
-    return static_cast<std::uint64_t>(16U * 1024U * 1024U);
+    return fail(errc::not_supported);
 #endif
 }
 
@@ -31,8 +29,7 @@ inline result<std::uint64_t> available_memory_bytes() {
 #if defined(SYSCAPE_DOS_FREE_RAM_BYTES)
     return static_cast<std::uint64_t>(SYSCAPE_DOS_FREE_RAM_BYTES);
 #else
-    // Default 8 MiB free
-    return static_cast<std::uint64_t>(8U * 1024U * 1024U);
+    return fail(errc::not_supported);
 #endif
 }
 

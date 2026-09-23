@@ -21,7 +21,7 @@ inline result<std::uint64_t> physical_memory_bytes() {
 #if defined(SYSCAPE_OS2_TOTAL_RAM_BYTES)
     return static_cast<std::uint64_t>(SYSCAPE_OS2_TOTAL_RAM_BYTES);
 #else
-    return static_cast<std::uint64_t>(512U * 1024U * 1024U);
+    return fail(errc::not_supported);
 #endif
 }
 
@@ -29,7 +29,7 @@ inline result<std::uint64_t> available_memory_bytes() {
 #if defined(SYSCAPE_OS2_FREE_RAM_BYTES)
     return static_cast<std::uint64_t>(SYSCAPE_OS2_FREE_RAM_BYTES);
 #else
-    return static_cast<std::uint64_t>(256U * 1024U * 1024U);
+    return fail(errc::not_supported);
 #endif
 }
 

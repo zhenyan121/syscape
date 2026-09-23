@@ -53,7 +53,8 @@ inline result<std::string> host_name() {
 }
 
 inline result<std::chrono::milliseconds> uptime() {
-    // In DOS/DJGPP, clock() measures execution ticks from process/system start
+#if defined(__DJGPP__)
+    // In DJGPP, clock() measures execution ticks from BIOS timer start
     const std::clock_t ticks = std::clock();
     if (ticks == static_cast<std::clock_t>(-1)) {
         return fail(errc::io_error);
@@ -61,6 +62,11 @@ inline result<std::chrono::milliseconds> uptime() {
     const auto ms = static_cast<std::uint64_t>(ticks) * 1000U / CLOCKS_PER_SEC;
     return std::chrono::milliseconds(
         static_cast<std::chrono::milliseconds::rep>(ms));
+#elif defined(SYSCAPE_DOS_UPTIME_MS)
+    return std::chrono::milliseconds(SYSCAPE_DOS_UPTIME_MS);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::chrono::system_clock::time_point> boot_time() {

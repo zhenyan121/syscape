@@ -16,11 +16,19 @@ namespace detail {
 namespace process_backend {
 
 inline result<std::uint32_t> process_id() {
-    return static_cast<std::uint32_t>(1U);
+#if defined(SYSCAPE_OS2_PID)
+    return static_cast<std::uint32_t>(SYSCAPE_OS2_PID);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::uint32_t> parent_process_id() {
-    return static_cast<std::uint32_t>(0U);
+#if defined(SYSCAPE_OS2_PPID)
+    return static_cast<std::uint32_t>(SYSCAPE_OS2_PPID);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::string> executable_path() {
@@ -32,7 +40,7 @@ inline result<std::vector<std::string>> command_line() {
 }
 
 inline result<std::string> working_directory() {
-    return std::string("C:\\");
+    return fail(errc::not_supported);
 }
 
 inline result<process_common::cpu_time_usage> cpu_time() {
