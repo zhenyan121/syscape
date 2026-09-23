@@ -333,7 +333,8 @@ struct memory_device {
     !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_TKERNEL) &&  \
     !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT) &&     \
     !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT) &&          \
-    !defined(SYSCAPE_TARGET_CYGWIN)
+    !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
+    !defined(SYSCAPE_TARGET_OS2)
 #include <syscape/detail/hardware/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/hardware/windows.hpp>
@@ -414,6 +415,10 @@ struct memory_device {
 #include <syscape/detail/hardware/riot.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_CYGWIN)
 #include <syscape/detail/hardware/cygwin.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_DOS)
+#include <syscape/detail/hardware/dos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_OS2)
+#include <syscape/detail/hardware/os2.hpp>
 #else
 #include <syscape/detail/hardware/generic.hpp>
 #endif

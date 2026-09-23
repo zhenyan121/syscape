@@ -173,6 +173,16 @@
 #define SYSCAPE_TARGET_CYGWIN 1
 #endif
 
+#if defined(__MSDOS__) || defined(MSDOS) || defined(_MSDOS) ||                 \
+    defined(__DOS__) || defined(SYSCAPE_TARGET_DOS)
+#define SYSCAPE_TARGET_DOS 1
+#endif
+
+#if defined(__OS2__) || defined(OS2) || defined(_OS2) ||                       \
+    defined(SYSCAPE_TARGET_OS2)
+#define SYSCAPE_TARGET_OS2 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1

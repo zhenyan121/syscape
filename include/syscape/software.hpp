@@ -72,7 +72,8 @@
     !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_TKERNEL) &&  \
     !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT) &&     \
     !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT) &&          \
-    !defined(SYSCAPE_TARGET_CYGWIN)
+    !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
+    !defined(SYSCAPE_TARGET_OS2)
 #include <syscape/detail/software/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/software/windows.hpp>
@@ -153,6 +154,10 @@
 #include <syscape/detail/software/riot.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_CYGWIN)
 #include <syscape/detail/software/cygwin.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_DOS)
+#include <syscape/detail/software/dos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_OS2)
+#include <syscape/detail/software/os2.hpp>
 #else
 #include <syscape/detail/software/generic.hpp>
 #endif

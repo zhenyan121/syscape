@@ -54,7 +54,13 @@ enum class operating_system {
     mynewt,
     mbed,
     riot,
-    cygwin
+    cygwin,
+    dos,
+    os2,
+    amigaos,
+    riscos,
+    openvms,
+    zos
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -176,6 +182,20 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(RIOT_VERSION) || defined(__RIOT__) || defined(RIOT) ||           \
     defined(SYSCAPE_TARGET_RIOT)
     return operating_system::riot;
+#elif defined(__MSDOS__) || defined(MSDOS) || defined(_MSDOS) ||               \
+    defined(__DOS__) || defined(SYSCAPE_TARGET_DOS)
+    return operating_system::dos;
+#elif defined(__OS2__) || defined(OS2) || defined(_OS2) ||                     \
+    defined(SYSCAPE_TARGET_OS2)
+    return operating_system::os2;
+#elif defined(__amigaos__) || defined(__AMIGA__) || defined(AMIGA)
+    return operating_system::amigaos;
+#elif defined(__riscos__) || defined(__riscos) || defined(RISCOS)
+    return operating_system::riscos;
+#elif defined(__VMS) || defined(VMS)
+    return operating_system::openvms;
+#elif defined(__MVS__) || defined(_MVS) || defined(__OS390__)
+    return operating_system::zos;
 #elif defined(__linux__)
     return operating_system::linux_os;
 #else
@@ -227,11 +247,17 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(SYSCAPE_TARGET_MYNEWT) || defined(__MBED__) || defined(MBED) ||    \
     defined(MBED_MAJOR_VERSION) || defined(SYSCAPE_TARGET_MBED) ||             \
     defined(RIOT_VERSION) || defined(__RIOT__) || defined(RIOT) ||             \
-    defined(SYSCAPE_TARGET_RIOT)
+    defined(SYSCAPE_TARGET_RIOT) || defined(__MSDOS__) || defined(MSDOS) ||    \
+    defined(_MSDOS) || defined(__DOS__) || defined(SYSCAPE_TARGET_DOS) ||      \
+    defined(__amigaos__) || defined(__AMIGA__) || defined(AMIGA) ||            \
+    defined(__riscos__) || defined(__riscos) || defined(RISCOS)
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
-#elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 1)
+#elif (defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 1)) ||                  \
+    defined(__OS2__) || defined(OS2) || defined(_OS2) ||                       \
+    defined(SYSCAPE_TARGET_OS2) || defined(__VMS) || defined(VMS) ||           \
+    defined(__MVS__) || defined(_MVS) || defined(__OS390__)
     return execution_environment::hosted;
 #else
     return execution_environment::unknown;
@@ -315,6 +341,18 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "riot";
     case operating_system::cygwin:
         return "cygwin";
+    case operating_system::dos:
+        return "dos";
+    case operating_system::os2:
+        return "os2";
+    case operating_system::amigaos:
+        return "amigaos";
+    case operating_system::riscos:
+        return "riscos";
+    case operating_system::openvms:
+        return "openvms";
+    case operating_system::zos:
+        return "zos";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";

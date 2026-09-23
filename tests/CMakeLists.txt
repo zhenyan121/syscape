@@ -2102,6 +2102,82 @@ if(CYGWIN OR CMAKE_SYSTEM_NAME STREQUAL "CYGWIN" OR (CMAKE_SYSTEM_NAME STREQUAL 
     endforeach()
 endif()
 
+# Legacy operating systems and environments (Tier 4)
+syscape_add_test(dos_detection 11 syscape::syscape dos_detection.cpp)
+target_compile_definitions(dos_detection PRIVATE __MSDOS__=1)
+
+syscape_add_test(os2_detection 11 syscape::syscape os2_detection.cpp)
+target_compile_definitions(os2_detection PRIVATE __OS2__=1)
+
+syscape_add_test(amigaos_detection 11 syscape::syscape amigaos_detection.cpp)
+target_compile_definitions(amigaos_detection PRIVATE __AMIGA__=1)
+
+syscape_add_test(riscos_detection 11 syscape::syscape riscos_detection.cpp)
+target_compile_definitions(riscos_detection PRIVATE __riscos__=1)
+
+syscape_add_test(openvms_detection 11 syscape::syscape openvms_detection.cpp)
+target_compile_definitions(openvms_detection PRIVATE __VMS=1)
+
+syscape_add_test(zos_detection 11 syscape::syscape zos_detection.cpp)
+target_compile_definitions(zos_detection PRIVATE __MVS__=1)
+
+syscape_add_test(legacy_env_strings 11 syscape::syscape legacy_env_strings.cpp)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
+    # DOS tests on POSIX host using SYSCAPE_TARGET_DOS=1
+    syscape_add_test(dos_functional 17 syscape::hosted dos_functional.cpp)
+    target_compile_definitions(dos_functional PRIVATE SYSCAPE_TARGET_DOS=1)
+
+    syscape_add_test(
+        dos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(dos_odr PRIVATE SYSCAPE_TARGET_DOS=1)
+
+    foreach(dos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(dos_header_target "header_${dos_domain}_dos")
+        syscape_add_test(
+            ${dos_header_target}
+            17
+            syscape::hosted
+            header_${dos_domain}.cpp)
+        target_compile_definitions(${dos_header_target} PRIVATE SYSCAPE_TARGET_DOS=1)
+    endforeach()
+
+    # OS/2 tests on POSIX host using SYSCAPE_TARGET_OS2=1
+    syscape_add_test(os2_functional 17 syscape::hosted os2_functional.cpp)
+    target_compile_definitions(os2_functional PRIVATE SYSCAPE_TARGET_OS2=1)
+
+    syscape_add_test(
+        os2_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(os2_odr PRIVATE SYSCAPE_TARGET_OS2=1)
+
+    foreach(os2_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(os2_header_target "header_${os2_domain}_os2")
+        syscape_add_test(
+            ${os2_header_target}
+            17
+            syscape::hosted
+            header_${os2_domain}.cpp)
+        target_compile_definitions(${os2_header_target} PRIVATE SYSCAPE_TARGET_OS2=1)
+    endforeach()
+endif()
+
+
 if(APPLE)
     target_link_libraries(
         header_locale PRIVATE "-framework CoreFoundation")
