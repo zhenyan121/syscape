@@ -42,9 +42,9 @@ int main() {
     }
 
     // 2. Dynamic registration overrides the static provider
-    const syscape::board_provider override_prov = {nullptr, nullptr, nullptr,
-                                                   nullptr, nullptr, nullptr,
-                                                   nullptr, nullptr, nullptr};
+    static const syscape::board_provider override_prov = {
+        nullptr, nullptr, nullptr, nullptr, nullptr,
+        nullptr, nullptr, nullptr, nullptr};
     syscape::register_board_provider(&override_prov);
     if (syscape::current_board_provider() != &override_prov) {
         return 5;

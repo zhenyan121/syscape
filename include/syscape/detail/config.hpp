@@ -284,6 +284,11 @@
 #define SYSCAPE_TARGET_MCU_SIFIVE 1
 #endif
 
+// Defined when targeting an Arduino platform. When an Arduino build also
+// defines underlying architecture macros (e.g. ARDUINO_ARCH_AVR,
+// ARDUINO_ARCH_ESP32), both SYSCAPE_TARGET_MCU_ARDUINO and the specific
+// MCU target macro will be defined; target_board_family() prioritizes
+// the specific MCU architecture over the generic Arduino framework tag.
 #if defined(ARDUINO) || defined(SYSCAPE_TARGET_MCU_ARDUINO)
 #define SYSCAPE_TARGET_MCU_ARDUINO 1
 #endif

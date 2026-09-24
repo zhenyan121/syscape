@@ -2173,6 +2173,9 @@ target_compile_definitions(mcu_sifive_detection PRIVATE SIFIVE_FE310=1 SYSCAPE_T
 syscape_add_test(mcu_arduino_detection 11 syscape::syscape mcu_arduino_detection.cpp)
 target_compile_definitions(mcu_arduino_detection PRIVATE ARDUINO=10819 SYSCAPE_TARGET_MCU_ARDUINO=1)
 
+syscape_add_test(mcu_arduino_esp_priority 11 syscape::syscape mcu_arduino_esp_priority.cpp)
+target_compile_definitions(mcu_arduino_esp_priority PRIVATE ARDUINO=10819 ESP_PLATFORM=1)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
     # DOS tests on POSIX host using SYSCAPE_TARGET_DOS=1
     syscape_add_test(dos_functional 17 syscape::hosted dos_functional.cpp)

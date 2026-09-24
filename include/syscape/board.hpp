@@ -35,7 +35,8 @@ namespace syscape {
 enum class board_family : std::uint16_t {
     /// The MCU or board family could not be determined.
     unknown = 0,
-    /// Arduino framework and ecosystem boards.
+    /// Arduino framework and ecosystem boards when no specific underlying MCU
+    /// family (such as AVR, SAM, ESP, STM32, RP, or Renesas) is recognized.
     arduino,
     /// Microchip / Atmel AVR 8-bit MCU family (e.g. ATmega328P, ATmega2560,
     /// ATtiny).
@@ -121,6 +122,14 @@ board_family_name(board_family value) noexcept {
 
 /// Returns the MCU or board family identified by the toolchain or target
 /// configuration macros for this translation unit.
+///
+/// Priority note: Specific hardware architecture macros (e.g. AVR, SAM, ESP,
+/// STM32, RP, Nordic, TI, NXP, Renesas, PIC, GD32, CH32, Bouffalo, SiFive)
+/// are evaluated with higher precedence than the generic Arduino framework tag
+/// (SYSCAPE_TARGET_MCU_ARDUINO). An Arduino build for an ESP32 or AVR target
+/// accurately reports board_family::espressif_esp or
+/// board_family::microchip_avr. board_family::arduino is returned when ARDUINO
+/// is defined but no specific underlying hardware architecture is matched.
 constexpr board_family target_board_family() noexcept {
 #if defined(SYSCAPE_FORCE_GENERIC_BACKEND) ||                                  \
     defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
@@ -228,6 +237,16 @@ struct board_provider_holder {
 template <typename Tag>
 const board::board_provider* board_provider_holder<Tag>::provider = nullptr;
 
+/// Sanitizes an external clock frequency value, preventing truncation and
+/// negative values.
+template <typename T>
+constexpr std::uint32_t sanitize_clock_freq(T value) noexcept {
+    return (value > T(0) &&
+            static_cast<unsigned long long>(value) <= 0xFFFFFFFFULL)
+               ? static_cast<std::uint32_t>(value)
+               : 0U;
+}
+
 } // namespace detail
 } // namespace syscape
 
@@ -241,18 +260,32 @@ namespace board {
 
 /// Registers a global board provider for the application or BSP.
 /// Passing nullptr clears the active provider.
+///
+/// @note Thread safety: Registration modifies global provider state and is not
+/// thread-safe. It must only be invoked during single-threaded application or
+/// BSP initialization before concurrent threads or tasks start querying board
+/// information. Calling this function concurrently with queries or other
+/// registrations produces undefined behavior. For immutable, zero-mutable-state
+/// configuration, prefer compile-time binding via
+/// SYSCAPE_STATIC_BOARD_PROVIDER.
 inline void register_board_provider(const board_provider* provider) noexcept {
     detail::board_provider_holder<>::provider = provider;
 }
 
 /// Clears the registered board provider, resetting to default compile-time
 /// discovery.
+///
+/// @note Thread safety: Unregistration modifies global provider state and is
+/// not thread-safe. It must only be invoked during single-threaded teardown.
 inline void clear_board_provider() noexcept {
     detail::board_provider_holder<>::provider = nullptr;
 }
 
 /// Returns the currently active board provider, or nullptr if none is
 /// registered.
+///
+/// @note Thread safety: Safe for concurrent read access across threads or
+/// tasks once the provider has been registered during single-threaded startup.
 inline const board_provider* current_board_provider() noexcept {
     const board_provider* registered =
         detail::board_provider_holder<>::provider;
@@ -304,7 +337,7 @@ inline std::uint32_t cpu_frequency_hz() noexcept {
         return p->cpu_frequency_hz_fn();
     }
 #if defined(F_CPU)
-    return static_cast<std::uint32_t>(F_CPU);
+    return detail::sanitize_clock_freq(F_CPU);
 #else
     return 0;
 #endif
@@ -380,9 +413,18 @@ inline board_info info() noexcept {
 using board::board_info;
 using board::board_provider;
 using board::clear_board_provider;
+using board::cpu_frequency_hz;
 using board::current_board_family;
 using board::current_board_provider;
+using board::eeprom_size_bytes;
+using board::flash_size_bytes;
+using board::gpio_pin_count;
+using board::info;
+using board::manufacturer;
+using board::model;
 using board::register_board_provider;
+using board::sram_size_bytes;
+using board::supply_voltage_mv;
 
 } // namespace syscape
 

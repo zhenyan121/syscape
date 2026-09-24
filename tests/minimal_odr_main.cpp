@@ -27,16 +27,22 @@ int main() {
         return 5;
     }
 
-    const syscape::board_provider test_prov = {nullptr, nullptr, nullptr,
-                                               nullptr, nullptr, nullptr,
-                                               nullptr, nullptr, nullptr};
+    static const syscape::board_provider test_prov = {
+        nullptr, nullptr, nullptr, nullptr, nullptr,
+        nullptr, nullptr, nullptr, nullptr};
     syscape::register_board_provider(&test_prov);
     if (other_minimal_current_board_provider() != &test_prov) {
         return 6;
     }
+    if (syscape::current_board_family() != syscape::target_board_family()) {
+        return 7;
+    }
     syscape::clear_board_provider();
     if (other_minimal_current_board_provider() != nullptr) {
-        return 7;
+        return 8;
+    }
+    if (syscape::current_board_family() != syscape::target_board_family()) {
+        return 9;
     }
 
     return 0;
