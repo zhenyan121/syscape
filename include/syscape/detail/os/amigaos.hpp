@@ -14,7 +14,7 @@ namespace detail {
 namespace os_backend {
 
 inline result<std::string> product_name() {
-#if defined(__MORPHOS__)
+#if defined(__MORPHOS__) || defined(__morphos__)
     return std::string("MorphOS");
 #elif defined(__amigaos4__)
     return std::string("AmigaOS 4");
@@ -26,7 +26,7 @@ inline result<std::string> product_name() {
 inline result<std::string> product_version() {
 #if defined(SYSCAPE_AMIGAOS_VERSION)
     return std::string(SYSCAPE_AMIGAOS_VERSION);
-#elif defined(__MORPHOS__)
+#elif defined(__MORPHOS__) || defined(__morphos__)
     return std::string("3.18");
 #elif defined(__amigaos4__)
     return std::string("4.1");
@@ -40,7 +40,7 @@ inline result<std::string> build_identifier() {
 }
 
 inline result<std::string> kernel_name() {
-#if defined(__MORPHOS__)
+#if defined(__MORPHOS__) || defined(__morphos__)
     return std::string("Quark");
 #else
     return std::string("Exec");

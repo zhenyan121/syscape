@@ -2116,6 +2116,9 @@ target_compile_definitions(os2_detection PRIVATE __OS2__=1 SYSCAPE_TARGET_OS2=1)
 syscape_add_test(amigaos_detection 11 syscape::syscape amigaos_detection.cpp)
 target_compile_definitions(amigaos_detection PRIVATE __AMIGA__=1 SYSCAPE_TARGET_AMIGAOS=1)
 
+syscape_add_test(morphos_detection 11 syscape::syscape morphos_detection.cpp)
+target_compile_definitions(morphos_detection PRIVATE __MORPHOS__=1)
+
 syscape_add_test(riscos_detection 11 syscape::syscape riscos_detection.cpp)
 target_compile_definitions(riscos_detection PRIVATE __riscos__=1 SYSCAPE_TARGET_RISCOS=1)
 
@@ -2233,6 +2236,19 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
     syscape_add_test(amigaos_functional 17 syscape::hosted amigaos_functional.cpp)
     target_compile_definitions(amigaos_functional PRIVATE SYSCAPE_TARGET_AMIGAOS=1)
 
+    syscape_add_test(morphos_functional 17 syscape::hosted morphos_functional.cpp)
+    target_compile_definitions(morphos_functional PRIVATE __MORPHOS__=1)
+
+    syscape_add_test(amigaos_overrides 17 syscape::hosted amigaos_overrides.cpp)
+    target_compile_definitions(amigaos_overrides PRIVATE
+        SYSCAPE_TARGET_AMIGAOS=1
+        SYSCAPE_AMIGAOS_VERSION="3.9"
+        SYSCAPE_AMIGAOS_UPTIME_MS=3600000
+        SYSCAPE_AMIGAOS_TOTAL_RAM_BYTES=16777216
+        SYSCAPE_AMIGAOS_FREE_RAM_BYTES=4194304
+        SYSCAPE_AMIGAOS_TASK_PRIORITY=10
+        SYSCAPE_AMIGAOS_MAX_FILES=50)
+
     syscape_add_test(
         amigaos_odr
         17
@@ -2258,6 +2274,17 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
     # RISC OS tests on POSIX host using SYSCAPE_TARGET_RISCOS=1
     syscape_add_test(riscos_functional 17 syscape::hosted riscos_functional.cpp)
     target_compile_definitions(riscos_functional PRIVATE SYSCAPE_TARGET_RISCOS=1)
+
+    syscape_add_test(riscos_overrides 17 syscape::hosted riscos_overrides.cpp)
+    target_compile_definitions(riscos_overrides PRIVATE
+        SYSCAPE_TARGET_RISCOS=1
+        SYSCAPE_RISCOS_VERSION="5.30"
+        SYSCAPE_RISCOS_UPTIME_MS=7200000
+        SYSCAPE_RISCOS_TOTAL_RAM_BYTES=67108864
+        SYSCAPE_RISCOS_FREE_RAM_BYTES=33554432
+        SYSCAPE_RISCOS_TASK_PRIORITY=0
+        SYSCAPE_RISCOS_CLASSIC_FS=1
+        SYSCAPE_RISCOS_MAX_FILES=128)
 
     syscape_add_test(
         riscos_odr

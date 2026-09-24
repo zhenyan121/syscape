@@ -26,7 +26,7 @@ space(const std::string& /*path*/) {
 inline result<filesystem_common::path_length_snapshot>
 max_component_length(const std::string& /*path*/) {
     filesystem_common::path_length_snapshot snap;
-#if defined(__amigaos4__) || defined(__MORPHOS__)
+#if defined(__amigaos4__) || defined(__MORPHOS__) || defined(__morphos__)
     snap.length = 107U;
 #else
     snap.length = 30U;
