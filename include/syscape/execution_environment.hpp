@@ -100,6 +100,15 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::zos;
 #elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN)
     return operating_system::cygwin;
+#elif defined(SYSCAPE_TARGET_MCU_AVR) || defined(SYSCAPE_TARGET_MCU_SAM) ||    \
+    defined(SYSCAPE_TARGET_MCU_ESP) || defined(SYSCAPE_TARGET_MCU_STM32) ||    \
+    defined(SYSCAPE_TARGET_MCU_RP) || defined(SYSCAPE_TARGET_MCU_NORDIC) ||    \
+    defined(SYSCAPE_TARGET_MCU_TI) || defined(SYSCAPE_TARGET_MCU_NXP) ||       \
+    defined(SYSCAPE_TARGET_MCU_RENESAS) || defined(SYSCAPE_TARGET_MCU_PIC) ||  \
+    defined(SYSCAPE_TARGET_MCU_GD32) || defined(SYSCAPE_TARGET_MCU_CH32) ||    \
+    defined(SYSCAPE_TARGET_MCU_BOUFFALO) ||                                    \
+    defined(SYSCAPE_TARGET_MCU_SIFIVE) || defined(SYSCAPE_TARGET_MCU_ARDUINO)
+    return operating_system::unknown;
 #elif defined(_WIN32)
     return operating_system::windows;
 #elif defined(__EMSCRIPTEN__) || defined(EMSCRIPTEN) ||                        \
@@ -210,6 +219,15 @@ constexpr operating_system target_operating_system() noexcept {
 constexpr execution_environment target_execution_environment() noexcept {
 #if defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return execution_environment::unknown;
+#elif defined(SYSCAPE_TARGET_MCU_AVR) || defined(SYSCAPE_TARGET_MCU_SAM) ||    \
+    defined(SYSCAPE_TARGET_MCU_ESP) || defined(SYSCAPE_TARGET_MCU_STM32) ||    \
+    defined(SYSCAPE_TARGET_MCU_RP) || defined(SYSCAPE_TARGET_MCU_NORDIC) ||    \
+    defined(SYSCAPE_TARGET_MCU_TI) || defined(SYSCAPE_TARGET_MCU_NXP) ||       \
+    defined(SYSCAPE_TARGET_MCU_RENESAS) || defined(SYSCAPE_TARGET_MCU_PIC) ||  \
+    defined(SYSCAPE_TARGET_MCU_GD32) || defined(SYSCAPE_TARGET_MCU_CH32) ||    \
+    defined(SYSCAPE_TARGET_MCU_BOUFFALO) ||                                    \
+    defined(SYSCAPE_TARGET_MCU_SIFIVE) || defined(SYSCAPE_TARGET_MCU_ARDUINO)
+    return execution_environment::bare_metal;
 #elif defined(__MSDOS__) || defined(MSDOS) || defined(_MSDOS) ||               \
     defined(__DOS__) || defined(SYSCAPE_TARGET_DOS) || defined(__amigaos__) || \
     defined(__AMIGA__) || defined(AMIGA) || defined(SYSCAPE_TARGET_AMIGAOS) || \

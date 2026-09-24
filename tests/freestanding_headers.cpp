@@ -1,4 +1,5 @@
 #include <syscape/architecture.hpp>
+#include <syscape/board.hpp>
 #include <syscape/capability.hpp>
 #include <syscape/execution_environment.hpp>
 #include <syscape/toolchain.hpp>
@@ -10,5 +11,8 @@ static_assert(syscape::target_cpp_version() >= 201103L,
 
 int syscape_freestanding_compile_test() {
     const syscape::capability value(syscape::capability_state::unknown);
-    return value.recognized() ? 1 : 0;
+    const syscape::board_family family = syscape::target_board_family();
+    return value.recognized() || syscape::board_family_name(family) == nullptr
+               ? 1
+               : 0;
 }

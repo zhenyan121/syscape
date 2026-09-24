@@ -169,21 +169,21 @@ RTOS interface, or explicit application-supplied provider.
 
 | Family | Representative devices or groups | Typical architecture family | State |
 | --- | --- | --- | --- |
-| Arduino ecosystem | Boards based on AVR, Arm, ESP, Renesas, and other MCUs | Board-dependent | Not started |
-| Microchip AVR | ATmega328P, ATmega2560, ATtiny families | AVR | Not started |
-| Microchip SAM | SAMD21, SAMD51, and related families | Arm | Not started |
-| Espressif ESP | ESP8266, ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2 | Xtensa or RISC-V | Not started |
-| STMicroelectronics STM32 | F0, F1, F2, F3, F4, F7, G0, G4, H5, H7, L0, L4, L5, U5, and later maintained families | Arm | Not started |
-| Raspberry Pi microcontrollers | RP2040 and RP2350, including Raspberry Pi Pico boards | Arm and RISC-V-capable variants as documented by the vendor | Not started |
-| Nordic Semiconductor | nRF51, nRF52, nRF53, nRF54 families | Arm | Not started |
-| Texas Instruments | MSP430, TMS320, Sitara, SimpleLink, and supported MCU/DSP families | MSP430, DSP, Arm, and other vendor architectures | Not started |
-| NXP | LPC, i.MX RT, Kinetis, and supported MCU/SoC families | Primarily Arm | Not started |
-| Renesas | RX, RA, RZ, and supported MCU/SoC families | RX, Arm, and other vendor architectures | Not started |
-| Microchip PIC | PIC32 and supported 32-bit MCU families | MIPS or Arm depending on device | Not started |
-| SiFive and other RISC-V MCUs | Publicly documented RISC-V microcontrollers and SoCs | RISC-V | Not started |
-| GigaDevice | GD32 MCU families | Arm or RISC-V depending on device | Not started |
-| WCH | CH32 MCU families | RISC-V or Arm depending on device | Not started |
-| Bouffalo Lab | BL602, BL616, and maintained BL-series devices | RISC-V and vendor-documented cores | Not started |
+| Arduino ecosystem | Boards based on AVR, Arm, ESP, Renesas, and other MCUs | Board-dependent | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::arduino`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| Microchip AVR | ATmega328P, ATmega2560, ATtiny families | AVR | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::microchip_avr`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| Microchip SAM | SAMD21, SAMD51, and related families | Arm | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::microchip_sam`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| Espressif ESP | ESP8266, ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-H2 | Xtensa or RISC-V | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::espressif_esp`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| STMicroelectronics STM32 | F0, F1, F2, F3, F4, F7, G0, G4, H5, H7, L0, L4, L5, U5, and later maintained families | Arm | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::st_stm32`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| Raspberry Pi microcontrollers | RP2040 and RP2350, including Raspberry Pi Pico boards | Arm and RISC-V-capable variants as documented by the vendor | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::raspberry_pi_rp`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| Nordic Semiconductor | nRF51, nRF52, nRF53, nRF54 families | Arm | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::nordic_nrf`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| Texas Instruments | MSP430, TMS320, Sitara, SimpleLink, and supported MCU/DSP families | MSP430, DSP, Arm, and other vendor architectures | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::ti_mcu`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| NXP | LPC, i.MX RT, Kinetis, and supported MCU/SoC families | Primarily Arm | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::nxp_mcu`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| Renesas | RX, RA, RZ, and supported MCU/SoC families | RX, Arm, and other vendor architectures | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::renesas_mcu`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| Microchip PIC | PIC32 and supported 32-bit MCU families | MIPS or Arm depending on device | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::microchip_pic`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| SiFive and other RISC-V MCUs | Publicly documented RISC-V microcontrollers and SoCs | RISC-V | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::sifive_riscv`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| GigaDevice | GD32 MCU families | Arm or RISC-V depending on device | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::gigadevice_gd32`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| WCH | CH32 MCU families | RISC-V or Arm depending on device | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::wch_ch32`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
+| Bouffalo Lab | BL602, BL616, and maintained BL-series devices | RISC-V and vendor-documented cores | Implemented compile-time detection via `syscape::target_board_family()` (reporting `board_family::bouffalo_bl`), bare-metal execution environment, and Freestanding Minimal `board_provider` framework; hardware verification pending |
 
 Specific part numbers are examples. The catalog is maintained at family level
 so that a new package, memory size, or pin-compatible model does not require a

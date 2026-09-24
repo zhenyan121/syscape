@@ -6,7 +6,19 @@
 /// @note Minimum compatibility profile: Freestanding Minimal.
 /// @note Minimum language version: C++11; no hosted library is required.
 
+#if defined(__has_include)
+#if __has_include(<cstddef>)
 #include <cstddef>
+#elif __has_include(<stddef.h>)
+#include <stddef.h>
+namespace std {
+using ::ptrdiff_t;
+using ::size_t;
+} // namespace std
+#endif
+#else
+#include <cstddef>
+#endif
 
 #include <syscape/detail/config.hpp>
 

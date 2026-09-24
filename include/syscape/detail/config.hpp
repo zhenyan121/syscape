@@ -202,6 +202,97 @@
 #define SYSCAPE_TARGET_ZOS 1
 #endif
 
+#if defined(__AVR__) || defined(__AVR) || defined(ARDUINO_ARCH_AVR) ||         \
+    defined(SYSCAPE_TARGET_MCU_AVR)
+#define SYSCAPE_TARGET_MCU_AVR 1
+#endif
+
+#if defined(__SAMD21__) || defined(__SAMD51__) || defined(__SAM3X8E__) ||      \
+    defined(ARDUINO_ARCH_SAMD) || defined(ARDUINO_ARCH_SAM) ||                 \
+    defined(__SAM__) || defined(SYSCAPE_TARGET_MCU_SAM)
+#define SYSCAPE_TARGET_MCU_SAM 1
+#endif
+
+#if defined(ESP_PLATFORM) || defined(ARDUINO_ARCH_ESP32) ||                    \
+    defined(ARDUINO_ARCH_ESP8266) || defined(ESP32) || defined(ESP8266) ||     \
+    defined(SYSCAPE_TARGET_MCU_ESP)
+#define SYSCAPE_TARGET_MCU_ESP 1
+#endif
+
+#if defined(STM32F0) || defined(STM32F1) || defined(STM32F2) ||                \
+    defined(STM32F3) || defined(STM32F4) || defined(STM32F7) ||                \
+    defined(STM32G0) || defined(STM32G4) || defined(STM32H5) ||                \
+    defined(STM32H7) || defined(STM32L0) || defined(STM32L1) ||                \
+    defined(STM32L4) || defined(STM32L5) || defined(STM32U5) ||                \
+    defined(ARDUINO_ARCH_STM32) || defined(__STM32__) ||                       \
+    defined(SYSCAPE_TARGET_MCU_STM32)
+#define SYSCAPE_TARGET_MCU_STM32 1
+#endif
+
+#if defined(PICO_BOARD) || defined(PICO_RP2040) || defined(PICO_RP2350) ||     \
+    defined(PICO_BUILD) || defined(ARDUINO_ARCH_RP2040) ||                     \
+    defined(SYSCAPE_TARGET_MCU_RP)
+#define SYSCAPE_TARGET_MCU_RP 1
+#endif
+
+#if defined(NRF51) || defined(NRF52) || defined(NRF53) || defined(NRF54) ||    \
+    defined(NRF52840_XXAA) || defined(NRF52832_XXAA) ||                        \
+    defined(ARDUINO_ARCH_NRF52) || defined(SYSCAPE_TARGET_MCU_NORDIC)
+#define SYSCAPE_TARGET_MCU_NORDIC 1
+#endif
+
+#if defined(__MSP430__) || defined(__TMS320C28XX__) ||                         \
+    defined(DEVICE_FAMILY_CC26X2) || defined(DEVICE_FAMILY_CC13X2) ||          \
+    defined(SYSCAPE_TARGET_MCU_TI)
+#define SYSCAPE_TARGET_MCU_TI 1
+#endif
+
+#if defined(CPU_LPC55S69JBD100) || defined(CPU_MIMXRT1062DVL6A) ||             \
+    defined(__LPC17XX__) || defined(__LPC11XX__) ||                            \
+    defined(SYSCAPE_TARGET_MCU_NXP)
+#define SYSCAPE_TARGET_MCU_NXP 1
+#endif
+
+#if defined(__RX__) || defined(_RA_) || defined(ARDUINO_ARCH_RENESAS) ||       \
+    defined(SYSCAPE_TARGET_MCU_RENESAS)
+#define SYSCAPE_TARGET_MCU_RENESAS 1
+#endif
+
+#if defined(__PIC32MX__) || defined(__PIC32MZ__) || defined(__PIC32MK__) ||    \
+    defined(__dsPIC33F__) || defined(__dsPIC33E__) ||                          \
+    defined(SYSCAPE_TARGET_MCU_PIC)
+#define SYSCAPE_TARGET_MCU_PIC 1
+#endif
+
+#if defined(GD32F10X) || defined(GD32F30X) || defined(GD32VF103) ||            \
+    defined(SYSCAPE_TARGET_MCU_GD32)
+#define SYSCAPE_TARGET_MCU_GD32 1
+#endif
+
+#if defined(CH32V003) || defined(CH32V103) || defined(CH32V203) ||             \
+    defined(CH32V307) || defined(CH32F103) || defined(SYSCAPE_TARGET_MCU_CH32)
+#define SYSCAPE_TARGET_MCU_CH32 1
+#endif
+
+#if defined(BL602) || defined(BL616) || defined(BL702) || defined(BL808) ||    \
+    defined(SYSCAPE_TARGET_MCU_BOUFFALO)
+#define SYSCAPE_TARGET_MCU_BOUFFALO 1
+#endif
+
+#if defined(SIFIVE_FE310) || defined(SIFIVE_U540) ||                           \
+    defined(SYSCAPE_TARGET_MCU_SIFIVE)
+#define SYSCAPE_TARGET_MCU_SIFIVE 1
+#endif
+
+// Defined when targeting an Arduino platform. When an Arduino build also
+// defines underlying architecture macros (e.g. ARDUINO_ARCH_AVR,
+// ARDUINO_ARCH_ESP32), both SYSCAPE_TARGET_MCU_ARDUINO and the specific
+// MCU target macro will be defined; target_board_family() prioritizes
+// the specific MCU architecture over the generic Arduino framework tag.
+#if defined(ARDUINO) || defined(SYSCAPE_TARGET_MCU_ARDUINO)
+#define SYSCAPE_TARGET_MCU_ARDUINO 1
+#endif
+
 #if defined(SYSCAPE_TARGET_ZEPHYR)
 #if defined(CONFIG_POSIX_SINGLE_PROCESS)
 #define SYSCAPE_ZEPHYR_HAS_POSIX_SINGLE_PROCESS 1

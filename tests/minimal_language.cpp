@@ -1,6 +1,7 @@
 #include <climits>
 
 #include <syscape/architecture.hpp>
+#include <syscape/board.hpp>
 #include <syscape/capability.hpp>
 #include <syscape/execution_environment.hpp>
 #include <syscape/toolchain.hpp>
@@ -15,6 +16,9 @@ static_assert(syscape::target_data_model_info().pointer_bits ==
 static_assert(syscape::architecture_name(syscape::architecture::unknown)[0] ==
                   'u',
               "Name helpers must be constexpr in C++14 and later");
+static_assert(syscape::board_family_name(syscape::board_family::unknown)[0] ==
+                  'u',
+              "Board family name must be constexpr in C++14 and later");
 static_assert(syscape::target_data_model() != syscape::data_model::unknown,
               "Data-model classification must be constexpr in C++14 and later");
 #endif
@@ -44,8 +48,11 @@ int main() {
         nullptr) {
         return 7;
     }
-    return syscape::execution_environment_name(
-               syscape::target_execution_environment()) == nullptr
-               ? 8
+    if (syscape::execution_environment_name(
+            syscape::target_execution_environment()) == nullptr) {
+        return 8;
+    }
+    return syscape::board_family_name(syscape::target_board_family()) == nullptr
+               ? 9
                : 0;
 }

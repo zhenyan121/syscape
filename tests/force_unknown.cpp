@@ -1,4 +1,5 @@
 #include <syscape/architecture.hpp>
+#include <syscape/board.hpp>
 #include <syscape/execution_environment.hpp>
 #include <syscape/toolchain.hpp>
 
@@ -21,6 +22,9 @@ int main() {
     if (syscape::target_execution_environment() !=
         syscape::execution_environment::unknown) {
         return 6;
+    }
+    if (syscape::target_board_family() != syscape::board_family::unknown) {
+        return 7;
     }
     return 0;
 }

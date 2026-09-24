@@ -999,6 +999,89 @@ jobs:
             --output-on-failure \
             -R fuchsia
 
+  mcu-board-backend-host-check:
+    name: MCU and Board Provider selection host check (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC
+            cxx: g++
+          - compiler: Clang
+            cxx: clang++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang gcc g++ cmake ninja-build
+
+      - name: Configure MCU and Board Provider selection checks
+        run: |
+          cmake -B build-mcu -G Ninja \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build-mcu -j
+
+      - name: Run MCU and Board Provider tests
+        run: |
+          ctest \
+            --test-dir build-mcu \
+            --output-on-failure \
+            -R "(mcu_|board_|static_board|header_board)"
+
+  mcu-cross-compile-check:
+    name: MCU Freestanding Cross-Compile Check (Arm & AVR)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cross-compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi gcc-avr avr-libc
+
+      - name: Report cross-compiler versions
+        run: |
+          arm-none-eabi-g++ --version
+          avr-g++ --version
+
+      - name: Check Freestanding Minimal headers with arm-none-eabi-g++
+        run: |
+          arm-none-eabi-g++ -std=c++11 -ffreestanding -pedantic-errors -Wall -Wextra -Werror \
+            -Iinclude -fsyntax-only tests/freestanding_headers.cpp
+          arm-none-eabi-g++ -std=c++14 -ffreestanding -pedantic-errors -Wall -Wextra -Werror \
+            -Iinclude -fsyntax-only tests/freestanding_headers.cpp
+          arm-none-eabi-g++ -std=c++17 -ffreestanding -pedantic-errors -Wall -Wextra -Werror \
+            -Iinclude -fsyntax-only tests/freestanding_headers.cpp
+          arm-none-eabi-g++ -std=c++11 -ffreestanding -pedantic-errors -Wall -Wextra -Werror \
+            -Iinclude -fsyntax-only tests/header_board.cpp
+          arm-none-eabi-g++ -std=c++11 -mcpu=cortex-m4 -mthumb -DSTM32F4 -ffreestanding -pedantic-errors -Wall -Wextra -Werror \
+            -Iinclude -fsyntax-only tests/mcu_stm32_detection.cpp
+          arm-none-eabi-g++ -std=c++11 -mcpu=cortex-m0plus -mthumb -DPICO_RP2040 -ffreestanding -pedantic-errors -Wall -Wextra -Werror \
+            -Iinclude -fsyntax-only tests/mcu_rp_detection.cpp
+          arm-none-eabi-g++ -std=c++11 -mcpu=cortex-m0plus -mthumb -D__SAMD21__ -ffreestanding -pedantic-errors -Wall -Wextra -Werror \
+            -Iinclude -fsyntax-only tests/mcu_sam_detection.cpp
+          arm-none-eabi-g++ -std=c++11 -mcpu=cortex-m4 -mthumb -DNRF52840_XXAA -ffreestanding -pedantic-errors -Wall -Wextra -Werror \
+            -Iinclude -fsyntax-only tests/mcu_nordic_detection.cpp
+          arm-none-eabi-g++ -std=c++11 -mcpu=cortex-m33 -mthumb -DCPU_LPC55S69JBD100 -ffreestanding -pedantic-errors -Wall -Wextra -Werror \
+            -Iinclude -fsyntax-only tests/mcu_nxp_detection.cpp
+
+      - name: Check Freestanding Minimal headers with avr-g++
+        run: |
+          avr-g++ -std=c++11 -mmcu=atmega328p -DF_CPU=16000000UL -ffreestanding -pedantic-errors -Wall -Wextra -Werror \
+            -Iinclude -fsyntax-only tests/freestanding_headers.cpp
+          avr-g++ -std=c++11 -mmcu=atmega328p -DF_CPU=16000000UL -ffreestanding -pedantic-errors -Wall -Wextra -Werror \
+            -Iinclude -fsyntax-only tests/header_board.cpp
+          avr-g++ -std=c++11 -mmcu=atmega328p -DF_CPU=16000000UL -ffreestanding -pedantic-errors -Wall -Wextra -Werror \
+            -Iinclude -fsyntax-only tests/mcu_avr_detection.cpp
+
   emscripten-backend:
     name: Emscripten backend (WebAssembly/Node.js)
     runs-on: ubuntu-latest
