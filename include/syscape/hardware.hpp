@@ -334,7 +334,8 @@ struct memory_device {
     !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT) &&     \
     !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT) &&          \
     !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
-    !defined(SYSCAPE_TARGET_OS2)
+    !defined(SYSCAPE_TARGET_OS2) && !defined(SYSCAPE_TARGET_AMIGAOS) &&        \
+    !defined(SYSCAPE_TARGET_RISCOS)
 #include <syscape/detail/hardware/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/hardware/windows.hpp>
@@ -419,6 +420,10 @@ struct memory_device {
 #include <syscape/detail/hardware/dos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_OS2)
 #include <syscape/detail/hardware/os2.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AMIGAOS)
+#include <syscape/detail/hardware/amigaos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RISCOS)
+#include <syscape/detail/hardware/riscos.hpp>
 #else
 #include <syscape/detail/hardware/generic.hpp>
 #endif

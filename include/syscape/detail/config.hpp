@@ -184,12 +184,13 @@
 #endif
 
 #if defined(__amigaos__) || defined(__AMIGA__) || defined(AMIGA) ||            \
+    defined(__amigaos4__) || defined(__MORPHOS__) || defined(__morphos__) ||   \
     defined(SYSCAPE_TARGET_AMIGAOS)
 #define SYSCAPE_TARGET_AMIGAOS 1
 #endif
 
 #if defined(__riscos__) || defined(__riscos) || defined(RISCOS) ||             \
-    defined(SYSCAPE_TARGET_RISCOS)
+    defined(__RISCOS__) || defined(SYSCAPE_TARGET_RISCOS)
 #define SYSCAPE_TARGET_RISCOS 1
 #endif
 

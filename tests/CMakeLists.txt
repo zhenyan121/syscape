@@ -2116,6 +2116,9 @@ target_compile_definitions(os2_detection PRIVATE __OS2__=1 SYSCAPE_TARGET_OS2=1)
 syscape_add_test(amigaos_detection 11 syscape::syscape amigaos_detection.cpp)
 target_compile_definitions(amigaos_detection PRIVATE __AMIGA__=1 SYSCAPE_TARGET_AMIGAOS=1)
 
+syscape_add_test(morphos_detection 11 syscape::syscape morphos_detection.cpp)
+target_compile_definitions(morphos_detection PRIVATE __MORPHOS__=1 SYSCAPE_TARGET_AMIGAOS=1)
+
 syscape_add_test(riscos_detection 11 syscape::syscape riscos_detection.cpp)
 target_compile_definitions(riscos_detection PRIVATE __riscos__=1 SYSCAPE_TARGET_RISCOS=1)
 
@@ -2227,6 +2230,94 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
             syscape::hosted
             header_${os2_domain}.cpp)
         target_compile_definitions(${os2_header_target} PRIVATE SYSCAPE_TARGET_OS2=1)
+    endforeach()
+
+    # AmigaOS tests on POSIX host using SYSCAPE_TARGET_AMIGAOS=1
+    syscape_add_test(amigaos_functional 17 syscape::hosted amigaos_functional.cpp)
+    target_compile_definitions(amigaos_functional PRIVATE SYSCAPE_TARGET_AMIGAOS=1)
+
+    syscape_add_test(morphos_functional 17 syscape::hosted morphos_functional.cpp)
+    target_compile_definitions(morphos_functional PRIVATE __MORPHOS__=1 SYSCAPE_TARGET_AMIGAOS=1)
+
+    syscape_add_test(amigaos_overrides 17 syscape::hosted amigaos_overrides.cpp)
+    target_compile_definitions(amigaos_overrides PRIVATE
+        SYSCAPE_TARGET_AMIGAOS=1
+        SYSCAPE_AMIGAOS_VERSION="3.9"
+        SYSCAPE_AMIGAOS_KERNEL_VERSION="3.9"
+        SYSCAPE_AMIGAOS_UPTIME_MS=3600000
+        SYSCAPE_AMIGAOS_TOTAL_RAM_BYTES=16777216
+        SYSCAPE_AMIGAOS_FREE_RAM_BYTES=4194304
+        SYSCAPE_AMIGAOS_PID=123
+        SYSCAPE_AMIGAOS_PPID=1
+        SYSCAPE_AMIGAOS_THREAD_COUNT=4
+        SYSCAPE_AMIGAOS_TASK_PRIORITY=10
+        SYSCAPE_AMIGAOS_PROCESS_COUNT=8
+        SYSCAPE_AMIGAOS_SYSTEM_THREAD_COUNT=16
+        SYSCAPE_AMIGAOS_MAX_FILES=50)
+
+    syscape_add_test(
+        amigaos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(amigaos_odr PRIVATE SYSCAPE_TARGET_AMIGAOS=1)
+
+    foreach(amigaos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(amigaos_header_target "header_${amigaos_domain}_amigaos")
+        syscape_add_test(
+            ${amigaos_header_target}
+            17
+            syscape::hosted
+            header_${amigaos_domain}.cpp)
+        target_compile_definitions(${amigaos_header_target} PRIVATE SYSCAPE_TARGET_AMIGAOS=1)
+    endforeach()
+
+    # RISC OS tests on POSIX host using SYSCAPE_TARGET_RISCOS=1
+    syscape_add_test(riscos_functional 17 syscape::hosted riscos_functional.cpp)
+    target_compile_definitions(riscos_functional PRIVATE SYSCAPE_TARGET_RISCOS=1)
+
+    syscape_add_test(riscos_overrides 17 syscape::hosted riscos_overrides.cpp)
+    target_compile_definitions(riscos_overrides PRIVATE
+        SYSCAPE_TARGET_RISCOS=1
+        SYSCAPE_RISCOS_VERSION="5.30"
+        SYSCAPE_RISCOS_KERNEL_VERSION="5.30"
+        SYSCAPE_RISCOS_UPTIME_MS=7200000
+        SYSCAPE_RISCOS_TOTAL_RAM_BYTES=67108864
+        SYSCAPE_RISCOS_FREE_RAM_BYTES=33554432
+        SYSCAPE_RISCOS_PID=200
+        SYSCAPE_RISCOS_PPID=1
+        SYSCAPE_RISCOS_THREAD_COUNT=1
+        SYSCAPE_RISCOS_TASK_PRIORITY=0
+        SYSCAPE_RISCOS_CLASSIC_FS=1
+        SYSCAPE_RISCOS_PROCESS_COUNT=5
+        SYSCAPE_RISCOS_SYSTEM_THREAD_COUNT=5
+        SYSCAPE_RISCOS_MAX_FILES=128)
+
+    syscape_add_test(
+        riscos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(riscos_odr PRIVATE SYSCAPE_TARGET_RISCOS=1)
+
+    foreach(riscos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(riscos_header_target "header_${riscos_domain}_riscos")
+        syscape_add_test(
+            ${riscos_header_target}
+            17
+            syscape::hosted
+            header_${riscos_domain}.cpp)
+        target_compile_definitions(${riscos_header_target} PRIVATE SYSCAPE_TARGET_RISCOS=1)
     endforeach()
 endif()
 

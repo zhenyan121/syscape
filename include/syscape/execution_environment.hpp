@@ -88,10 +88,11 @@ constexpr operating_system target_operating_system() noexcept {
     defined(SYSCAPE_TARGET_OS2)
     return operating_system::os2;
 #elif defined(__amigaos__) || defined(__AMIGA__) || defined(AMIGA) ||          \
+    defined(__amigaos4__) || defined(__MORPHOS__) || defined(__morphos__) ||   \
     defined(SYSCAPE_TARGET_AMIGAOS)
     return operating_system::amigaos;
 #elif defined(__riscos__) || defined(__riscos) || defined(RISCOS) ||           \
-    defined(SYSCAPE_TARGET_RISCOS)
+    defined(__RISCOS__) || defined(SYSCAPE_TARGET_RISCOS)
     return operating_system::riscos;
 #elif defined(__VMS) || defined(VMS) || defined(SYSCAPE_TARGET_OPENVMS)
     return operating_system::openvms;
@@ -230,8 +231,10 @@ constexpr execution_environment target_execution_environment() noexcept {
     return execution_environment::bare_metal;
 #elif defined(__MSDOS__) || defined(MSDOS) || defined(_MSDOS) ||               \
     defined(__DOS__) || defined(SYSCAPE_TARGET_DOS) || defined(__amigaos__) || \
-    defined(__AMIGA__) || defined(AMIGA) || defined(SYSCAPE_TARGET_AMIGAOS) || \
-    defined(__riscos__) || defined(__riscos) || defined(RISCOS) ||             \
+    defined(__AMIGA__) || defined(AMIGA) || defined(__amigaos4__) ||           \
+    defined(__MORPHOS__) || defined(__morphos__) ||                            \
+    defined(SYSCAPE_TARGET_AMIGAOS) || defined(__riscos__) ||                  \
+    defined(__riscos) || defined(RISCOS) || defined(__RISCOS__) ||             \
     defined(SYSCAPE_TARGET_RISCOS)
     return execution_environment::rtos;
 #elif defined(__OS2__) || defined(OS2) || defined(_OS2) ||                     \
