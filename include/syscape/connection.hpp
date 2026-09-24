@@ -74,7 +74,8 @@
     !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT) &&          \
     !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
     !defined(SYSCAPE_TARGET_OS2) && !defined(SYSCAPE_TARGET_AMIGAOS) &&        \
-    !defined(SYSCAPE_TARGET_RISCOS)
+    !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
+    !defined(SYSCAPE_TARGET_ZOS)
 #include <syscape/detail/connection/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/connection/windows.hpp>
@@ -163,6 +164,10 @@
 #include <syscape/detail/connection/amigaos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RISCOS)
 #include <syscape/detail/connection/riscos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_OPENVMS)
+#include <syscape/detail/connection/openvms.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZOS)
+#include <syscape/detail/connection/zos.hpp>
 #else
 #include <syscape/detail/connection/generic.hpp>
 #endif

@@ -1,0 +1,61 @@
+#ifndef SYSCAPE_DETAIL_RESOURCE_OPENVMS_HPP
+#define SYSCAPE_DETAIL_RESOURCE_OPENVMS_HPP
+
+#include <syscape/detail/config.hpp>
+
+#include <cstdint>
+
+#include <syscape/detail/resource/common.hpp>
+#include <syscape/result.hpp>
+
+namespace syscape {
+namespace detail {
+namespace resource_backend {
+
+inline result<resource_common::load_samples> load_average() {
+    return fail(errc::not_supported);
+}
+
+inline result<resource_common::entity_counts> scheduler_entities() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::uint64_t> process_count() {
+#if defined(SYSCAPE_OPENVMS_PROCESS_COUNT)
+    return static_cast<std::uint64_t>(SYSCAPE_OPENVMS_PROCESS_COUNT);
+#else
+    return fail(errc::not_supported);
+#endif
+}
+
+inline result<std::uint64_t> thread_count() {
+#if defined(SYSCAPE_OPENVMS_SYSTEM_THREAD_COUNT)
+    return static_cast<std::uint64_t>(SYSCAPE_OPENVMS_SYSTEM_THREAD_COUNT);
+#else
+    return fail(errc::not_supported);
+#endif
+}
+
+inline result<std::uint64_t> open_file_count() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::uint64_t> open_handle_count() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::uint64_t> file_descriptor_limit() {
+#if defined(SYSCAPE_OPENVMS_MAX_FILES)
+    return static_cast<std::uint64_t>(SYSCAPE_OPENVMS_MAX_FILES);
+#elif defined(SYSCAPE_OPENVMS_CHANNEL_LIMIT)
+    return static_cast<std::uint64_t>(SYSCAPE_OPENVMS_CHANNEL_LIMIT);
+#else
+    return static_cast<std::uint64_t>(2048U);
+#endif
+}
+
+} // namespace resource_backend
+} // namespace detail
+} // namespace syscape
+
+#endif
