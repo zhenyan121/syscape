@@ -56,6 +56,10 @@ syscape_add_test(
     syscape::syscape
     header_execution_environment.cpp)
 syscape_add_test(header_toolchain 11 syscape::syscape header_toolchain.cpp)
+syscape_add_test(header_board 11 syscape::syscape header_board.cpp)
+syscape_add_test(board_provider_test 11 syscape::syscape board_provider_test.cpp)
+syscape_add_test(board_family_strings 11 syscape::syscape board_family_strings.cpp)
+syscape_add_test(static_board_provider_test 11 syscape::syscape static_board_provider_test.cpp)
 
 foreach(standard IN ITEMS 11 14 17)
     syscape_add_test(
@@ -2122,6 +2126,52 @@ syscape_add_test(zos_detection 11 syscape::syscape zos_detection.cpp)
 target_compile_definitions(zos_detection PRIVATE __MVS__=1 SYSCAPE_TARGET_ZOS=1)
 
 syscape_add_test(legacy_env_strings 11 syscape::syscape legacy_env_strings.cpp)
+
+# MCU and board families (Tier 4 / Freestanding Minimal)
+syscape_add_test(mcu_avr_detection 11 syscape::syscape mcu_avr_detection.cpp)
+target_compile_definitions(mcu_avr_detection PRIVATE __AVR__=1 SYSCAPE_TARGET_MCU_AVR=1)
+
+syscape_add_test(mcu_sam_detection 11 syscape::syscape mcu_sam_detection.cpp)
+target_compile_definitions(mcu_sam_detection PRIVATE __SAMD21__=1 SYSCAPE_TARGET_MCU_SAM=1)
+
+syscape_add_test(mcu_esp_detection 11 syscape::syscape mcu_esp_detection.cpp)
+target_compile_definitions(mcu_esp_detection PRIVATE ESP_PLATFORM=1 SYSCAPE_TARGET_MCU_ESP=1)
+
+syscape_add_test(mcu_stm32_detection 11 syscape::syscape mcu_stm32_detection.cpp)
+target_compile_definitions(mcu_stm32_detection PRIVATE STM32F4=1 SYSCAPE_TARGET_MCU_STM32=1)
+
+syscape_add_test(mcu_rp_detection 11 syscape::syscape mcu_rp_detection.cpp)
+target_compile_definitions(mcu_rp_detection PRIVATE PICO_RP2040=1 SYSCAPE_TARGET_MCU_RP=1)
+
+syscape_add_test(mcu_nordic_detection 11 syscape::syscape mcu_nordic_detection.cpp)
+target_compile_definitions(mcu_nordic_detection PRIVATE NRF52=1 SYSCAPE_TARGET_MCU_NORDIC=1)
+
+syscape_add_test(mcu_ti_detection 11 syscape::syscape mcu_ti_detection.cpp)
+target_compile_definitions(mcu_ti_detection PRIVATE __MSP430__=1 SYSCAPE_TARGET_MCU_TI=1)
+
+syscape_add_test(mcu_nxp_detection 11 syscape::syscape mcu_nxp_detection.cpp)
+target_compile_definitions(mcu_nxp_detection PRIVATE CPU_MIMXRT1062DVL6A=1 SYSCAPE_TARGET_MCU_NXP=1)
+
+syscape_add_test(mcu_renesas_detection 11 syscape::syscape mcu_renesas_detection.cpp)
+target_compile_definitions(mcu_renesas_detection PRIVATE __RX__=1 SYSCAPE_TARGET_MCU_RENESAS=1)
+
+syscape_add_test(mcu_pic_detection 11 syscape::syscape mcu_pic_detection.cpp)
+target_compile_definitions(mcu_pic_detection PRIVATE __PIC32MX__=1 SYSCAPE_TARGET_MCU_PIC=1)
+
+syscape_add_test(mcu_gd32_detection 11 syscape::syscape mcu_gd32_detection.cpp)
+target_compile_definitions(mcu_gd32_detection PRIVATE GD32F10X=1 SYSCAPE_TARGET_MCU_GD32=1)
+
+syscape_add_test(mcu_ch32_detection 11 syscape::syscape mcu_ch32_detection.cpp)
+target_compile_definitions(mcu_ch32_detection PRIVATE CH32V307=1 SYSCAPE_TARGET_MCU_CH32=1)
+
+syscape_add_test(mcu_bouffalo_detection 11 syscape::syscape mcu_bouffalo_detection.cpp)
+target_compile_definitions(mcu_bouffalo_detection PRIVATE BL602=1 SYSCAPE_TARGET_MCU_BOUFFALO=1)
+
+syscape_add_test(mcu_sifive_detection 11 syscape::syscape mcu_sifive_detection.cpp)
+target_compile_definitions(mcu_sifive_detection PRIVATE SIFIVE_FE310=1 SYSCAPE_TARGET_MCU_SIFIVE=1)
+
+syscape_add_test(mcu_arduino_detection 11 syscape::syscape mcu_arduino_detection.cpp)
+target_compile_definitions(mcu_arduino_detection PRIVATE ARDUINO=10819 SYSCAPE_TARGET_MCU_ARDUINO=1)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
     # DOS tests on POSIX host using SYSCAPE_TARGET_DOS=1

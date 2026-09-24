@@ -199,6 +199,15 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(RIOT_VERSION) || defined(__RIOT__) || defined(RIOT) ||           \
     defined(SYSCAPE_TARGET_RIOT)
     return operating_system::riot;
+#elif defined(SYSCAPE_TARGET_MCU_AVR) || defined(SYSCAPE_TARGET_MCU_SAM) ||    \
+    defined(SYSCAPE_TARGET_MCU_ESP) || defined(SYSCAPE_TARGET_MCU_STM32) ||    \
+    defined(SYSCAPE_TARGET_MCU_RP) || defined(SYSCAPE_TARGET_MCU_NORDIC) ||    \
+    defined(SYSCAPE_TARGET_MCU_TI) || defined(SYSCAPE_TARGET_MCU_NXP) ||       \
+    defined(SYSCAPE_TARGET_MCU_RENESAS) || defined(SYSCAPE_TARGET_MCU_PIC) ||  \
+    defined(SYSCAPE_TARGET_MCU_GD32) || defined(SYSCAPE_TARGET_MCU_CH32) ||    \
+    defined(SYSCAPE_TARGET_MCU_BOUFFALO) ||                                    \
+    defined(SYSCAPE_TARGET_MCU_SIFIVE) || defined(SYSCAPE_TARGET_MCU_ARDUINO)
+    return operating_system::unknown;
 #elif defined(__linux__)
     return operating_system::linux_os;
 #else
@@ -263,6 +272,15 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(RIOT_VERSION) || defined(__RIOT__) || defined(RIOT) ||             \
     defined(SYSCAPE_TARGET_RIOT)
     return execution_environment::rtos;
+#elif defined(SYSCAPE_TARGET_MCU_AVR) || defined(SYSCAPE_TARGET_MCU_SAM) ||    \
+    defined(SYSCAPE_TARGET_MCU_ESP) || defined(SYSCAPE_TARGET_MCU_STM32) ||    \
+    defined(SYSCAPE_TARGET_MCU_RP) || defined(SYSCAPE_TARGET_MCU_NORDIC) ||    \
+    defined(SYSCAPE_TARGET_MCU_TI) || defined(SYSCAPE_TARGET_MCU_NXP) ||       \
+    defined(SYSCAPE_TARGET_MCU_RENESAS) || defined(SYSCAPE_TARGET_MCU_PIC) ||  \
+    defined(SYSCAPE_TARGET_MCU_GD32) || defined(SYSCAPE_TARGET_MCU_CH32) ||    \
+    defined(SYSCAPE_TARGET_MCU_BOUFFALO) ||                                    \
+    defined(SYSCAPE_TARGET_MCU_SIFIVE) || defined(SYSCAPE_TARGET_MCU_ARDUINO)
+    return execution_environment::bare_metal;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 1)

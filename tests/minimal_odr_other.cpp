@@ -1,4 +1,5 @@
 #include <syscape/architecture.hpp>
+#include <syscape/board.hpp>
 #include <syscape/capability.hpp>
 #include <syscape/toolchain.hpp>
 
@@ -12,4 +13,16 @@ const char* other_minimal_compiler_name() {
 
 bool other_minimal_capability() {
     return syscape::capability(syscape::capability_state::available).available();
+}
+
+syscape::board_family other_minimal_board_family() {
+    return syscape::target_board_family();
+}
+
+const char* other_minimal_board_family_name() {
+    return syscape::board_family_name(syscape::target_board_family());
+}
+
+const syscape::board_provider* other_minimal_current_board_provider() {
+    return syscape::current_board_provider();
 }
