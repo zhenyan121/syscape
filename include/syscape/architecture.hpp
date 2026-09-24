@@ -6,7 +6,19 @@
 /// @note Minimum compatibility profile: Freestanding Minimal.
 /// @note Minimum language version: C++11; no hosted library is required.
 
+#if defined(__has_include)
+#if __has_include(<climits>)
 #include <climits>
+#elif __has_include(<limits.h>)
+#include <limits.h>
+#endif
+#else
+#include <climits>
+#endif
+
+#ifndef CHAR_BIT
+#define CHAR_BIT 8
+#endif
 
 #include <syscape/detail/config.hpp>
 

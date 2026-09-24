@@ -25,8 +25,35 @@
 #error "syscape/board.hpp requires C++11 or later"
 #endif
 
+#if defined(__has_include)
+#if __has_include(<cstddef>)
+#include <cstddef>
+#elif __has_include(<stddef.h>)
+#include <stddef.h>
+namespace std {
+using ::ptrdiff_t;
+using ::size_t;
+} // namespace std
+#endif
+#if __has_include(<cstdint>)
+#include <cstdint>
+#elif __has_include(<stdint.h>)
+#include <stdint.h>
+namespace std {
+using ::int16_t;
+using ::int32_t;
+using ::int64_t;
+using ::int8_t;
+using ::uint16_t;
+using ::uint32_t;
+using ::uint64_t;
+using ::uint8_t;
+} // namespace std
+#endif
+#else
 #include <cstddef>
 #include <cstdint>
+#endif
 
 namespace syscape {
 
