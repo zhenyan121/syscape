@@ -271,7 +271,8 @@ struct cgroup_info {
     !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT) &&     \
     !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT) &&          \
     !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
-    !defined(SYSCAPE_TARGET_OS2)
+    !defined(SYSCAPE_TARGET_OS2) && !defined(SYSCAPE_TARGET_AMIGAOS) &&        \
+    !defined(SYSCAPE_TARGET_RISCOS)
 #include <syscape/detail/virtualization/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/virtualization/windows.hpp>
@@ -356,6 +357,10 @@ struct cgroup_info {
 #include <syscape/detail/virtualization/dos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_OS2)
 #include <syscape/detail/virtualization/os2.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AMIGAOS)
+#include <syscape/detail/virtualization/amigaos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RISCOS)
+#include <syscape/detail/virtualization/riscos.hpp>
 #else
 #include <syscape/detail/virtualization/generic.hpp>
 #endif

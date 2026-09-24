@@ -2228,6 +2228,58 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
             header_${os2_domain}.cpp)
         target_compile_definitions(${os2_header_target} PRIVATE SYSCAPE_TARGET_OS2=1)
     endforeach()
+
+    # AmigaOS tests on POSIX host using SYSCAPE_TARGET_AMIGAOS=1
+    syscape_add_test(amigaos_functional 17 syscape::hosted amigaos_functional.cpp)
+    target_compile_definitions(amigaos_functional PRIVATE SYSCAPE_TARGET_AMIGAOS=1)
+
+    syscape_add_test(
+        amigaos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(amigaos_odr PRIVATE SYSCAPE_TARGET_AMIGAOS=1)
+
+    foreach(amigaos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(amigaos_header_target "header_${amigaos_domain}_amigaos")
+        syscape_add_test(
+            ${amigaos_header_target}
+            17
+            syscape::hosted
+            header_${amigaos_domain}.cpp)
+        target_compile_definitions(${amigaos_header_target} PRIVATE SYSCAPE_TARGET_AMIGAOS=1)
+    endforeach()
+
+    # RISC OS tests on POSIX host using SYSCAPE_TARGET_RISCOS=1
+    syscape_add_test(riscos_functional 17 syscape::hosted riscos_functional.cpp)
+    target_compile_definitions(riscos_functional PRIVATE SYSCAPE_TARGET_RISCOS=1)
+
+    syscape_add_test(
+        riscos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(riscos_odr PRIVATE SYSCAPE_TARGET_RISCOS=1)
+
+    foreach(riscos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(riscos_header_target "header_${riscos_domain}_riscos")
+        syscape_add_test(
+            ${riscos_header_target}
+            17
+            syscape::hosted
+            header_${riscos_domain}.cpp)
+        target_compile_definitions(${riscos_header_target} PRIVATE SYSCAPE_TARGET_RISCOS=1)
+    endforeach()
 endif()
 
 

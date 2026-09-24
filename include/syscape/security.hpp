@@ -259,7 +259,8 @@ struct tpm_info {
     !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_MYNEWT) &&     \
     !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT) &&          \
     !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
-    !defined(SYSCAPE_TARGET_OS2)
+    !defined(SYSCAPE_TARGET_OS2) && !defined(SYSCAPE_TARGET_AMIGAOS) &&        \
+    !defined(SYSCAPE_TARGET_RISCOS)
 #include <syscape/detail/security/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/security/windows.hpp>
@@ -344,6 +345,10 @@ struct tpm_info {
 #include <syscape/detail/security/dos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_OS2)
 #include <syscape/detail/security/os2.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_AMIGAOS)
+#include <syscape/detail/security/amigaos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RISCOS)
+#include <syscape/detail/security/riscos.hpp>
 #else
 #include <syscape/detail/security/generic.hpp>
 #endif
