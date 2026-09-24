@@ -13,15 +13,20 @@ namespace syscape {
 namespace detail {
 namespace os_backend {
 
+/// Returns the RISC OS product name determined by compile-time target
+/// detection.
 inline result<std::string> product_name() {
     return std::string("RISC OS");
 }
 
+/// Returns the RISC OS product version if supplied by the
+/// SYSCAPE_RISCOS_VERSION override macro; otherwise returns not_supported to
+/// avoid substituting an unverified version.
 inline result<std::string> product_version() {
 #if defined(SYSCAPE_RISCOS_VERSION)
     return std::string(SYSCAPE_RISCOS_VERSION);
 #else
-    return std::string("5.28");
+    return fail(errc::not_supported);
 #endif
 }
 
@@ -29,12 +34,20 @@ inline result<std::string> build_identifier() {
     return fail(errc::not_supported);
 }
 
+/// Returns the kernel name for RISC OS.
 inline result<std::string> kernel_name() {
     return std::string("RISC OS Kernel");
 }
 
+/// Returns the kernel version if supplied by the
+/// SYSCAPE_RISCOS_KERNEL_VERSION override macro; otherwise returns
+/// not_supported.
 inline result<std::string> kernel_version() {
-    return product_version();
+#if defined(SYSCAPE_RISCOS_KERNEL_VERSION)
+    return std::string(SYSCAPE_RISCOS_KERNEL_VERSION);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::string> host_name() {

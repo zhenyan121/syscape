@@ -37,16 +37,16 @@ int main() {
         assert(*name == "AmigaOS");
 
         const auto ver = syscape::os::product_version();
-        assert(ver.has_value());
-        assert(*ver == "3.1");
+        assert(!ver.has_value());
+        assert(ver.error() == syscape::errc::not_supported);
 
         const auto kname = syscape::os::kernel_name();
         assert(kname.has_value());
         assert(*kname == "Exec");
 
         const auto kver = syscape::os::kernel_version();
-        assert(kver.has_value());
-        assert(*kver == "3.1");
+        assert(!kver.has_value());
+        assert(kver.error() == syscape::errc::not_supported);
 
         const auto hname = syscape::os::host_name();
         assert(!hname.has_value());
@@ -110,16 +110,16 @@ int main() {
     // 4. Process backend checks
     {
         const auto pid = syscape::process::process_id();
-        assert(pid.has_value());
-        assert(*pid == 1U);
+        assert(!pid.has_value());
+        assert(pid.error() == syscape::errc::not_supported);
 
         const auto ppid = syscape::process::parent_process_id();
-        assert(ppid.has_value());
-        assert(*ppid == 0U);
+        assert(!ppid.has_value());
+        assert(ppid.error() == syscape::errc::not_supported);
 
         const auto threads = syscape::process::thread_count();
-        assert(threads.has_value());
-        assert(*threads == 1U);
+        assert(!threads.has_value());
+        assert(threads.error() == syscape::errc::not_supported);
 
         const auto cwd = syscape::process::working_directory();
         assert(!cwd.has_value());
@@ -160,12 +160,12 @@ int main() {
         assert(fd_lim.error() == syscape::errc::not_supported);
 
         const auto pcount = syscape::resource::process_count();
-        assert(pcount.has_value());
-        assert(*pcount == 1U);
+        assert(!pcount.has_value());
+        assert(pcount.error() == syscape::errc::not_supported);
 
         const auto tcount = syscape::resource::thread_count();
-        assert(tcount.has_value());
-        assert(*tcount == 1U);
+        assert(!tcount.has_value());
+        assert(tcount.error() == syscape::errc::not_supported);
 
         const auto load = syscape::resource::load_average();
         assert(!load.has_value());

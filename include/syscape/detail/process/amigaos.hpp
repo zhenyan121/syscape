@@ -16,11 +16,19 @@ namespace detail {
 namespace process_backend {
 
 inline result<std::uint32_t> process_id() {
-    return static_cast<std::uint32_t>(1U);
+#if defined(SYSCAPE_AMIGAOS_PID)
+    return static_cast<std::uint32_t>(SYSCAPE_AMIGAOS_PID);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::uint32_t> parent_process_id() {
-    return static_cast<std::uint32_t>(0U);
+#if defined(SYSCAPE_AMIGAOS_PPID)
+    return static_cast<std::uint32_t>(SYSCAPE_AMIGAOS_PPID);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::string> executable_path() {
@@ -48,7 +56,11 @@ inline result<process_common::memory_usage_snapshot> memory_usage() {
 }
 
 inline result<std::uint32_t> thread_count() {
-    return static_cast<std::uint32_t>(1U);
+#if defined(SYSCAPE_AMIGAOS_THREAD_COUNT)
+    return static_cast<std::uint32_t>(SYSCAPE_AMIGAOS_THREAD_COUNT);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<int> priority() {

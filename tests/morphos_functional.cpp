@@ -8,8 +8,8 @@ int main() {
     assert(*name == "MorphOS");
 
     const auto ver = syscape::os::product_version();
-    assert(ver.has_value());
-    assert(*ver == "3.18");
+    assert(!ver.has_value());
+    assert(ver.error() == syscape::errc::not_supported);
 
     const auto kname = syscape::os::kernel_name();
     assert(kname.has_value());

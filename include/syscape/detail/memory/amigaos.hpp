@@ -4,8 +4,6 @@
 #include <syscape/detail/config.hpp>
 
 #include <cstdint>
-#include <limits>
-
 #include <syscape/detail/memory/common.hpp>
 #include <syscape/result.hpp>
 

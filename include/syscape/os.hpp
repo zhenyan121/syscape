@@ -29,6 +29,10 @@
 /// monotonic-uptime queries through uname and clock_gettime. Boot time and boot
 /// identifier report not_supported because wall-clock initialization and a
 /// stable boot identifier are not guaranteed.
+/// @note AmigaOS, MorphOS, and RISC OS report compile-target product and kernel
+/// names, configurable version information via SYSCAPE_AMIGAOS_VERSION or
+/// SYSCAPE_RISCOS_VERSION, and optional uptime overrides; queries without
+/// runtime APIs report not_supported.
 
 #include <syscape/detail/config.hpp>
 

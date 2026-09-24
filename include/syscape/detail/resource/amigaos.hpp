@@ -21,11 +21,19 @@ inline result<resource_common::entity_counts> scheduler_entities() {
 }
 
 inline result<std::uint64_t> process_count() {
-    return static_cast<std::uint64_t>(1U);
+#if defined(SYSCAPE_AMIGAOS_PROCESS_COUNT)
+    return static_cast<std::uint64_t>(SYSCAPE_AMIGAOS_PROCESS_COUNT);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::uint64_t> thread_count() {
-    return static_cast<std::uint64_t>(1U);
+#if defined(SYSCAPE_AMIGAOS_SYSTEM_THREAD_COUNT)
+    return static_cast<std::uint64_t>(SYSCAPE_AMIGAOS_SYSTEM_THREAD_COUNT);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::uint64_t> open_file_count() {

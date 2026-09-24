@@ -16,6 +16,10 @@ int main() {
         assert(ver.has_value());
         assert(*ver == "5.30");
 
+        const auto kver = syscape::os::kernel_version();
+        assert(kver.has_value());
+        assert(*kver == "5.30");
+
         const auto up = syscape::os::uptime();
         assert(up.has_value());
         assert(up->count() == 7200000);
@@ -39,6 +43,18 @@ int main() {
 
     // Process overrides
     {
+        const auto pid = syscape::process::process_id();
+        assert(pid.has_value());
+        assert(*pid == 200U);
+
+        const auto ppid = syscape::process::parent_process_id();
+        assert(ppid.has_value());
+        assert(*ppid == 1U);
+
+        const auto threads = syscape::process::thread_count();
+        assert(threads.has_value());
+        assert(*threads == 1U);
+
         const auto pri = syscape::process::priority();
         assert(pri.has_value());
         assert(*pri == 0);
@@ -54,6 +70,14 @@ int main() {
 
     // Resource overrides
     {
+        const auto pcount = syscape::resource::process_count();
+        assert(pcount.has_value());
+        assert(*pcount == 5ULL);
+
+        const auto tcount = syscape::resource::thread_count();
+        assert(tcount.has_value());
+        assert(*tcount == 5ULL);
+
         const auto fd_lim = syscape::resource::file_descriptor_limit();
         assert(fd_lim.has_value());
         assert(*fd_lim == 128ULL);

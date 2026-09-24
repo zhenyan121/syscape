@@ -13,6 +13,9 @@ namespace syscape {
 namespace detail {
 namespace os_backend {
 
+/// Returns the AmigaOS family product name determined by compile-time target
+/// macros (such as "MorphOS" under __MORPHOS__, "AmigaOS 4" under __amigaos4__,
+/// or "AmigaOS" otherwise).
 inline result<std::string> product_name() {
 #if defined(__MORPHOS__) || defined(__morphos__)
     return std::string("MorphOS");
@@ -23,15 +26,14 @@ inline result<std::string> product_name() {
 #endif
 }
 
+/// Returns the AmigaOS product version if supplied by the
+/// SYSCAPE_AMIGAOS_VERSION override macro; otherwise returns not_supported to
+/// avoid substituting an unverified version.
 inline result<std::string> product_version() {
 #if defined(SYSCAPE_AMIGAOS_VERSION)
     return std::string(SYSCAPE_AMIGAOS_VERSION);
-#elif defined(__MORPHOS__) || defined(__morphos__)
-    return std::string("3.18");
-#elif defined(__amigaos4__)
-    return std::string("4.1");
 #else
-    return std::string("3.1");
+    return fail(errc::not_supported);
 #endif
 }
 
@@ -39,6 +41,8 @@ inline result<std::string> build_identifier() {
     return fail(errc::not_supported);
 }
 
+/// Returns the kernel name determined by compile-time target macros ("Quark"
+/// for MorphOS, "Exec" for AmigaOS).
 inline result<std::string> kernel_name() {
 #if defined(__MORPHOS__) || defined(__morphos__)
     return std::string("Quark");
@@ -47,8 +51,15 @@ inline result<std::string> kernel_name() {
 #endif
 }
 
+/// Returns the kernel version if supplied by the
+/// SYSCAPE_AMIGAOS_KERNEL_VERSION override macro; otherwise returns
+/// not_supported.
 inline result<std::string> kernel_version() {
-    return product_version();
+#if defined(SYSCAPE_AMIGAOS_KERNEL_VERSION)
+    return std::string(SYSCAPE_AMIGAOS_KERNEL_VERSION);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::string> host_name() {
