@@ -50,7 +50,7 @@ inline result<std::uint64_t> file_descriptor_limit() {
 #elif defined(SYSCAPE_OPENVMS_CHANNEL_LIMIT)
     return static_cast<std::uint64_t>(SYSCAPE_OPENVMS_CHANNEL_LIMIT);
 #else
-    return static_cast<std::uint64_t>(2048U);
+    return fail(errc::not_supported);
 #endif
 }
 

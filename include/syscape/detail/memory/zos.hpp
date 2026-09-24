@@ -14,8 +14,10 @@ namespace memory_backend {
 inline result<std::uint64_t> page_size_bytes() {
 #if defined(SYSCAPE_ZOS_PAGE_SIZE_BYTES)
     return static_cast<std::uint64_t>(SYSCAPE_ZOS_PAGE_SIZE_BYTES);
-#else
+#elif defined(__s390__) || defined(__s390x__) || defined(__zarch__)
     return static_cast<std::uint64_t>(4096U); // IBM Z hardware page size
+#else
+    return fail(errc::not_supported);
 #endif
 }
 

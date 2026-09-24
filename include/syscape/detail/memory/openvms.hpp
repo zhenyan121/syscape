@@ -16,11 +16,14 @@ inline result<std::uint64_t> page_size_bytes() {
     return static_cast<std::uint64_t>(SYSCAPE_OPENVMS_PAGE_SIZE_BYTES);
 #elif defined(__vax) || defined(__VAX)
     return static_cast<std::uint64_t>(512U);
+#elif defined(__alpha) || defined(__ALPHA)
+    return static_cast<std::uint64_t>(8192U);
+#elif defined(__ia64) || defined(__IA64) || defined(__ia64__)
+    return static_cast<std::uint64_t>(8192U);
 #elif defined(__x86_64) || defined(__x86_64__) || defined(_M_X64)
     return static_cast<std::uint64_t>(4096U);
 #else
-    // Alpha and IA-64 OpenVMS standard architecture page size is 8192 bytes
-    return static_cast<std::uint64_t>(8192U);
+    return fail(errc::not_supported);
 #endif
 }
 

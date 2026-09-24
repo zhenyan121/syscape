@@ -26,16 +26,26 @@ inline result<std::uint32_t> online_logical_processor_count() {
 #if defined(SYSCAPE_OPENVMS_CPU_COUNT)
     return static_cast<std::uint32_t>(SYSCAPE_OPENVMS_CPU_COUNT);
 #else
-    return static_cast<std::uint32_t>(1U);
+    return fail(errc::not_supported);
 #endif
 }
 
 inline result<std::uint32_t> online_physical_core_count() {
-    return online_logical_processor_count();
+#if defined(SYSCAPE_OPENVMS_PHYSICAL_CPU_COUNT)
+    return static_cast<std::uint32_t>(SYSCAPE_OPENVMS_PHYSICAL_CPU_COUNT);
+#elif defined(SYSCAPE_OPENVMS_CPU_COUNT)
+    return static_cast<std::uint32_t>(SYSCAPE_OPENVMS_CPU_COUNT);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::uint32_t> online_processor_package_count() {
-    return static_cast<std::uint32_t>(1U);
+#if defined(SYSCAPE_OPENVMS_PACKAGE_COUNT)
+    return static_cast<std::uint32_t>(SYSCAPE_OPENVMS_PACKAGE_COUNT);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::uint32_t> minimum_frequency_khz() {

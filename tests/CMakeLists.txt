@@ -2123,10 +2123,10 @@ syscape_add_test(riscos_detection 11 syscape::syscape riscos_detection.cpp)
 target_compile_definitions(riscos_detection PRIVATE __riscos__=1 SYSCAPE_TARGET_RISCOS=1)
 
 syscape_add_test(openvms_detection 11 syscape::syscape openvms_detection.cpp)
-target_compile_definitions(openvms_detection PRIVATE __VMS=1 SYSCAPE_TARGET_OPENVMS=1)
+target_compile_definitions(openvms_detection PRIVATE __VMS=1)
 
 syscape_add_test(zos_detection 11 syscape::syscape zos_detection.cpp)
-target_compile_definitions(zos_detection PRIVATE __MVS__=1 SYSCAPE_TARGET_ZOS=1)
+target_compile_definitions(zos_detection PRIVATE __MVS__=1)
 
 syscape_add_test(legacy_env_strings 11 syscape::syscape legacy_env_strings.cpp)
 
@@ -2332,6 +2332,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
         SYSCAPE_OPENVMS_HOST_NAME="NODE01"
         SYSCAPE_OPENVMS_UPTIME_MS=7200000
         SYSCAPE_OPENVMS_CPU_COUNT=4
+        SYSCAPE_OPENVMS_PACKAGE_COUNT=1
         SYSCAPE_OPENVMS_PAGE_SIZE_BYTES=65536
         SYSCAPE_OPENVMS_TOTAL_RAM_BYTES=34359738368
         SYSCAPE_OPENVMS_FREE_RAM_BYTES=8589934592
@@ -2378,6 +2379,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
         SYSCAPE_ZOS_HOST_NAME="MAINFRAME1"
         SYSCAPE_ZOS_UPTIME_MS=10800000
         SYSCAPE_ZOS_CPU_COUNT=8
+        SYSCAPE_ZOS_PACKAGE_COUNT=1
         SYSCAPE_ZOS_PAGE_SIZE_BYTES=8192
         SYSCAPE_ZOS_TOTAL_RAM_BYTES=68719476736
         SYSCAPE_ZOS_FREE_RAM_BYTES=17179869184

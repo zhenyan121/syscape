@@ -41,8 +41,15 @@ int main() {
         assert(ver.error() == syscape::errc::not_supported);
 
         const auto kname = syscape::os::kernel_name();
+#if defined(__alpha) || defined(__ALPHA) || defined(__ia64) ||                 \
+    defined(__IA64) || defined(__ia64__) || defined(__x86_64) ||               \
+    defined(__x86_64__) || defined(_M_X64) || defined(__vax) || defined(__VAX)
         assert(kname.has_value());
         assert(!kname->empty());
+#else
+        assert(!kname.has_value());
+        assert(kname.error() == syscape::errc::not_supported);
+#endif
 
         const auto kver = syscape::os::kernel_version();
         assert(!kver.has_value());
@@ -68,16 +75,16 @@ int main() {
     // 2. CPU backend checks
     {
         const auto logical = syscape::cpu::online_logical_processor_count();
-        assert(logical.has_value());
-        assert(*logical == 1U);
+        assert(!logical.has_value());
+        assert(logical.error() == syscape::errc::not_supported);
 
         const auto physical = syscape::cpu::online_physical_core_count();
-        assert(physical.has_value());
-        assert(*physical == 1U);
+        assert(!physical.has_value());
+        assert(physical.error() == syscape::errc::not_supported);
 
         const auto packages = syscape::cpu::online_processor_package_count();
-        assert(packages.has_value());
-        assert(*packages == 1U);
+        assert(!packages.has_value());
+        assert(packages.error() == syscape::errc::not_supported);
 
         const auto vendors = syscape::cpu::vendor_identifiers();
         assert(!vendors.has_value());
@@ -87,8 +94,20 @@ int main() {
     // 3. Memory backend checks
     {
         const auto page = syscape::memory::page_size_bytes();
+#if defined(__vax) || defined(__VAX)
         assert(page.has_value());
-        assert(*page == 8192ULL || *page == 4096ULL || *page == 512ULL);
+        assert(*page == 512ULL);
+#elif defined(__alpha) || defined(__ALPHA) || defined(__ia64) ||               \
+    defined(__IA64) || defined(__ia64__)
+        assert(page.has_value());
+        assert(*page == 8192ULL);
+#elif defined(__x86_64) || defined(__x86_64__) || defined(_M_X64)
+        assert(page.has_value());
+        assert(*page == 4096ULL);
+#else
+        assert(!page.has_value());
+        assert(page.error() == syscape::errc::not_supported);
+#endif
 
         const auto total = syscape::memory::physical_memory_bytes();
         assert(!total.has_value());
@@ -166,8 +185,8 @@ int main() {
     // 6. Resource backend checks
     {
         const auto fd = syscape::resource::file_descriptor_limit();
-        assert(fd.has_value());
-        assert(*fd == 2048ULL);
+        assert(!fd.has_value());
+        assert(fd.error() == syscape::errc::not_supported);
 
         const auto load = syscape::resource::load_average();
         assert(!load.has_value());

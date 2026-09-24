@@ -48,7 +48,7 @@ inline result<std::uint64_t> file_descriptor_limit() {
 #if defined(SYSCAPE_ZOS_MAX_FILES)
     return static_cast<std::uint64_t>(SYSCAPE_ZOS_MAX_FILES);
 #else
-    return static_cast<std::uint64_t>(256U); // Standard POSIX OPEN_MAX
+    return fail(errc::not_supported);
 #endif
 }
 

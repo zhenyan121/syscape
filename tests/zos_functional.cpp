@@ -68,16 +68,16 @@ int main() {
     // 2. CPU backend checks
     {
         const auto logical = syscape::cpu::online_logical_processor_count();
-        assert(logical.has_value());
-        assert(*logical == 1U);
+        assert(!logical.has_value());
+        assert(logical.error() == syscape::errc::not_supported);
 
         const auto physical = syscape::cpu::online_physical_core_count();
-        assert(physical.has_value());
-        assert(*physical == 1U);
+        assert(!physical.has_value());
+        assert(physical.error() == syscape::errc::not_supported);
 
         const auto packages = syscape::cpu::online_processor_package_count();
-        assert(packages.has_value());
-        assert(*packages == 1U);
+        assert(!packages.has_value());
+        assert(packages.error() == syscape::errc::not_supported);
 
         const auto vendors = syscape::cpu::vendor_identifiers();
         assert(!vendors.has_value());
@@ -87,8 +87,13 @@ int main() {
     // 3. Memory backend checks
     {
         const auto page = syscape::memory::page_size_bytes();
+#if defined(__s390__) || defined(__s390x__) || defined(__zarch__)
         assert(page.has_value());
         assert(*page == 4096ULL);
+#else
+        assert(!page.has_value());
+        assert(page.error() == syscape::errc::not_supported);
+#endif
 
         const auto total = syscape::memory::physical_memory_bytes();
         assert(!total.has_value());
@@ -166,8 +171,8 @@ int main() {
     // 6. Resource backend checks
     {
         const auto fd = syscape::resource::file_descriptor_limit();
-        assert(fd.has_value());
-        assert(*fd == 256ULL);
+        assert(!fd.has_value());
+        assert(fd.error() == syscape::errc::not_supported);
 
         const auto load = syscape::resource::load_average();
         assert(!load.has_value());

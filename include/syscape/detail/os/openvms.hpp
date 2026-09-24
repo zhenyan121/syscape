@@ -45,7 +45,7 @@ inline result<std::string> kernel_name() {
 #elif defined(__vax) || defined(__VAX)
     return std::string("OpenVMS VAX");
 #else
-    return std::string("OpenVMS Kernel");
+    return fail(errc::not_supported);
 #endif
 }
 
