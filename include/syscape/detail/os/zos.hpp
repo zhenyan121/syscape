@@ -4,7 +4,6 @@
 #include <syscape/detail/config.hpp>
 
 #include <chrono>
-#include <cstdint>
 #include <string>
 
 #include <syscape/result.hpp>
@@ -38,13 +37,14 @@ inline result<std::string> kernel_name() {
     return std::string("z/OS UNIX System Services");
 }
 
-/// Returns the kernel version if supplied by the SYSCAPE_ZOS_KERNEL_VERSION
-/// override macro, or defaults to the product version.
+/// Returns the kernel version if supplied by the
+/// SYSCAPE_ZOS_KERNEL_VERSION override macro; otherwise returns
+/// not_supported to prevent substituting an unverified version.
 inline result<std::string> kernel_version() {
 #if defined(SYSCAPE_ZOS_KERNEL_VERSION)
     return std::string(SYSCAPE_ZOS_KERNEL_VERSION);
 #else
-    return product_version();
+    return fail(errc::not_supported);
 #endif
 }
 

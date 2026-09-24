@@ -46,6 +46,10 @@ int main() {
 
     // Memory overrides & load percent calculation
     {
+        const auto page = syscape::memory::page_size_bytes();
+        assert(page.has_value());
+        assert(*page == 8192ULL);
+
         const auto total = syscape::memory::physical_memory_bytes();
         assert(total.has_value());
         assert(*total == 68719476736ULL);
