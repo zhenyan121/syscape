@@ -60,7 +60,8 @@ enum class operating_system {
     amigaos,
     riscos,
     openvms,
-    zos
+    zos,
+    ibmi
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -101,6 +102,9 @@ constexpr operating_system target_operating_system() noexcept {
     defined(__zos__) || defined(__TOS_MVS__) || defined(__TOS_OS390__) ||      \
     defined(SYSCAPE_TARGET_ZOS)
     return operating_system::zos;
+#elif defined(__OS400__) || defined(__OS400_TGTVRM__) || defined(_PASE) ||     \
+    defined(__PASE__) || defined(__ILEC400__) || defined(SYSCAPE_TARGET_IBMI)
+    return operating_system::ibmi;
 #elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN)
     return operating_system::cygwin;
 #elif defined(SYSCAPE_TARGET_MCU_AVR) || defined(SYSCAPE_TARGET_MCU_SAM) ||    \
@@ -244,7 +248,9 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(VMS) || defined(__vms) || defined(__vms__) ||                      \
     defined(SYSCAPE_TARGET_OPENVMS) || defined(__MVS__) || defined(_MVS) ||    \
     defined(__OS390__) || defined(__zos__) || defined(__TOS_MVS__) ||          \
-    defined(__TOS_OS390__) || defined(SYSCAPE_TARGET_ZOS)
+    defined(__TOS_OS390__) || defined(SYSCAPE_TARGET_ZOS) ||                   \
+    defined(__OS400__) || defined(__OS400_TGTVRM__) || defined(_PASE) ||       \
+    defined(__PASE__) || defined(__ILEC400__) || defined(SYSCAPE_TARGET_IBMI)
     return execution_environment::hosted;
 #elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN) ||                 \
     defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
@@ -386,6 +392,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "openvms";
     case operating_system::zos:
         return "zos";
+    case operating_system::ibmi:
+        return "ibmi";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";

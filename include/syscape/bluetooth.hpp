@@ -193,7 +193,7 @@ struct device_info {
     !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
     !defined(SYSCAPE_TARGET_OS2) && !defined(SYSCAPE_TARGET_AMIGAOS) &&        \
     !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
-    !defined(SYSCAPE_TARGET_ZOS)
+    !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI)
 #include <syscape/detail/bluetooth/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/bluetooth/windows.hpp>
@@ -240,6 +240,8 @@ struct device_info {
 #include <syscape/detail/bluetooth/openvms.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZOS)
 #include <syscape/detail/bluetooth/zos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_IBMI)
+#include <syscape/detail/bluetooth/ibmi.hpp>
 #else
 #include <syscape/detail/bluetooth/generic.hpp>
 #endif

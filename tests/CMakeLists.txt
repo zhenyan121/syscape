@@ -2128,6 +2128,12 @@ target_compile_definitions(openvms_detection PRIVATE __VMS=1)
 syscape_add_test(zos_detection 11 syscape::syscape zos_detection.cpp)
 target_compile_definitions(zos_detection PRIVATE __MVS__=1)
 
+syscape_add_test(ibmi_detection 11 syscape::syscape ibmi_detection.cpp)
+target_compile_definitions(ibmi_detection PRIVATE __OS400__=1)
+
+syscape_add_test(ibmi_pase_detection 11 syscape::syscape ibmi_detection.cpp)
+target_compile_definitions(ibmi_pase_detection PRIVATE _AIX=1 _PASE=1)
+
 syscape_add_test(legacy_env_strings 11 syscape::syscape legacy_env_strings.cpp)
 
 # MCU and board families (Tier 4 / Freestanding Minimal)
@@ -2411,6 +2417,53 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
             syscape::hosted
             header_${zos_domain}.cpp)
         target_compile_definitions(${zos_header_target} PRIVATE SYSCAPE_TARGET_ZOS=1)
+    endforeach()
+
+    # IBM i tests on POSIX host using SYSCAPE_TARGET_IBMI=1
+    syscape_add_test(ibmi_functional 17 syscape::hosted ibmi_functional.cpp)
+    target_compile_definitions(ibmi_functional PRIVATE SYSCAPE_TARGET_IBMI=1)
+
+    syscape_add_test(ibmi_overrides 17 syscape::hosted ibmi_overrides.cpp)
+    target_compile_definitions(ibmi_overrides PRIVATE
+        SYSCAPE_TARGET_IBMI=1
+        SYSCAPE_IBMI_VERSION="V7R4M0"
+        SYSCAPE_IBMI_KERNEL_VERSION="V7R4M0"
+        SYSCAPE_IBMI_HOST_NAME="AS400"
+        SYSCAPE_IBMI_UPTIME_MS=10800000
+        SYSCAPE_IBMI_CPU_COUNT=8
+        SYSCAPE_IBMI_PACKAGE_COUNT=1
+        SYSCAPE_IBMI_PAGE_SIZE_BYTES=8192
+        SYSCAPE_IBMI_TOTAL_RAM_BYTES=68719476736
+        SYSCAPE_IBMI_FREE_RAM_BYTES=17179869184
+        SYSCAPE_IBMI_PID=500
+        SYSCAPE_IBMI_PPID=1
+        SYSCAPE_IBMI_THREAD_COUNT=32
+        SYSCAPE_IBMI_TASK_PRIORITY=0
+        SYSCAPE_IBMI_PROCESS_COUNT=128
+        SYSCAPE_IBMI_SYSTEM_THREAD_COUNT=1024
+        SYSCAPE_IBMI_MAX_FILES=1024
+        SYSCAPE_IBMI_QSYS=1)
+
+    syscape_add_test(
+        ibmi_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(ibmi_odr PRIVATE SYSCAPE_TARGET_IBMI=1)
+
+    foreach(ibmi_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(ibmi_header_target "header_${ibmi_domain}_ibmi")
+        syscape_add_test(
+            ${ibmi_header_target}
+            17
+            syscape::hosted
+            header_${ibmi_domain}.cpp)
+        target_compile_definitions(${ibmi_header_target} PRIVATE SYSCAPE_TARGET_IBMI=1)
     endforeach()
 endif()
 

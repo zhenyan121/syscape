@@ -33,10 +33,10 @@
 /// names, configurable version information via SYSCAPE_AMIGAOS_VERSION or
 /// SYSCAPE_RISCOS_VERSION, and optional uptime overrides; queries without
 /// runtime APIs report not_supported.
-/// @note OpenVMS and z/OS report compile-target product and kernel names,
-/// configurable version information via SYSCAPE_OPENVMS_VERSION or
-/// SYSCAPE_ZOS_VERSION, and optional uptime overrides; queries without runtime
-/// APIs report not_supported.
+/// @note OpenVMS, z/OS, and IBM i report compile-target product and kernel
+/// names, configurable version information via SYSCAPE_OPENVMS_VERSION,
+/// SYSCAPE_ZOS_VERSION, or SYSCAPE_IBMI_VERSION, and optional uptime overrides;
+/// queries without runtime APIs report not_supported.
 
 #include <syscape/detail/config.hpp>
 
@@ -67,7 +67,7 @@
     !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
     !defined(SYSCAPE_TARGET_OS2) && !defined(SYSCAPE_TARGET_AMIGAOS) &&        \
     !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
-    !defined(SYSCAPE_TARGET_ZOS)
+    !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI)
 #include <syscape/detail/os/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/os/windows.hpp>
@@ -160,6 +160,8 @@
 #include <syscape/detail/os/openvms.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZOS)
 #include <syscape/detail/os/zos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_IBMI)
+#include <syscape/detail/os/ibmi.hpp>
 #else
 #include <syscape/detail/os/generic.hpp>
 #endif
