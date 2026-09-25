@@ -94,9 +94,11 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(__riscos__) || defined(__riscos) || defined(RISCOS) ||           \
     defined(__RISCOS__) || defined(SYSCAPE_TARGET_RISCOS)
     return operating_system::riscos;
-#elif defined(__VMS) || defined(VMS) || defined(SYSCAPE_TARGET_OPENVMS)
+#elif defined(__VMS) || defined(__VMS__) || defined(VMS) || defined(__vms) ||  \
+    defined(__vms__) || defined(SYSCAPE_TARGET_OPENVMS)
     return operating_system::openvms;
 #elif defined(__MVS__) || defined(_MVS) || defined(__OS390__) ||               \
+    defined(__zos__) || defined(__TOS_MVS__) || defined(__TOS_OS390__) ||      \
     defined(SYSCAPE_TARGET_ZOS)
     return operating_system::zos;
 #elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN)
@@ -238,9 +240,11 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(SYSCAPE_TARGET_RISCOS)
     return execution_environment::rtos;
 #elif defined(__OS2__) || defined(OS2) || defined(_OS2) ||                     \
-    defined(SYSCAPE_TARGET_OS2) || defined(__VMS) || defined(VMS) ||           \
+    defined(SYSCAPE_TARGET_OS2) || defined(__VMS) || defined(__VMS__) ||       \
+    defined(VMS) || defined(__vms) || defined(__vms__) ||                      \
     defined(SYSCAPE_TARGET_OPENVMS) || defined(__MVS__) || defined(_MVS) ||    \
-    defined(__OS390__) || defined(SYSCAPE_TARGET_ZOS)
+    defined(__OS390__) || defined(__zos__) || defined(__TOS_MVS__) ||          \
+    defined(__TOS_OS390__) || defined(SYSCAPE_TARGET_ZOS)
     return execution_environment::hosted;
 #elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN) ||                 \
     defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)

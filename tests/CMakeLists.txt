@@ -2123,10 +2123,10 @@ syscape_add_test(riscos_detection 11 syscape::syscape riscos_detection.cpp)
 target_compile_definitions(riscos_detection PRIVATE __riscos__=1 SYSCAPE_TARGET_RISCOS=1)
 
 syscape_add_test(openvms_detection 11 syscape::syscape openvms_detection.cpp)
-target_compile_definitions(openvms_detection PRIVATE __VMS=1 SYSCAPE_TARGET_OPENVMS=1)
+target_compile_definitions(openvms_detection PRIVATE __VMS=1)
 
 syscape_add_test(zos_detection 11 syscape::syscape zos_detection.cpp)
-target_compile_definitions(zos_detection PRIVATE __MVS__=1 SYSCAPE_TARGET_ZOS=1)
+target_compile_definitions(zos_detection PRIVATE __MVS__=1)
 
 syscape_add_test(legacy_env_strings 11 syscape::syscape legacy_env_strings.cpp)
 
@@ -2318,6 +2318,99 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
             syscape::hosted
             header_${riscos_domain}.cpp)
         target_compile_definitions(${riscos_header_target} PRIVATE SYSCAPE_TARGET_RISCOS=1)
+    endforeach()
+
+    # OpenVMS tests on POSIX host using SYSCAPE_TARGET_OPENVMS=1
+    syscape_add_test(openvms_functional 17 syscape::hosted openvms_functional.cpp)
+    target_compile_definitions(openvms_functional PRIVATE SYSCAPE_TARGET_OPENVMS=1)
+
+    syscape_add_test(openvms_overrides 17 syscape::hosted openvms_overrides.cpp)
+    target_compile_definitions(openvms_overrides PRIVATE
+        SYSCAPE_TARGET_OPENVMS=1
+        SYSCAPE_OPENVMS_VERSION="V8.4-2L1"
+        SYSCAPE_OPENVMS_KERNEL_VERSION="V8.4-2L1"
+        SYSCAPE_OPENVMS_HOST_NAME="NODE01"
+        SYSCAPE_OPENVMS_UPTIME_MS=7200000
+        SYSCAPE_OPENVMS_CPU_COUNT=4
+        SYSCAPE_OPENVMS_PACKAGE_COUNT=1
+        SYSCAPE_OPENVMS_PAGE_SIZE_BYTES=65536
+        SYSCAPE_OPENVMS_TOTAL_RAM_BYTES=34359738368
+        SYSCAPE_OPENVMS_FREE_RAM_BYTES=8589934592
+        SYSCAPE_OPENVMS_PID=2048
+        SYSCAPE_OPENVMS_PPID=1024
+        SYSCAPE_OPENVMS_THREAD_COUNT=16
+        SYSCAPE_OPENVMS_TASK_PRIORITY=16
+        SYSCAPE_OPENVMS_ODS2=1
+        SYSCAPE_OPENVMS_PROCESS_COUNT=64
+        SYSCAPE_OPENVMS_SYSTEM_THREAD_COUNT=256
+        SYSCAPE_OPENVMS_CHANNEL_LIMIT=4096)
+
+    syscape_add_test(
+        openvms_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(openvms_odr PRIVATE SYSCAPE_TARGET_OPENVMS=1)
+
+    foreach(openvms_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(openvms_header_target "header_${openvms_domain}_openvms")
+        syscape_add_test(
+            ${openvms_header_target}
+            17
+            syscape::hosted
+            header_${openvms_domain}.cpp)
+        target_compile_definitions(${openvms_header_target} PRIVATE SYSCAPE_TARGET_OPENVMS=1)
+    endforeach()
+
+    # z/OS tests on POSIX host using SYSCAPE_TARGET_ZOS=1
+    syscape_add_test(zos_functional 17 syscape::hosted zos_functional.cpp)
+    target_compile_definitions(zos_functional PRIVATE SYSCAPE_TARGET_ZOS=1)
+
+    syscape_add_test(zos_overrides 17 syscape::hosted zos_overrides.cpp)
+    target_compile_definitions(zos_overrides PRIVATE
+        SYSCAPE_TARGET_ZOS=1
+        SYSCAPE_ZOS_VERSION="V2R5"
+        SYSCAPE_ZOS_KERNEL_VERSION="V2R5"
+        SYSCAPE_ZOS_HOST_NAME="MAINFRAME1"
+        SYSCAPE_ZOS_UPTIME_MS=10800000
+        SYSCAPE_ZOS_CPU_COUNT=8
+        SYSCAPE_ZOS_PACKAGE_COUNT=1
+        SYSCAPE_ZOS_PAGE_SIZE_BYTES=8192
+        SYSCAPE_ZOS_TOTAL_RAM_BYTES=68719476736
+        SYSCAPE_ZOS_FREE_RAM_BYTES=17179869184
+        SYSCAPE_ZOS_PID=500
+        SYSCAPE_ZOS_PPID=1
+        SYSCAPE_ZOS_THREAD_COUNT=32
+        SYSCAPE_ZOS_TASK_PRIORITY=0
+        SYSCAPE_ZOS_PROCESS_COUNT=128
+        SYSCAPE_ZOS_SYSTEM_THREAD_COUNT=1024
+        SYSCAPE_ZOS_MAX_FILES=1024)
+
+    syscape_add_test(
+        zos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(zos_odr PRIVATE SYSCAPE_TARGET_ZOS=1)
+
+    foreach(zos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(zos_header_target "header_${zos_domain}_zos")
+        syscape_add_test(
+            ${zos_header_target}
+            17
+            syscape::hosted
+            header_${zos_domain}.cpp)
+        target_compile_definitions(${zos_header_target} PRIVATE SYSCAPE_TARGET_ZOS=1)
     endforeach()
 endif()
 

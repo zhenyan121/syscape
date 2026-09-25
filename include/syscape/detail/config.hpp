@@ -194,11 +194,13 @@
 #define SYSCAPE_TARGET_RISCOS 1
 #endif
 
-#if defined(__VMS) || defined(VMS) || defined(SYSCAPE_TARGET_OPENVMS)
+#if defined(__VMS) || defined(__VMS__) || defined(VMS) || defined(__vms) ||    \
+    defined(__vms__) || defined(SYSCAPE_TARGET_OPENVMS)
 #define SYSCAPE_TARGET_OPENVMS 1
 #endif
 
 #if defined(__MVS__) || defined(_MVS) || defined(__OS390__) ||                 \
+    defined(__zos__) || defined(__TOS_MVS__) || defined(__TOS_OS390__) ||      \
     defined(SYSCAPE_TARGET_ZOS)
 #define SYSCAPE_TARGET_ZOS 1
 #endif

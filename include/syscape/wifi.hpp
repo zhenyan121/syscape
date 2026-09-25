@@ -246,7 +246,8 @@ struct configured_network {
     !defined(SYSCAPE_TARGET_MBED) && !defined(SYSCAPE_TARGET_RIOT) &&          \
     !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
     !defined(SYSCAPE_TARGET_OS2) && !defined(SYSCAPE_TARGET_AMIGAOS) &&        \
-    !defined(SYSCAPE_TARGET_RISCOS)
+    !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
+    !defined(SYSCAPE_TARGET_ZOS)
 #include <syscape/detail/wifi/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/wifi/windows.hpp>
@@ -287,6 +288,10 @@ struct configured_network {
 #include <syscape/detail/wifi/amigaos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_RISCOS)
 #include <syscape/detail/wifi/riscos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_OPENVMS)
+#include <syscape/detail/wifi/openvms.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZOS)
+#include <syscape/detail/wifi/zos.hpp>
 #else
 #include <syscape/detail/wifi/generic.hpp>
 #endif
