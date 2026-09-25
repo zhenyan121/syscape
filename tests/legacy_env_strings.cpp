@@ -21,5 +21,8 @@ int main() {
     assert(std::strcmp(
                syscape::operating_system_name(syscape::operating_system::zos),
                "zos") == 0);
+    assert(std::strcmp(
+               syscape::operating_system_name(syscape::operating_system::ibmi),
+               "ibmi") == 0);
     return 0;
 }

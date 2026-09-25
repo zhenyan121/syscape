@@ -166,7 +166,7 @@ struct printer_info {
     !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
     !defined(SYSCAPE_TARGET_OS2) && !defined(SYSCAPE_TARGET_AMIGAOS) &&        \
     !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
-    !defined(SYSCAPE_TARGET_ZOS)
+    !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI)
 #include <syscape/detail/printer/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/printer/windows.hpp>
@@ -259,6 +259,8 @@ struct printer_info {
 #include <syscape/detail/printer/openvms.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZOS)
 #include <syscape/detail/printer/zos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_IBMI)
+#include <syscape/detail/printer/ibmi.hpp>
 #else
 #include <syscape/detail/printer/generic.hpp>
 #endif

@@ -1,0 +1,77 @@
+#ifndef SYSCAPE_DETAIL_CPU_IBMI_HPP
+#define SYSCAPE_DETAIL_CPU_IBMI_HPP
+
+#include <syscape/detail/config.hpp>
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include <syscape/detail/cpu/common.hpp>
+#include <syscape/result.hpp>
+
+namespace syscape {
+namespace detail {
+namespace cpu_backend {
+
+inline result<std::vector<std::string>> vendor_identifiers() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<std::string>> model_names() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::uint32_t> online_logical_processor_count() {
+#if defined(SYSCAPE_IBMI_CPU_COUNT)
+    return static_cast<std::uint32_t>(SYSCAPE_IBMI_CPU_COUNT);
+#else
+    return fail(errc::not_supported);
+#endif
+}
+
+inline result<std::uint32_t> online_physical_core_count() {
+#if defined(SYSCAPE_IBMI_PHYSICAL_CPU_COUNT)
+    return static_cast<std::uint32_t>(SYSCAPE_IBMI_PHYSICAL_CPU_COUNT);
+#else
+    return fail(errc::not_supported);
+#endif
+}
+
+inline result<std::uint32_t> online_processor_package_count() {
+#if defined(SYSCAPE_IBMI_PACKAGE_COUNT)
+    return static_cast<std::uint32_t>(SYSCAPE_IBMI_PACKAGE_COUNT);
+#else
+    return fail(errc::not_supported);
+#endif
+}
+
+inline result<std::uint32_t> minimum_frequency_khz() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::uint32_t> maximum_frequency_khz() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<std::uint32_t>> current_frequencies_khz() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<cpu_common::cache_entry>> cache_descriptors() {
+    return fail(errc::not_supported);
+}
+
+inline result<std::vector<std::string>> instruction_set_features() {
+    return fail(errc::not_supported);
+}
+
+inline result<cpu_common::usage_information> cumulative_processor_usage() {
+    return fail(errc::not_supported);
+}
+
+} // namespace cpu_backend
+} // namespace detail
+} // namespace syscape
+
+#endif

@@ -138,7 +138,7 @@ struct audio_device {
     !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
     !defined(SYSCAPE_TARGET_OS2) && !defined(SYSCAPE_TARGET_AMIGAOS) &&        \
     !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
-    !defined(SYSCAPE_TARGET_ZOS)
+    !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI)
 #include <syscape/detail/audio/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/audio/windows.hpp>
@@ -231,6 +231,8 @@ struct audio_device {
 #include <syscape/detail/audio/openvms.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZOS)
 #include <syscape/detail/audio/zos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_IBMI)
+#include <syscape/detail/audio/ibmi.hpp>
 #else
 #include <syscape/detail/audio/generic.hpp>
 #endif

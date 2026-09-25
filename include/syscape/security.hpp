@@ -261,7 +261,7 @@ struct tpm_info {
     !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
     !defined(SYSCAPE_TARGET_OS2) && !defined(SYSCAPE_TARGET_AMIGAOS) &&        \
     !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
-    !defined(SYSCAPE_TARGET_ZOS)
+    !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI)
 #include <syscape/detail/security/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/security/windows.hpp>
@@ -354,6 +354,8 @@ struct tpm_info {
 #include <syscape/detail/security/openvms.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZOS)
 #include <syscape/detail/security/zos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_IBMI)
+#include <syscape/detail/security/ibmi.hpp>
 #else
 #include <syscape/detail/security/generic.hpp>
 #endif

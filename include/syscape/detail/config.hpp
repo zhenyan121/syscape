@@ -13,7 +13,9 @@
 #define SYSCAPE_TARGET_HAIKU 1
 #endif
 
-#if defined(_AIX) || defined(__TOS_AIX__)
+#if (defined(_AIX) || defined(__TOS_AIX__)) && !defined(_PASE) &&              \
+    !defined(__PASE__) && !defined(__OS400__) && !defined(__OS400_TGTVRM__) && \
+    !defined(SYSCAPE_TARGET_IBMI)
 #define SYSCAPE_TARGET_AIX 1
 #if !defined(_BSD)
 #define _BSD 44
@@ -203,6 +205,11 @@
     defined(__zos__) || defined(__TOS_MVS__) || defined(__TOS_OS390__) ||      \
     defined(SYSCAPE_TARGET_ZOS)
 #define SYSCAPE_TARGET_ZOS 1
+#endif
+
+#if defined(__OS400__) || defined(__OS400_TGTVRM__) || defined(_PASE) ||       \
+    defined(__PASE__) || defined(__ILEC400__) || defined(SYSCAPE_TARGET_IBMI)
+#define SYSCAPE_TARGET_IBMI 1
 #endif
 
 #if defined(__AVR__) || defined(__AVR) || defined(ARDUINO_ARCH_AVR) ||         \

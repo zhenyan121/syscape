@@ -116,7 +116,7 @@ enum class cache_kind : std::uint8_t {
     !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
     !defined(SYSCAPE_TARGET_OS2) && !defined(SYSCAPE_TARGET_AMIGAOS) &&        \
     !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
-    !defined(SYSCAPE_TARGET_ZOS)
+    !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI)
 #include <syscape/detail/cpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/cpu/windows.hpp>
@@ -209,6 +209,8 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/detail/cpu/openvms.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ZOS)
 #include <syscape/detail/cpu/zos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_IBMI)
+#include <syscape/detail/cpu/ibmi.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif
