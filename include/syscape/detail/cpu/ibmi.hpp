@@ -33,8 +33,6 @@ inline result<std::uint32_t> online_logical_processor_count() {
 inline result<std::uint32_t> online_physical_core_count() {
 #if defined(SYSCAPE_IBMI_PHYSICAL_CPU_COUNT)
     return static_cast<std::uint32_t>(SYSCAPE_IBMI_PHYSICAL_CPU_COUNT);
-#elif defined(SYSCAPE_IBMI_CPU_COUNT)
-    return static_cast<std::uint32_t>(SYSCAPE_IBMI_CPU_COUNT);
 #else
     return fail(errc::not_supported);
 #endif

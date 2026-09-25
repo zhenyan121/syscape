@@ -112,6 +112,9 @@ int main() {
         assert(!swap.has_value());
         assert(swap.error() == syscape::errc::not_supported);
 
+        // memory_load_percent() fails with not_supported because it propagates
+        // the error from physical_memory_bytes() when RAM overrides are
+        // unconfigured.
         const auto load = syscape::memory::memory_load_percent();
         assert(!load.has_value());
         assert(load.error() == syscape::errc::not_supported);

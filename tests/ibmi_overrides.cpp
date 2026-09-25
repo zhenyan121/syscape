@@ -41,7 +41,7 @@ int main() {
 
         const auto physical = syscape::cpu::online_physical_core_count();
         assert(physical.has_value());
-        assert(*physical == 8U);
+        assert(*physical == 4U);
 
         const auto packages = syscape::cpu::online_processor_package_count();
         assert(packages.has_value());

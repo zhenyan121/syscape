@@ -2423,6 +2423,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
     syscape_add_test(ibmi_functional 17 syscape::hosted ibmi_functional.cpp)
     target_compile_definitions(ibmi_functional PRIVATE SYSCAPE_TARGET_IBMI=1)
 
+    syscape_add_test(ibmi_pase_functional 17 syscape::hosted ibmi_pase_functional.cpp)
+    target_compile_definitions(ibmi_pase_functional PRIVATE SYSCAPE_TARGET_IBMI=1 _AIX=1 _PASE=1)
+
+    syscape_add_test(ibmi_vrm_test 17 syscape::hosted ibmi_vrm_test.cpp)
+    target_compile_definitions(ibmi_vrm_test PRIVATE SYSCAPE_TARGET_IBMI=1 __OS400_TGTVRM__=750)
+
     syscape_add_test(ibmi_overrides 17 syscape::hosted ibmi_overrides.cpp)
     target_compile_definitions(ibmi_overrides PRIVATE
         SYSCAPE_TARGET_IBMI=1
@@ -2431,6 +2437,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
         SYSCAPE_IBMI_HOST_NAME="AS400"
         SYSCAPE_IBMI_UPTIME_MS=10800000
         SYSCAPE_IBMI_CPU_COUNT=8
+        SYSCAPE_IBMI_PHYSICAL_CPU_COUNT=4
         SYSCAPE_IBMI_PACKAGE_COUNT=1
         SYSCAPE_IBMI_PAGE_SIZE_BYTES=8192
         SYSCAPE_IBMI_TOTAL_RAM_BYTES=68719476736

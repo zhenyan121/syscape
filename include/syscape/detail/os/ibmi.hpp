@@ -24,12 +24,19 @@ inline result<std::string> product_version() {
 #if defined(SYSCAPE_IBMI_VERSION)
     return std::string(SYSCAPE_IBMI_VERSION);
 #elif defined(__OS400_TGTVRM__)
-    const int vrm = __OS400_TGTVRM__;
-    const int v = vrm / 100;
-    const int r = (vrm / 10) % 10;
-    const int m = vrm % 10;
+#if __OS400_TGTVRM__ > 0
+    // Decode 3-digit VRM integer representation where hundreds digit is
+    // version, tens digit is release, and units digit is modification (e.g.,
+    // 740 -> V7R4M0).
+    constexpr unsigned int vrm = static_cast<unsigned int>(__OS400_TGTVRM__);
+    const unsigned int v = vrm / 100U;
+    const unsigned int r = (vrm / 10U) % 10U;
+    const unsigned int m = vrm % 10U;
     return std::string("V") + std::to_string(v) + "R" + std::to_string(r) +
            "M" + std::to_string(m);
+#else
+    return fail(errc::malformed_data);
+#endif
 #else
     return fail(errc::not_supported);
 #endif
@@ -55,12 +62,19 @@ inline result<std::string> kernel_version() {
 #if defined(SYSCAPE_IBMI_KERNEL_VERSION)
     return std::string(SYSCAPE_IBMI_KERNEL_VERSION);
 #elif defined(__OS400_TGTVRM__)
-    const int vrm = __OS400_TGTVRM__;
-    const int v = vrm / 100;
-    const int r = (vrm / 10) % 10;
-    const int m = vrm % 10;
+#if __OS400_TGTVRM__ > 0
+    // Decode 3-digit VRM integer representation where hundreds digit is
+    // version, tens digit is release, and units digit is modification (e.g.,
+    // 740 -> V7R4M0).
+    constexpr unsigned int vrm = static_cast<unsigned int>(__OS400_TGTVRM__);
+    const unsigned int v = vrm / 100U;
+    const unsigned int r = (vrm / 10U) % 10U;
+    const unsigned int m = vrm % 10U;
     return std::string("V") + std::to_string(v) + "R" + std::to_string(r) +
            "M" + std::to_string(m);
+#else
+    return fail(errc::malformed_data);
+#endif
 #else
     return fail(errc::not_supported);
 #endif
