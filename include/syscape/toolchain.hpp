@@ -63,15 +63,28 @@ struct toolchain_version {
     unsigned int patch;
 };
 
+/// Compares two toolchain_version values for equality.
+constexpr bool operator==(const toolchain_version& lhs,
+                          const toolchain_version& rhs) noexcept {
+    return lhs.major == rhs.major && lhs.minor == rhs.minor &&
+           lhs.patch == rhs.patch;
+}
+
+/// Compares two toolchain_version values for inequality.
+constexpr bool operator!=(const toolchain_version& lhs,
+                          const toolchain_version& rhs) noexcept {
+    return !(lhs == rhs);
+}
+
 /// Returns the compiler frontend selected for this translation unit.
 constexpr compiler target_compiler() noexcept {
 #if defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return compiler::unknown;
 #elif defined(__EMSCRIPTEN__)
     return compiler::emscripten;
-#elif defined(__ibmxl__) || defined(__open_xl__)
+#elif defined(__open_xl_version__) || defined(__open_xl__) || defined(__ibmxl__)
     return compiler::ibm_open_xl;
-#elif defined(__IBMCPP__) || defined(__xlC__)
+#elif defined(__xlC__) || defined(__IBMCPP__)
     return compiler::ibm_xl;
 #elif defined(__INTEL_LLVM_COMPILER)
     return compiler::intel_llvm;
@@ -79,30 +92,34 @@ constexpr compiler target_compiler() noexcept {
     return compiler::intel_classic;
 #elif defined(__apple_build_version__) && defined(__clang__)
     return compiler::apple_clang;
-#elif defined(__ARMCOMPILER_VERSION)
+#elif defined(__ARMCOMPILER_VERSION) || defined(__ARMCC_VERSION) ||            \
+    defined(__CC_ARM)
     return compiler::arm_compiler;
 #elif defined(__TI_COMPILER_VERSION__)
     return compiler::texas_instruments;
-#elif defined(__RENESAS__)
+#elif defined(__RENESAS__) || defined(__RENESAS_VERSION__)
     return compiler::renesas;
-#elif defined(__XC) || defined(__XC8) || defined(__XC16) || defined(__XC32)
+#elif defined(__XC) || defined(__XC8) || defined(__XC16) || defined(__XC32) || \
+    defined(__XC8_VERSION) || defined(__XC16_VERSION) ||                       \
+    defined(__XC32_VERSION)
     return compiler::microchip_xc;
+#elif defined(__SUNPRO_CC) || defined(__SUNPRO_C)
+    return compiler::oracle_developer_studio;
+#elif defined(__HP_aCC)
+    return compiler::hp_acc;
+#elif defined(__IAR_SYSTEMS_ICC__)
+    return compiler::iar;
+#elif defined(__ghs__) || defined(__GHS_VERSION_NUMBER__) ||                   \
+    defined(__ghs_version__)
+    return compiler::green_hills;
+#elif defined(__WATCOMC__)
+    return compiler::open_watcom;
 #elif defined(__clang__)
     return compiler::clang;
 #elif defined(_MSC_VER)
     return compiler::msvc;
 #elif defined(__GNUC__)
     return compiler::gcc;
-#elif defined(__SUNPRO_CC)
-    return compiler::oracle_developer_studio;
-#elif defined(__HP_aCC)
-    return compiler::hp_acc;
-#elif defined(__IAR_SYSTEMS_ICC__)
-    return compiler::iar;
-#elif defined(__ghs__)
-    return compiler::green_hills;
-#elif defined(__WATCOMC__)
-    return compiler::open_watcom;
 #else
     return compiler::unknown;
 #endif
@@ -112,10 +129,201 @@ constexpr compiler target_compiler() noexcept {
 constexpr toolchain_version target_compiler_version() noexcept {
 #if defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return {0U, 0U, 0U};
-#elif defined(__EMSCRIPTEN_major__)
+#elif defined(__EMSCRIPTEN__)
+#if defined(__EMSCRIPTEN_major__)
     return {static_cast<unsigned int>(__EMSCRIPTEN_major__),
             static_cast<unsigned int>(__EMSCRIPTEN_minor__),
             static_cast<unsigned int>(__EMSCRIPTEN_tiny__)};
+#elif defined(__clang_major__)
+    return {static_cast<unsigned int>(__clang_major__),
+            static_cast<unsigned int>(__clang_minor__),
+            static_cast<unsigned int>(__clang_patchlevel__)};
+#else
+    return {0U, 0U, 0U};
+#endif
+#elif defined(__open_xl_version__) || defined(__open_xl__) || defined(__ibmxl__)
+#if defined(__open_xl_version__)
+    return {static_cast<unsigned int>(__open_xl_version__),
+#if defined(__open_xl_release__)
+            static_cast<unsigned int>(__open_xl_release__),
+#else
+            0U,
+#endif
+#if defined(__open_xl_modification__)
+            static_cast<unsigned int>(__open_xl_modification__)
+#elif defined(__open_xl_ptf__)
+            static_cast<unsigned int>(__open_xl_ptf__)
+#else
+            0U
+#endif
+    };
+#elif defined(__ibmxl_version__)
+    return {static_cast<unsigned int>(__ibmxl_version__),
+#if defined(__ibmxl_release__)
+            static_cast<unsigned int>(__ibmxl_release__),
+#else
+            0U,
+#endif
+#if defined(__ibmxl_modification__)
+            static_cast<unsigned int>(__ibmxl_modification__)
+#elif defined(__ibmxl_ptf__)
+            static_cast<unsigned int>(__ibmxl_ptf__)
+#else
+            0U
+#endif
+    };
+#elif defined(__clang_major__)
+    return {static_cast<unsigned int>(__clang_major__),
+            static_cast<unsigned int>(__clang_minor__),
+            static_cast<unsigned int>(__clang_patchlevel__)};
+#else
+    return {0U, 0U, 0U};
+#endif
+#elif defined(__xlC__) || defined(__IBMCPP__)
+#if defined(__xlC__)
+    return {static_cast<unsigned int>((((__xlC__ >> 12) & 0xF) * 10) +
+                                      ((__xlC__ >> 8) & 0xF)),
+            static_cast<unsigned int>((((__xlC__ >> 4) & 0xF) * 10) +
+                                      (__xlC__ & 0xF)),
+#if defined(__xlC_ver__)
+            static_cast<unsigned int>((((__xlC_ver__ >> 12) & 0xF) * 10) +
+                                      ((__xlC_ver__ >> 8) & 0xF))
+#else
+            0U
+#endif
+    };
+#elif defined(__IBMCPP__)
+    return {static_cast<unsigned int>(__IBMCPP__ / 100),
+            static_cast<unsigned int>((__IBMCPP__ % 100) / 10),
+            static_cast<unsigned int>(__IBMCPP__ % 10)};
+#else
+    return {0U, 0U, 0U};
+#endif
+#elif defined(__INTEL_LLVM_COMPILER)
+    return {static_cast<unsigned int>(__INTEL_LLVM_COMPILER / 10000),
+            static_cast<unsigned int>((__INTEL_LLVM_COMPILER % 10000) / 100),
+            static_cast<unsigned int>(__INTEL_LLVM_COMPILER % 100)};
+#elif defined(__INTEL_COMPILER)
+    return {static_cast<unsigned int>(__INTEL_COMPILER / 100),
+            static_cast<unsigned int>((__INTEL_COMPILER % 100) / 10),
+#if defined(__INTEL_COMPILER_UPDATE)
+            static_cast<unsigned int>(__INTEL_COMPILER_UPDATE)
+#else
+            static_cast<unsigned int>(__INTEL_COMPILER % 10)
+#endif
+    };
+#elif defined(__apple_build_version__) && defined(__clang__)
+#if defined(__clang_major__)
+    return {static_cast<unsigned int>(__clang_major__),
+            static_cast<unsigned int>(__clang_minor__),
+            static_cast<unsigned int>(__clang_patchlevel__)};
+#else
+    return {0U, 0U, 0U};
+#endif
+#elif defined(__ARMCOMPILER_VERSION) || defined(__ARMCC_VERSION)
+#if defined(__ARMCOMPILER_VERSION)
+    return {static_cast<unsigned int>(__ARMCOMPILER_VERSION / 1000000),
+            static_cast<unsigned int>((__ARMCOMPILER_VERSION / 10000) % 100),
+            static_cast<unsigned int>((__ARMCOMPILER_VERSION / 100) % 100)};
+#else
+    return {static_cast<unsigned int>(__ARMCC_VERSION / 1000000),
+            static_cast<unsigned int>((__ARMCC_VERSION / 10000) % 100),
+            static_cast<unsigned int>((__ARMCC_VERSION / 100) % 100)};
+#endif
+#elif defined(__TI_COMPILER_VERSION__)
+    return {static_cast<unsigned int>(__TI_COMPILER_VERSION__ / 1000000),
+            static_cast<unsigned int>((__TI_COMPILER_VERSION__ / 1000) % 1000),
+            static_cast<unsigned int>(__TI_COMPILER_VERSION__ % 1000)};
+#elif defined(__RENESAS__) || defined(__RENESAS_VERSION__)
+#if defined(__RENESAS_VERSION__)
+#if (__RENESAS_VERSION__ > 0xFFFF)
+    return {static_cast<unsigned int>((__RENESAS_VERSION__ >> 24) & 0xFF),
+            static_cast<unsigned int>((__RENESAS_VERSION__ >> 16) & 0xFF),
+            static_cast<unsigned int>((__RENESAS_VERSION__ >> 8) & 0xFF)};
+#else
+    return {static_cast<unsigned int>((__RENESAS_VERSION__ >> 8) & 0xFF),
+            static_cast<unsigned int>(__RENESAS_VERSION__ & 0xFF), 0U};
+#endif
+#else
+    return {0U, 0U, 0U};
+#endif
+#elif defined(__XC) || defined(__XC8) || defined(__XC16) || defined(__XC32) || \
+    defined(__XC8_VERSION) || defined(__XC16_VERSION) ||                       \
+    defined(__XC32_VERSION)
+#if defined(__XC32_VERSION)
+#define SYSCAPE_DETAIL_XC_VER __XC32_VERSION
+#elif defined(__XC16_VERSION)
+#define SYSCAPE_DETAIL_XC_VER __XC16_VERSION
+#elif defined(__XC8_VERSION)
+#define SYSCAPE_DETAIL_XC_VER __XC8_VERSION
+#endif
+#if defined(SYSCAPE_DETAIL_XC_VER)
+    return {static_cast<unsigned int>(SYSCAPE_DETAIL_XC_VER >= 1000
+                                          ? SYSCAPE_DETAIL_XC_VER / 1000
+                                          : SYSCAPE_DETAIL_XC_VER / 100),
+            static_cast<unsigned int>(SYSCAPE_DETAIL_XC_VER >= 1000
+                                          ? (SYSCAPE_DETAIL_XC_VER % 1000) / 10
+                                          : SYSCAPE_DETAIL_XC_VER % 100),
+            static_cast<unsigned int>(SYSCAPE_DETAIL_XC_VER >= 1000
+                                          ? SYSCAPE_DETAIL_XC_VER % 10
+                                          : 0U)};
+#undef SYSCAPE_DETAIL_XC_VER
+#else
+    return {0U, 0U, 0U};
+#endif
+#elif defined(__SUNPRO_CC) || defined(__SUNPRO_C)
+#if defined(__SUNPRO_CC)
+#define SYSCAPE_DETAIL_SUNPRO_VER __SUNPRO_CC
+#else
+#define SYSCAPE_DETAIL_SUNPRO_VER __SUNPRO_C
+#endif
+    return {
+        static_cast<unsigned int>(SYSCAPE_DETAIL_SUNPRO_VER >= 0x5100
+                                      ? (SYSCAPE_DETAIL_SUNPRO_VER >> 12) & 0xF
+                                      : (SYSCAPE_DETAIL_SUNPRO_VER >> 8) & 0xF),
+        static_cast<unsigned int>(
+            SYSCAPE_DETAIL_SUNPRO_VER >= 0x5100
+                ? (((SYSCAPE_DETAIL_SUNPRO_VER >> 8) & 0xF) * 10) +
+                      ((SYSCAPE_DETAIL_SUNPRO_VER >> 4) & 0xF)
+                : (SYSCAPE_DETAIL_SUNPRO_VER >> 4) & 0xF),
+        static_cast<unsigned int>(SYSCAPE_DETAIL_SUNPRO_VER & 0xF)};
+#undef SYSCAPE_DETAIL_SUNPRO_VER
+#elif defined(__HP_aCC)
+    return {static_cast<unsigned int>(__HP_aCC / 10000),
+            static_cast<unsigned int>((__HP_aCC % 10000) / 100),
+            static_cast<unsigned int>(__HP_aCC % 100)};
+#elif defined(__IAR_SYSTEMS_ICC__)
+#if defined(__VER__)
+    return {
+        static_cast<unsigned int>(__VER__ >= 1000000 ? __VER__ / 1000000
+                                                     : __VER__ / 100),
+        static_cast<unsigned int>(__VER__ >= 1000000 ? (__VER__ / 1000) % 1000
+                                                     : __VER__ % 100),
+        static_cast<unsigned int>(__VER__ >= 1000000 ? __VER__ % 1000 : 0U)};
+#else
+    return {0U, 0U, 0U};
+#endif
+#elif defined(__ghs__) || defined(__GHS_VERSION_NUMBER__) ||                   \
+    defined(__ghs_version__)
+#if defined(__GHS_VERSION_NUMBER__)
+    return {static_cast<unsigned int>(__GHS_VERSION_NUMBER__ / 100),
+            static_cast<unsigned int>((__GHS_VERSION_NUMBER__ % 100) / 10),
+            static_cast<unsigned int>(__GHS_VERSION_NUMBER__ % 10)};
+#elif defined(__ghs_version__)
+    return {static_cast<unsigned int>(__ghs_version__ / 100),
+            static_cast<unsigned int>((__ghs_version__ % 100) / 10),
+            static_cast<unsigned int>(__ghs_version__ % 10)};
+#else
+    return {0U, 0U, 0U};
+#endif
+#elif defined(__WATCOMC__)
+    return {static_cast<unsigned int>(__WATCOMC__ >= 1200
+                                          ? (__WATCOMC__ - 1100) / 100
+                                          : __WATCOMC__ / 100),
+            static_cast<unsigned int>(__WATCOMC__ >= 1200
+                                          ? ((__WATCOMC__ - 1100) % 100) / 10
+                                          : (__WATCOMC__ % 100) / 10),
+            static_cast<unsigned int>(__WATCOMC__ % 10)};
 #elif defined(__clang_major__)
     return {static_cast<unsigned int>(__clang_major__),
             static_cast<unsigned int>(__clang_minor__),
