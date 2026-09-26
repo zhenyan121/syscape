@@ -141,6 +141,13 @@ int main() {
     static_assert(syscape::target_compiler_version().minor == 31,
                   "minor == 31");
     static_assert(syscape::target_compiler_version().patch == 0, "patch == 0");
+#elif defined(TEST_MICROCHIP_XC8_LEGACY)
+    static_assert(syscape::target_compiler() == syscape::compiler::microchip_xc,
+                  "compiler must be microchip_xc");
+    static_assert(syscape::target_compiler_version().major == 2, "major == 2");
+    static_assert(syscape::target_compiler_version().minor == 31,
+                  "minor == 31");
+    static_assert(syscape::target_compiler_version().patch == 0, "patch == 0");
 #elif defined(TEST_OPENWATCOM)
     static_assert(syscape::target_compiler() == syscape::compiler::open_watcom,
                   "compiler must be open_watcom");

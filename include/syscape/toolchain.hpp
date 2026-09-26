@@ -202,6 +202,8 @@ constexpr toolchain_version target_compiler_version() noexcept {
 #endif
 #elif defined(__xlC__) || defined(__IBMCPP__)
 #if defined(__xlC__)
+    // IBM XL C/C++ defines __xlC__ as hex BCD 0xVVRR (e.g. 0x1601 for V16.1,
+    // 0x1301 for V13.1). Nibble pairs are extracted as decimal digits.
     return {static_cast<unsigned int>((((__xlC__ >> 12) & 0xF) * 10) +
                                       ((__xlC__ >> 8) & 0xF)),
             static_cast<unsigned int>((((__xlC__ >> 4) & 0xF) * 10) +
