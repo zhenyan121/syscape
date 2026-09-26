@@ -2,6 +2,7 @@
 #include <syscape/cpu.hpp>
 #include <syscape/filesystem.hpp>
 #include <syscape/memory.hpp>
+#include <syscape/os.hpp>
 #include <syscape/process.hpp>
 #include <syscape/resource.hpp>
 
@@ -49,6 +50,10 @@ int main() {
         const auto thr = syscape::process::thread_count();
         assert(!thr.has_value());
         assert(thr.error() == syscape::errc::value_too_large);
+
+        const auto prio = syscape::process::priority();
+        assert(!prio.has_value());
+        assert(prio.error() == syscape::errc::malformed_data);
     }
 
     // 4. Filesystem override range & zero validation
@@ -75,6 +80,16 @@ int main() {
         const auto fd = syscape::resource::file_descriptor_limit();
         assert(!fd.has_value());
         assert(fd.error() == syscape::errc::malformed_data);
+    }
+
+    // 6. OS override range & negative validation
+    {
+        const auto up = syscape::os::uptime();
+        assert(!up.has_value());
+        assert(up.error() == syscape::errc::malformed_data);
+
+        const auto boot = syscape::os::boot_time();
+        assert(!boot.has_value());
     }
 
     return 0;

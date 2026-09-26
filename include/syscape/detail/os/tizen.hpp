@@ -4,13 +4,34 @@
 #include <syscape/detail/config.hpp>
 
 #include <chrono>
+#include <cstdint>
+#include <limits>
 #include <string>
+#include <type_traits>
 
 #include <syscape/result.hpp>
 
 namespace syscape {
 namespace detail {
 namespace os_backend {
+
+template <typename T>
+inline result<std::chrono::milliseconds>
+validate_non_negative_uptime_ms(T value) {
+    if constexpr (std::is_signed<T>::value) {
+        if (value < 0) {
+            return fail(errc::malformed_data);
+        }
+    }
+    if constexpr (!std::is_signed<T>::value) {
+        if (static_cast<std::uint64_t>(value) >
+            static_cast<std::uint64_t>(
+                (std::numeric_limits<std::int64_t>::max)())) {
+            return fail(errc::value_too_large);
+        }
+    }
+    return std::chrono::milliseconds(static_cast<std::int64_t>(value));
+}
 
 /// Returns the Tizen operating system product name.
 inline result<std::string> product_name() {
@@ -61,7 +82,7 @@ inline result<std::string> host_name() {
 /// Returns the system uptime in milliseconds if supplied by override macro.
 inline result<std::chrono::milliseconds> uptime() {
 #if defined(SYSCAPE_TIZEN_UPTIME_MS)
-    return std::chrono::milliseconds(SYSCAPE_TIZEN_UPTIME_MS);
+    return validate_non_negative_uptime_ms(SYSCAPE_TIZEN_UPTIME_MS);
 #else
     return fail(errc::not_supported);
 #endif

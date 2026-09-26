@@ -16,12 +16,20 @@ namespace detail {
 namespace process_posix {
 
 /// Validates a nice value against the range documented by one POSIX target.
-inline result<int> validate_priority(int value, int least_value,
+template <typename T>
+inline result<int> validate_priority(T value, int least_value,
                                      int greatest_value) {
-    if (value < least_value || value > greatest_value) {
-        return fail(errc::malformed_data);
+    if constexpr (std::is_signed<T>::value) {
+        if (value < least_value || value > greatest_value) {
+            return fail(errc::malformed_data);
+        }
+    } else {
+        if (value > static_cast<typename std::make_unsigned<int>::type>(
+                        greatest_value)) {
+            return fail(errc::malformed_data);
+        }
     }
-    return value;
+    return static_cast<int>(value);
 }
 
 /// Reads and validates the nice value recorded for the caller.

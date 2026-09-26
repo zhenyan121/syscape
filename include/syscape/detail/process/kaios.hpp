@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <syscape/detail/process/common.hpp>
+#include <syscape/detail/process/posix.hpp>
 #include <syscape/result.hpp>
 
 namespace syscape {
@@ -111,9 +112,10 @@ inline result<std::uint32_t> thread_count() {
 /// Returns the process priority if supplied by override macro.
 inline result<int> priority() {
 #if defined(SYSCAPE_KAIOS_TASK_PRIORITY)
-    return static_cast<int>(SYSCAPE_KAIOS_TASK_PRIORITY);
+    return process_posix::validate_priority(SYSCAPE_KAIOS_TASK_PRIORITY, -20,
+                                            19);
 #elif defined(SYSCAPE_KAIOS_PRIORITY)
-    return static_cast<int>(SYSCAPE_KAIOS_PRIORITY);
+    return process_posix::validate_priority(SYSCAPE_KAIOS_PRIORITY, -20, 19);
 #else
     return fail(errc::not_supported);
 #endif
