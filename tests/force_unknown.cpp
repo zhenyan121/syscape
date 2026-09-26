@@ -26,5 +26,9 @@ int main() {
     if (syscape::target_board_family() != syscape::board_family::unknown) {
         return 7;
     }
+    const syscape::toolchain_version v = syscape::target_compiler_version();
+    if (v.major != 0U || v.minor != 0U || v.patch != 0U) {
+        return 8;
+    }
     return 0;
 }

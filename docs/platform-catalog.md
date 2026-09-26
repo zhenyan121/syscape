@@ -239,18 +239,18 @@ contract.
 | LLVM/Clang | Upstream Clang, clang-cl, cross Clang, and vendor distributions | Hosted, RTOS, WebAssembly, and bare-metal candidate | Detection implemented; Clang 22.1.8 verified on Linux x86-64 |
 | Apple Clang | Xcode platform toolchains | Apple hosted and sandboxed platforms | Detection implemented; strict C++17 Release build verified on the recorded GitHub-hosted macOS runner with Apple Clang and the Xcode 26.6 SDK |
 | Microsoft Visual C++ | MSVC and Windows SDK toolsets | Windows Hosted Full | Detection implemented; MSVC 19.51.36248 and Windows SDK 10.0.26100.0 verified on Windows 10.0.26100 x64 |
-| Emscripten | Clang-based WebAssembly toolchain | Browser and supported WebAssembly runtimes | Detection implemented |
-| IBM XL and Open XL | AIX, Linux on POWER, and IBM platform variants | IBM hosted platforms | Not started |
-| Oracle Developer Studio | Solaris toolchains | Solaris Hosted Full candidate | Not started |
-| HP C++ | HP-UX platform toolchains | HP-UX legacy candidate | Not started |
-| OpenWatcom | DOS, Windows, and OS/2 targets | Legacy and constrained candidate | Not started |
-| Arm Compiler and Keil | Arm hosted and microcontroller toolchains | RTOS and bare-metal candidate | Not started |
-| IAR C/C++ | Vendor-supported embedded targets | RTOS and bare-metal candidate | Not started |
-| Green Hills | INTEGRITY and supported embedded targets | RTOS and SDK-restricted candidate | Not started |
-| Texas Instruments | TI MCU and DSP toolchains | RTOS and bare-metal candidate | Not started |
-| Renesas | RX, RA, and related toolchains | RTOS and bare-metal candidate | Not started |
-| Microchip XC | PIC and AVR-family toolchains | RTOS and bare-metal candidate | Not started |
-| Espressif toolchains | Xtensa and RISC-V GCC/Clang-based SDK toolchains | RTOS and bare-metal candidate | Not started |
+| Emscripten | Clang-based WebAssembly toolchain | Browser and supported WebAssembly runtimes | Detection and version decoding implemented (`__EMSCRIPTEN_major__`, `__EMSCRIPTEN_minor__`, `__EMSCRIPTEN_tiny__`) |
+| IBM XL and Open XL | AIX, Linux on POWER, and IBM platform variants | IBM hosted platforms | Detection and version decoding implemented (IBM Open XL via `__open_xl_version__`, `__ibmxl_version__`, `__open_xl__`, `__ibmxl__`; classic IBM XL via `__xlC__` BCD `0xVVRR` and `__xlC_ver__` / decimal `__IBMCPP__`) |
+| Oracle Developer Studio | Solaris toolchains | Solaris Hosted Full candidate | Detection and version decoding implemented (`__SUNPRO_CC` / `__SUNPRO_C` BCD version decoding for Studio 12.0+ and legacy releases) |
+| HP C++ | HP-UX platform toolchains | HP-UX legacy candidate | Detection and version decoding implemented (`__HP_aCC` BCD decimal integer decoding) |
+| OpenWatcom | DOS, Windows, and OS/2 targets | Legacy and constrained candidate | Detection and version decoding implemented (`__WATCOMC__` decoding for OpenWatcom 1.x, 2.x, and legacy Watcom 10/11) |
+| Arm Compiler and Keil | Arm hosted and microcontroller toolchains | RTOS and bare-metal candidate | Detection and version decoding implemented (`__ARMCOMPILER_VERSION` `Mmmuuxx` for AC6, `__ARMCC_VERSION` `PVVbbbb` / `PVbbbb` for AC5 and RVCT, `__CC_ARM`) |
+| IAR C/C++ | Vendor-supported embedded targets | RTOS and bare-metal candidate | Detection and version decoding implemented (`__IAR_SYSTEMS_ICC__` and `__VER__` extended and standard format decoding) |
+| Green Hills | INTEGRITY and supported embedded targets | RTOS and SDK-restricted candidate | Detection and version decoding implemented (`__ghs` / `__ghs__` and `__GHS_VERSION_NUMBER__` / `__ghs_version__` VRP decoding) |
+| Texas Instruments | TI MCU and DSP toolchains | RTOS and bare-metal candidate | Detection and version decoding implemented (`__TI_COMPILER_VERSION__` decimal format decoding) |
+| Renesas | RX, RA, and related toolchains | RTOS and bare-metal candidate | Detection and version decoding implemented (`__RENESAS__` and `__RENESAS_VERSION__` hex and legacy format decoding) |
+| Microchip XC | PIC and AVR-family toolchains | RTOS and bare-metal candidate | Detection and version decoding implemented (`__XC`, `__XC8`, `__XC16`, `__XC32` detection; `__XC8_VERSION__`, `__XC16_VERSION__`, `__XC32_VERSION__` and legacy macro decoding) |
+| Espressif toolchains | Xtensa and RISC-V GCC/Clang-based SDK toolchains | RTOS and bare-metal candidate | Detection implemented (recognized as GCC or Clang toolchain under Espressif ESP board target) |
 
 The library remains zero-dependency when it supports a toolchain: compilers,
 standard libraries, operating-system SDKs, and vendor SDKs are build

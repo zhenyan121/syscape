@@ -9,8 +9,17 @@ bool other_minimal_capability();
 syscape::board_family other_minimal_board_family();
 const char* other_minimal_board_family_name();
 const syscape::board_provider* other_minimal_current_board_provider();
+syscape::toolchain_version other_minimal_compiler_version();
 
 int main() {
+    if (other_minimal_compiler_version() !=
+        syscape::target_compiler_version()) {
+        return 10;
+    }
+    if (!(other_minimal_compiler_version() ==
+          syscape::target_compiler_version())) {
+        return 11;
+    }
     if (other_minimal_architecture() != syscape::target_architecture()) {
         return 1;
     }
