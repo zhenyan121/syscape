@@ -26,3 +26,7 @@ const char* other_minimal_board_family_name() {
 const syscape::board_provider* other_minimal_current_board_provider() {
     return syscape::current_board_provider();
 }
+
+syscape::toolchain_version other_minimal_compiler_version() {
+    return syscape::target_compiler_version();
+}

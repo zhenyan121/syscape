@@ -86,6 +86,12 @@ int main() {
     static_assert(syscape::target_compiler_version().major == 5, "major == 5");
     static_assert(syscape::target_compiler_version().minor == 6, "minor == 6");
     static_assert(syscape::target_compiler_version().patch == 7, "patch == 7");
+#elif defined(TEST_ARM_CC_ARM_ONLY)
+    static_assert(syscape::target_compiler() == syscape::compiler::arm_compiler,
+                  "compiler must be arm_compiler");
+    static_assert(syscape::target_compiler_version().major == 0, "major == 0");
+    static_assert(syscape::target_compiler_version().minor == 0, "minor == 0");
+    static_assert(syscape::target_compiler_version().patch == 0, "patch == 0");
 #elif defined(TEST_GHS)
     static_assert(syscape::target_compiler() == syscape::compiler::green_hills,
                   "compiler must be green_hills");

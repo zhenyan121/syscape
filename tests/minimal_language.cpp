@@ -52,6 +52,11 @@ int main() {
             syscape::target_execution_environment()) == nullptr) {
         return 8;
     }
+    const syscape::toolchain_version version =
+        syscape::target_compiler_version();
+    if (!(version == version)) {
+        return 10;
+    }
     return syscape::board_family_name(syscape::target_board_family()) == nullptr
                ? 9
                : 0;
