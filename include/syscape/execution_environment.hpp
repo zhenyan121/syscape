@@ -61,7 +61,10 @@ enum class operating_system {
     riscos,
     openvms,
     zos,
-    ibmi
+    ibmi,
+    tizen,
+    sailfishos,
+    kaios
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -105,6 +108,15 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(__OS400__) || defined(__OS400_TGTVRM__) || defined(_PASE) ||     \
     defined(__PASE__) || defined(__ILEC400__) || defined(SYSCAPE_TARGET_IBMI)
     return operating_system::ibmi;
+#elif defined(__TIZEN__) || defined(__tizen__) || defined(SYSCAPE_TARGET_TIZEN)
+    return operating_system::tizen;
+#elif defined(__SAILFISH__) || defined(__sailfish__) ||                        \
+    defined(__sailfishos__) || defined(__SILICA__) ||                          \
+    defined(SYSCAPE_TARGET_SAILFISH)
+    return operating_system::sailfishos;
+#elif defined(__KAIOS__) || defined(__kaios__) || defined(__B2G__) ||          \
+    defined(SYSCAPE_TARGET_KAIOS)
+    return operating_system::kaios;
 #elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN)
     return operating_system::cygwin;
 #elif defined(SYSCAPE_TARGET_MCU_AVR) || defined(SYSCAPE_TARGET_MCU_SAM) ||    \
@@ -260,6 +272,11 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(WASI) || defined(SYSCAPE_TARGET_WASI) || defined(__ANDROID__) ||   \
     defined(__OHOS__) || defined(__OpenHarmony__) || defined(__Fuchsia__) ||   \
     defined(FUCHSIA) || defined(SYSCAPE_TARGET_FUCHSIA) ||                     \
+    defined(__TIZEN__) || defined(__tizen__) ||                                \
+    defined(SYSCAPE_TARGET_TIZEN) || defined(__SAILFISH__) ||                  \
+    defined(__sailfish__) || defined(__sailfishos__) || defined(__SILICA__) || \
+    defined(SYSCAPE_TARGET_SAILFISH) || defined(__KAIOS__) ||                  \
+    defined(__kaios__) || defined(__B2G__) || defined(SYSCAPE_TARGET_KAIOS) || \
     (defined(__APPLE__) &&                                                     \
      (defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__) ||               \
       defined(__ENVIRONMENT_WATCH_OS_VERSION_MIN_REQUIRED__) ||                \
@@ -394,6 +411,12 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "zos";
     case operating_system::ibmi:
         return "ibmi";
+    case operating_system::tizen:
+        return "tizen";
+    case operating_system::sailfishos:
+        return "sailfishos";
+    case operating_system::kaios:
+        return "kaios";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";

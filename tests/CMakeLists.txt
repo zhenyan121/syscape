@@ -2134,6 +2134,15 @@ target_compile_definitions(ibmi_detection PRIVATE __OS400__=1)
 syscape_add_test(ibmi_pase_detection 11 syscape::syscape ibmi_detection.cpp)
 target_compile_definitions(ibmi_pase_detection PRIVATE _AIX=1 _PASE=1)
 
+syscape_add_test(tizen_detection 11 syscape::syscape tizen_detection.cpp)
+target_compile_definitions(tizen_detection PRIVATE __TIZEN__=1)
+
+syscape_add_test(sailfish_detection 11 syscape::syscape sailfish_detection.cpp)
+target_compile_definitions(sailfish_detection PRIVATE __SAILFISH__=1)
+
+syscape_add_test(kaios_detection 11 syscape::syscape kaios_detection.cpp)
+target_compile_definitions(kaios_detection PRIVATE __KAIOS__=1)
+
 syscape_add_test(legacy_env_strings 11 syscape::syscape legacy_env_strings.cpp)
 
 # MCU and board families (Tier 4 / Freestanding Minimal)
@@ -2471,6 +2480,153 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
             syscape::hosted
             header_${ibmi_domain}.cpp)
         target_compile_definitions(${ibmi_header_target} PRIVATE SYSCAPE_TARGET_IBMI=1)
+    endforeach()
+
+    # Tizen tests on POSIX host using SYSCAPE_TARGET_TIZEN=1
+    syscape_add_test(tizen_functional 17 syscape::hosted tizen_functional.cpp)
+    target_compile_definitions(tizen_functional PRIVATE SYSCAPE_TARGET_TIZEN=1)
+
+    syscape_add_test(tizen_overrides 17 syscape::hosted tizen_overrides.cpp)
+    target_compile_definitions(tizen_overrides PRIVATE
+        SYSCAPE_TARGET_TIZEN=1
+        SYSCAPE_TIZEN_VERSION="3.0.0"
+        SYSCAPE_TIZEN_KERNEL_NAME="Linux-custom"
+        SYSCAPE_TIZEN_KERNEL_VERSION="5.4.0"
+        SYSCAPE_TIZEN_HOST_NAME="my-tizen-device"
+        SYSCAPE_TIZEN_UPTIME_MS=123456
+        SYSCAPE_TIZEN_CPU_COUNT=8
+        SYSCAPE_TIZEN_PHYSICAL_CPU_COUNT=4
+        SYSCAPE_TIZEN_PACKAGE_COUNT=1
+        SYSCAPE_TIZEN_PAGE_SIZE_BYTES=4096
+        SYSCAPE_TIZEN_TOTAL_RAM_BYTES=4294967296ULL
+        SYSCAPE_TIZEN_FREE_RAM_BYTES=2147483648ULL
+        SYSCAPE_TIZEN_PID=100
+        SYSCAPE_TIZEN_PPID=1
+        SYSCAPE_TIZEN_THREAD_COUNT=16
+        SYSCAPE_TIZEN_PRIORITY=5
+        SYSCAPE_TIZEN_PATH_MAX=2048
+        SYSCAPE_TIZEN_PROCESS_COUNT=42
+        SYSCAPE_TIZEN_SYSTEM_THREAD_COUNT=128
+        SYSCAPE_TIZEN_MAX_FILES=1024)
+
+    syscape_add_test(
+        tizen_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(tizen_odr PRIVATE SYSCAPE_TARGET_TIZEN=1)
+
+    foreach(tizen_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(tizen_header_target "header_${tizen_domain}_tizen")
+        syscape_add_test(
+            ${tizen_header_target}
+            17
+            syscape::hosted
+            header_${tizen_domain}.cpp)
+        target_compile_definitions(${tizen_header_target} PRIVATE SYSCAPE_TARGET_TIZEN=1)
+    endforeach()
+
+    # Sailfish OS tests on POSIX host using SYSCAPE_TARGET_SAILFISH=1
+    syscape_add_test(sailfish_functional 17 syscape::hosted sailfish_functional.cpp)
+    target_compile_definitions(sailfish_functional PRIVATE SYSCAPE_TARGET_SAILFISH=1)
+
+    syscape_add_test(sailfish_overrides 17 syscape::hosted sailfish_overrides.cpp)
+    target_compile_definitions(sailfish_overrides PRIVATE
+        SYSCAPE_TARGET_SAILFISH=1
+        SYSCAPE_SAILFISH_VERSION="3.0.0"
+        SYSCAPE_SAILFISH_KERNEL_NAME="Linux-custom"
+        SYSCAPE_SAILFISH_KERNEL_VERSION="5.4.0"
+        SYSCAPE_SAILFISH_HOST_NAME="my-sailfish-device"
+        SYSCAPE_SAILFISH_UPTIME_MS=123456
+        SYSCAPE_SAILFISH_CPU_COUNT=8
+        SYSCAPE_SAILFISH_PHYSICAL_CPU_COUNT=4
+        SYSCAPE_SAILFISH_PACKAGE_COUNT=1
+        SYSCAPE_SAILFISH_PAGE_SIZE_BYTES=4096
+        SYSCAPE_SAILFISH_TOTAL_RAM_BYTES=4294967296ULL
+        SYSCAPE_SAILFISH_FREE_RAM_BYTES=2147483648ULL
+        SYSCAPE_SAILFISH_PID=100
+        SYSCAPE_SAILFISH_PPID=1
+        SYSCAPE_SAILFISH_THREAD_COUNT=16
+        SYSCAPE_SAILFISH_PRIORITY=5
+        SYSCAPE_SAILFISH_PATH_MAX=2048
+        SYSCAPE_SAILFISH_PROCESS_COUNT=42
+        SYSCAPE_SAILFISH_SYSTEM_THREAD_COUNT=128
+        SYSCAPE_SAILFISH_MAX_FILES=1024)
+
+    syscape_add_test(
+        sailfish_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(sailfish_odr PRIVATE SYSCAPE_TARGET_SAILFISH=1)
+
+    foreach(sailfish_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(sailfish_header_target "header_${sailfish_domain}_sailfish")
+        syscape_add_test(
+            ${sailfish_header_target}
+            17
+            syscape::hosted
+            header_${sailfish_domain}.cpp)
+        target_compile_definitions(${sailfish_header_target} PRIVATE SYSCAPE_TARGET_SAILFISH=1)
+    endforeach()
+
+    # KaiOS tests on POSIX host using SYSCAPE_TARGET_KAIOS=1
+    syscape_add_test(kaios_functional 17 syscape::hosted kaios_functional.cpp)
+    target_compile_definitions(kaios_functional PRIVATE SYSCAPE_TARGET_KAIOS=1)
+
+    syscape_add_test(kaios_overrides 17 syscape::hosted kaios_overrides.cpp)
+    target_compile_definitions(kaios_overrides PRIVATE
+        SYSCAPE_TARGET_KAIOS=1
+        SYSCAPE_KAIOS_VERSION="3.0.0"
+        SYSCAPE_KAIOS_KERNEL_NAME="Linux-custom"
+        SYSCAPE_KAIOS_KERNEL_VERSION="5.4.0"
+        SYSCAPE_KAIOS_HOST_NAME="my-kaios-device"
+        SYSCAPE_KAIOS_UPTIME_MS=123456
+        SYSCAPE_KAIOS_CPU_COUNT=8
+        SYSCAPE_KAIOS_PHYSICAL_CPU_COUNT=4
+        SYSCAPE_KAIOS_PACKAGE_COUNT=1
+        SYSCAPE_KAIOS_PAGE_SIZE_BYTES=4096
+        SYSCAPE_KAIOS_TOTAL_RAM_BYTES=4294967296ULL
+        SYSCAPE_KAIOS_FREE_RAM_BYTES=2147483648ULL
+        SYSCAPE_KAIOS_PID=100
+        SYSCAPE_KAIOS_PPID=1
+        SYSCAPE_KAIOS_THREAD_COUNT=16
+        SYSCAPE_KAIOS_PRIORITY=5
+        SYSCAPE_KAIOS_PATH_MAX=2048
+        SYSCAPE_KAIOS_PROCESS_COUNT=42
+        SYSCAPE_KAIOS_SYSTEM_THREAD_COUNT=128
+        SYSCAPE_KAIOS_MAX_FILES=1024)
+
+    syscape_add_test(
+        kaios_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(kaios_odr PRIVATE SYSCAPE_TARGET_KAIOS=1)
+
+    foreach(kaios_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(kaios_header_target "header_${kaios_domain}_kaios")
+        syscape_add_test(
+            ${kaios_header_target}
+            17
+            syscape::hosted
+            header_${kaios_domain}.cpp)
+        target_compile_definitions(${kaios_header_target} PRIVATE SYSCAPE_TARGET_KAIOS=1)
     endforeach()
 endif()
 

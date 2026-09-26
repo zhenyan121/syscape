@@ -212,6 +212,21 @@
 #define SYSCAPE_TARGET_IBMI 1
 #endif
 
+#if defined(__TIZEN__) || defined(__tizen__) || defined(SYSCAPE_TARGET_TIZEN)
+#define SYSCAPE_TARGET_TIZEN 1
+#endif
+
+#if defined(__SAILFISH__) || defined(__sailfish__) ||                          \
+    defined(__sailfishos__) || defined(__SILICA__) ||                          \
+    defined(SYSCAPE_TARGET_SAILFISH)
+#define SYSCAPE_TARGET_SAILFISH 1
+#endif
+
+#if defined(__KAIOS__) || defined(__kaios__) || defined(__B2G__) ||            \
+    defined(SYSCAPE_TARGET_KAIOS)
+#define SYSCAPE_TARGET_KAIOS 1
+#endif
+
 #if defined(__AVR__) || defined(__AVR) || defined(ARDUINO_ARCH_AVR) ||         \
     defined(SYSCAPE_TARGET_MCU_AVR)
 #define SYSCAPE_TARGET_MCU_AVR 1
