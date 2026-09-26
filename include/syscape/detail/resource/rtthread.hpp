@@ -44,8 +44,6 @@ inline result<std::uint64_t> thread_count() {
     return static_cast<std::uint64_t>(RT_THREAD_COUNT);
 #elif defined(RTTHREAD_MAX_THREADS) && (RTTHREAD_MAX_THREADS > 0)
     return static_cast<std::uint64_t>(RTTHREAD_MAX_THREADS);
-#elif defined(RT_THREAD_PRIORITY_MAX) && (RT_THREAD_PRIORITY_MAX > 0)
-    return static_cast<std::uint64_t>(RT_THREAD_PRIORITY_MAX);
 #else
     return fail(errc::not_supported);
 #endif

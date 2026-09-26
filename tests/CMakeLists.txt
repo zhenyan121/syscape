@@ -2172,6 +2172,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "RTTHREAD" OR RTTHREAD)
     syscape_add_test(cpu_rtthread_smp 17 syscape::hosted cpu_rtthread.cpp)
     target_compile_definitions(cpu_rtthread_smp PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_CPUS_NR=4)
     target_link_libraries(cpu_rtthread_smp PRIVATE rtthread_compat)
+
+    syscape_add_test(resource_rtthread_with_count 17 syscape::hosted resource_rtthread.cpp)
+    target_compile_definitions(resource_rtthread_with_count PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_THREAD_COUNT=8)
+    target_link_libraries(resource_rtthread_with_count PRIVATE rtthread_compat)
 endif()
 
 # Compatibility environments and variants (Tier 3)

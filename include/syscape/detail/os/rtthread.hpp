@@ -65,11 +65,17 @@ inline result<std::chrono::milliseconds> uptime() {
 #if defined(RT_NO_TIMER)
     return fail(errc::not_supported);
 #elif defined(RT_TICK_PER_SECOND) && (RT_TICK_PER_SECOND > 0)
+    const std::uint64_t hz = static_cast<std::uint64_t>(RT_TICK_PER_SECOND);
+    if (hz == 0) {
+        return fail(errc::malformed_data);
+    }
     constexpr std::uint64_t max_ms =
         static_cast<std::uint64_t>(std::chrono::milliseconds::max().count());
     const std::uint64_t ticks = static_cast<std::uint64_t>(rt_tick_get());
-    const std::uint64_t hz = static_cast<std::uint64_t>(RT_TICK_PER_SECOND);
     if (ticks > max_ms / 1000ULL) {
+        if (ticks / hz > max_ms / 1000ULL) {
+            return fail(errc::value_too_large);
+        }
         const std::uint64_t ms =
             (ticks / hz) * 1000ULL + ((ticks % hz) * 1000ULL) / hz;
         if (ms > max_ms) {

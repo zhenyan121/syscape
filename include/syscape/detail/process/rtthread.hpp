@@ -62,19 +62,7 @@ inline result<process_common::memory_usage_snapshot> memory_usage() {
 }
 
 inline result<std::uint32_t> thread_count() {
-#if defined(SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS)
-#if defined(RT_THREAD_COUNT) && (RT_THREAD_COUNT > 0)
-    return static_cast<std::uint32_t>(RT_THREAD_COUNT);
-#elif defined(RTTHREAD_MAX_THREADS) && (RTTHREAD_MAX_THREADS > 0)
-    return static_cast<std::uint32_t>(RTTHREAD_MAX_THREADS);
-#elif defined(RT_THREAD_PRIORITY_MAX) && (RT_THREAD_PRIORITY_MAX > 0)
-    return static_cast<std::uint32_t>(RT_THREAD_PRIORITY_MAX);
-#else
     return fail(errc::not_supported);
-#endif
-#else
-    return fail(errc::not_supported);
-#endif
 }
 
 // Returns the active thread's scheduling priority on RT-Thread.

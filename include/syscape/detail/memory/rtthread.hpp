@@ -37,7 +37,7 @@ inline result<std::uint64_t> page_size_bytes() {
 inline result<std::uint64_t> physical_memory_bytes() {
 #if defined(SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS)
 #if defined(RT_USING_HEAP) || defined(RT_USING_MEMHEAP) ||                     \
-    defined(SYSCAPE_RTTHREAD_MOCK)
+    defined(RT_USING_SMALL_MEM) || defined(RT_USING_SLAB)
     rt_size_t total = 0;
     rt_size_t used = 0;
     rt_size_t max_used = 0;
@@ -62,7 +62,7 @@ inline result<std::uint64_t> physical_memory_bytes() {
 inline result<std::uint64_t> available_memory_bytes() {
 #if defined(SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS)
 #if defined(RT_USING_HEAP) || defined(RT_USING_MEMHEAP) ||                     \
-    defined(SYSCAPE_RTTHREAD_MOCK)
+    defined(RT_USING_SMALL_MEM) || defined(RT_USING_SLAB)
     rt_size_t total = 0;
     rt_size_t used = 0;
     rt_size_t max_used = 0;

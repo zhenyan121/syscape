@@ -29,8 +29,7 @@ void test_filesystem_queries() {
 
     const auto max_comp = syscape::filesystem::max_component_length("/");
     expect(!max_comp && max_comp.error() == syscape::errc::not_supported,
-           "max component length query must report not_supported on Apache "
-           "Mynewt");
+           "max component length query must report not_supported on RT-Thread");
 
     const auto max_path = syscape::filesystem::max_path_length("/");
     expect(!max_path && max_path.error() == syscape::errc::not_supported,

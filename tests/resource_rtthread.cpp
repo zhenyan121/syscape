@@ -17,9 +17,16 @@ void expect(bool condition, const char* message) {
 }
 
 void test_resource_queries() {
+#if defined(RT_THREAD_COUNT)
     const auto threads = syscape::resource::thread_count();
-    expect(threads.has_value() && *threads == RT_THREAD_PRIORITY_MAX,
-           "thread count must report RT_THREAD_PRIORITY_MAX on RT-Thread");
+    expect(threads.has_value() && *threads == RT_THREAD_COUNT,
+           "thread count must report RT_THREAD_COUNT on RT-Thread");
+#else
+    const auto threads = syscape::resource::thread_count();
+    expect(!threads && threads.error() == syscape::errc::not_supported,
+           "thread count must report not_supported on RT-Thread when no count "
+           "macro is defined");
+#endif
 
     const auto load = syscape::resource::load_average();
     expect(!load && load.error() == syscape::errc::not_supported,

@@ -40,9 +40,9 @@ void test_environment_queries() {
            "cache directory must report not_supported on RT-Thread");
 
     const auto vars = syscape::environment::environment_variables();
-    expect(!vars && vars.error() == syscape::errc::not_supported,
-           "environment variables query must report not_supported on Apache "
-           "Mynewt");
+    expect(
+        !vars && vars.error() == syscape::errc::not_supported,
+        "environment variables query must report not_supported on RT-Thread");
 }
 
 } // namespace

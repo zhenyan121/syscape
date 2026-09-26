@@ -34,8 +34,8 @@ void test_process_queries() {
     rtthread_mock_reset();
 
     const auto threads = syscape::process::thread_count();
-    expect(threads.has_value() && *threads == RT_THREAD_PRIORITY_MAX,
-           "thread count must report RT_THREAD_PRIORITY_MAX");
+    expect(!threads && threads.error() == syscape::errc::not_supported,
+           "thread count must report not_supported on RT-Thread");
 
     const auto pid = syscape::process::process_id();
     expect(!pid && pid.error() == syscape::errc::not_supported,

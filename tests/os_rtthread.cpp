@@ -58,6 +58,13 @@ void test_runtime_queries() {
     const auto elapsed2 = syscape::os::uptime();
     expect(elapsed2.has_value() && elapsed2->count() == 20000000,
            "uptime must dynamically reflect updated tick");
+
+    rtthread_mock_set_tick(0xFFFFFFFFU);
+    const auto elapsed_max = syscape::os::uptime();
+    expect(elapsed_max.has_value() &&
+               elapsed_max->count() == static_cast<int64_t>(0xFFFFFFFFU),
+           "uptime must handle max 32-bit tick count");
+
     rtthread_mock_set_tick(12345678U);
 #endif
 
