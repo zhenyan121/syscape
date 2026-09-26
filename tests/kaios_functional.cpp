@@ -119,15 +119,9 @@ int main() {
     // 3. Memory backend checks
     {
         const auto page = syscape::memory::page_size_bytes();
-#if defined(__arm__) || defined(__aarch64__) || defined(__i386__) ||           \
-    defined(__x86_64__) || defined(_M_ARM) || defined(_M_ARM64) ||             \
-    defined(_M_IX86) || defined(_M_X64)
         assert(page.has_value());
-        assert(*page == 4096U);
-#else
-        assert(!page.has_value());
-        assert(page.error() == syscape::errc::not_supported);
-#endif
+        assert(*page > 0U);
+        assert((*page & (*page - 1U)) == 0U);
 
         const auto phys = syscape::memory::physical_memory_bytes();
         assert(!phys.has_value());
@@ -218,13 +212,11 @@ int main() {
     {
         const auto comp = syscape::filesystem::max_component_length(".");
         assert(comp.has_value());
-        assert(comp->length == 255U);
-        assert(!comp->indeterminate);
+        assert(comp->length > 0U || comp->indeterminate);
 
         const auto path = syscape::filesystem::max_path_length(".");
         assert(path.has_value());
-        assert(path->length == 4096U);
-        assert(!path->indeterminate);
+        assert(path->length > 0U || path->indeterminate);
 
         const auto mounts = syscape::filesystem::mounts();
         assert(!mounts.has_value());

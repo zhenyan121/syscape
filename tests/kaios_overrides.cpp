@@ -89,9 +89,15 @@ int main() {
 
     // Filesystem overrides
     {
+        const auto comp_max = syscape::filesystem::max_component_length(".");
+        assert(comp_max.has_value());
+        assert(comp_max->length == 128U);
+        assert(!comp_max->indeterminate);
+
         const auto path_max = syscape::filesystem::max_path_length(".");
         assert(path_max.has_value());
         assert(path_max->length == 2048U);
+        assert(!path_max->indeterminate);
     }
 
     // Resource overrides

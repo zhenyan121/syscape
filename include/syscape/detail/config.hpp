@@ -212,6 +212,10 @@
 #define SYSCAPE_TARGET_IBMI 1
 #endif
 
+// Mobile and consumer Linux platforms: standard compiler toolchains on these
+// platforms do not always define platform-identifying builtins. Applications
+// or build systems should define SYSCAPE_TARGET_TIZEN, SYSCAPE_TARGET_SAILFISH,
+// or SYSCAPE_TARGET_KAIOS explicitly, or pass the SDK macro definitions.
 #if defined(__TIZEN__) || defined(__tizen__) || defined(SYSCAPE_TARGET_TIZEN)
 #define SYSCAPE_TARGET_TIZEN 1
 #endif

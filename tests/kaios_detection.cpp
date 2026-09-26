@@ -1,3 +1,7 @@
+// Tests the macro protocol contract for KaiOS compile-target identification.
+// Standard toolchains on mobile Linux platforms do not guarantee
+// compiler-defined macros; platform selection is established via build-system
+// or SDK defines.
 #include <syscape/execution_environment.hpp>
 
 static_assert(syscape::target_operating_system() ==

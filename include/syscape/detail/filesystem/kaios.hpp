@@ -5,44 +5,79 @@
 
 #include <cstdint>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <syscape/detail/filesystem/common.hpp>
+#include <syscape/detail/filesystem/posix.hpp>
 #include <syscape/result.hpp>
 
 namespace syscape {
 namespace detail {
 namespace filesystem_backend {
 
+template <typename T>
+inline result<std::uint64_t> validate_positive_u64_len(T value) {
+    if constexpr (std::is_signed<T>::value) {
+        if (value <= 0) {
+            return fail(errc::malformed_data);
+        }
+    } else {
+        if (value == 0) {
+            return fail(errc::malformed_data);
+        }
+    }
+    return static_cast<std::uint64_t>(value);
+}
+
+/// Live mount table enumeration is not exposed in unprivileged sandboxes.
 inline result<std::vector<filesystem_common::mount_record>> mounts() {
     return fail(errc::not_supported);
 }
 
+/// Filesystem space queries are not exposed in unprivileged sandboxes.
 inline result<filesystem_common::space_snapshot>
 space(const std::string& /*path*/) {
     return fail(errc::not_supported);
 }
 
+/// Returns the maximum component length via override or POSIX pathconf.
 inline result<filesystem_common::path_length_snapshot>
-max_component_length(const std::string& /*path*/) {
+max_component_length(const std::string& path) {
+    (void)path;
+#if defined(SYSCAPE_KAIOS_NAME_MAX)
+    const auto len = validate_positive_u64_len(SYSCAPE_KAIOS_NAME_MAX);
+    if (!len) {
+        return fail(len.error());
+    }
     filesystem_common::path_length_snapshot snap;
-    snap.length = 255U;
+    snap.length = *len;
     snap.indeterminate = false;
     return snap;
-}
-
-inline result<filesystem_common::path_length_snapshot>
-max_path_length(const std::string& /*path*/) {
-    filesystem_common::path_length_snapshot snap;
-#if defined(SYSCAPE_KAIOS_PATH_MAX)
-    snap.length = static_cast<std::uint64_t>(SYSCAPE_KAIOS_PATH_MAX);
 #else
-    snap.length = 4096U;
+    return pathconf_limit(path, _PC_NAME_MAX);
 #endif
-    snap.indeterminate = false;
-    return snap;
 }
 
+/// Returns the maximum path length via override or POSIX pathconf.
+inline result<filesystem_common::path_length_snapshot>
+max_path_length(const std::string& path) {
+    (void)path;
+#if defined(SYSCAPE_KAIOS_PATH_MAX)
+    const auto len = validate_positive_u64_len(SYSCAPE_KAIOS_PATH_MAX);
+    if (!len) {
+        return fail(len.error());
+    }
+    filesystem_common::path_length_snapshot snap;
+    snap.length = *len;
+    snap.indeterminate = false;
+    return snap;
+#else
+    return pathconf_limit(path, _PC_PATH_MAX);
+#endif
+}
+
+/// Volume identifier query is not supported in unprivileged sandboxes.
 inline result<std::string> volume_id(const std::string& /*path*/) {
     return fail(errc::not_supported);
 }
