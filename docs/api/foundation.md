@@ -76,6 +76,11 @@ struct toolchain_version {
     unsigned int minor;
     unsigned int patch;
 };
+
+constexpr bool operator==(const toolchain_version& lhs,
+                          const toolchain_version& rhs) noexcept;
+constexpr bool operator!=(const toolchain_version& lhs,
+                          const toolchain_version& rhs) noexcept;
 ```
 
 ### Functions
@@ -89,6 +94,8 @@ constexpr standard_library target_standard_library() noexcept;
 const char* compiler_name(compiler value) noexcept;
 const char* standard_library_name(standard_library value) noexcept;
 ```
+
+`target_compiler_version()` returns `{0, 0, 0}` when numeric predefined version macros are unavailable, unrecognized, or when target facts are forced unknown via `SYSCAPE_FORCE_UNKNOWN_TARGET`.
 
 ---
 

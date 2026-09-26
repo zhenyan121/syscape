@@ -78,6 +78,11 @@ struct toolchain_version {
     unsigned int minor;
     unsigned int patch;
 };
+
+constexpr bool operator==(const toolchain_version& lhs,
+                          const toolchain_version& rhs) noexcept;
+constexpr bool operator!=(const toolchain_version& lhs,
+                          const toolchain_version& rhs) noexcept;
 ```
 
 ### 函数接口
@@ -91,6 +96,8 @@ constexpr standard_library target_standard_library() noexcept;
 const char* compiler_name(compiler value) noexcept;
 const char* standard_library_name(standard_library value) noexcept;
 ```
+
+当数值预定义版本宏不可用、无法识别或通过 `SYSCAPE_FORCE_UNKNOWN_TARGET` 强置为未知目标时，`target_compiler_version()` 返回 `{0, 0, 0}`。
 
 ---
 

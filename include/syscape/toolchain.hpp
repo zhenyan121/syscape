@@ -82,7 +82,8 @@ constexpr compiler target_compiler() noexcept {
     return compiler::unknown;
 #elif defined(__EMSCRIPTEN__)
     return compiler::emscripten;
-#elif defined(__open_xl_version__) || defined(__open_xl__) || defined(__ibmxl__)
+#elif defined(__open_xl_version__) || defined(__ibmxl_version__) ||            \
+    defined(__open_xl__) || defined(__ibmxl__)
     return compiler::ibm_open_xl;
 #elif defined(__xlC__) || defined(__IBMCPP__)
     return compiler::ibm_xl;
@@ -100,8 +101,9 @@ constexpr compiler target_compiler() noexcept {
 #elif defined(__RENESAS__) || defined(__RENESAS_VERSION__)
     return compiler::renesas;
 #elif defined(__XC) || defined(__XC8) || defined(__XC16) || defined(__XC32) || \
-    defined(__XC8_VERSION) || defined(__XC16_VERSION) ||                       \
-    defined(__XC32_VERSION)
+    defined(__XC8_VERSION__) || defined(__XC16_VERSION__) ||                   \
+    defined(__XC32_VERSION__) || defined(__XC8_VERSION) ||                     \
+    defined(__XC16_VERSION) || defined(__XC32_VERSION)
     return compiler::microchip_xc;
 #elif defined(__SUNPRO_CC) || defined(__SUNPRO_C)
     return compiler::oracle_developer_studio;
@@ -109,7 +111,7 @@ constexpr compiler target_compiler() noexcept {
     return compiler::hp_acc;
 #elif defined(__IAR_SYSTEMS_ICC__)
     return compiler::iar;
-#elif defined(__ghs__) || defined(__GHS_VERSION_NUMBER__) ||                   \
+#elif defined(__ghs) || defined(__ghs__) || defined(__GHS_VERSION_NUMBER__) || \
     defined(__ghs_version__)
     return compiler::green_hills;
 #elif defined(__WATCOMC__)
@@ -159,7 +161,8 @@ constexpr toolchain_version target_compiler_version() noexcept {
 #else
     return {0U, 0U, 0U};
 #endif
-#elif defined(__open_xl_version__) || defined(__open_xl__) || defined(__ibmxl__)
+#elif defined(__open_xl_version__) || defined(__ibmxl_version__) ||            \
+    defined(__open_xl__) || defined(__ibmxl__)
 #if defined(__open_xl_version__)
     return {static_cast<unsigned int>(__open_xl_version__),
 #if defined(__open_xl_release__)
@@ -254,9 +257,13 @@ constexpr toolchain_version target_compiler_version() noexcept {
             static_cast<unsigned int>((__ARMCOMPILER_VERSION / 10000) % 100),
             static_cast<unsigned int>((__ARMCOMPILER_VERSION / 100) % 100)};
 #elif defined(__ARMCC_VERSION)
-    return {static_cast<unsigned int>(__ARMCC_VERSION / 1000000),
-            static_cast<unsigned int>((__ARMCC_VERSION / 10000) % 100),
-            static_cast<unsigned int>((__ARMCC_VERSION / 100) % 100)};
+    return {static_cast<unsigned int>(__ARMCC_VERSION >= 1000000
+                                          ? __ARMCC_VERSION / 1000000
+                                          : __ARMCC_VERSION / 100000),
+            static_cast<unsigned int>(__ARMCC_VERSION >= 1000000
+                                          ? (__ARMCC_VERSION / 10000) % 100
+                                          : (__ARMCC_VERSION / 10000) % 10),
+            static_cast<unsigned int>(__ARMCC_VERSION % 10000)};
 #else
     return {0U, 0U, 0U};
 #endif
@@ -278,12 +285,19 @@ constexpr toolchain_version target_compiler_version() noexcept {
     return {0U, 0U, 0U};
 #endif
 #elif defined(__XC) || defined(__XC8) || defined(__XC16) || defined(__XC32) || \
-    defined(__XC8_VERSION) || defined(__XC16_VERSION) ||                       \
-    defined(__XC32_VERSION)
-#if defined(__XC32_VERSION)
+    defined(__XC8_VERSION__) || defined(__XC16_VERSION__) ||                   \
+    defined(__XC32_VERSION__) || defined(__XC8_VERSION) ||                     \
+    defined(__XC16_VERSION) || defined(__XC32_VERSION)
+#if defined(__XC32_VERSION__)
+#define SYSCAPE_DETAIL_XC_VER __XC32_VERSION__
+#elif defined(__XC32_VERSION)
 #define SYSCAPE_DETAIL_XC_VER __XC32_VERSION
+#elif defined(__XC16_VERSION__)
+#define SYSCAPE_DETAIL_XC_VER __XC16_VERSION__
 #elif defined(__XC16_VERSION)
 #define SYSCAPE_DETAIL_XC_VER __XC16_VERSION
+#elif defined(__XC8_VERSION__)
+#define SYSCAPE_DETAIL_XC_VER __XC8_VERSION__
 #elif defined(__XC8_VERSION)
 #define SYSCAPE_DETAIL_XC_VER __XC8_VERSION
 #endif
@@ -333,7 +347,7 @@ constexpr toolchain_version target_compiler_version() noexcept {
 #else
     return {0U, 0U, 0U};
 #endif
-#elif defined(__ghs__) || defined(__GHS_VERSION_NUMBER__) ||                   \
+#elif defined(__ghs) || defined(__ghs__) || defined(__GHS_VERSION_NUMBER__) || \
     defined(__ghs_version__)
 #if defined(__GHS_VERSION_NUMBER__)
     return {static_cast<unsigned int>(__GHS_VERSION_NUMBER__ / 100),
