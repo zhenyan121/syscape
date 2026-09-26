@@ -2096,6 +2096,84 @@ if(CMAKE_SYSTEM_NAME STREQUAL "RIOT" OR RIOT)
     target_link_libraries(os_riot_ztimer_only PRIVATE riot_compat)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "RTTHREAD" OR RTTHREAD)
+    add_library(rtthread_compat STATIC compat/rtthread/rtthread_compat.cpp)
+    target_include_directories(rtthread_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/rtthread)
+    target_compile_features(rtthread_compat PUBLIC cxx_std_17)
+
+    set(RTTHREAD_TEST_TARGETS
+        os_rtthread
+        cpu_rtthread
+        memory_rtthread
+        process_rtthread
+        user_rtthread
+        filesystem_rtthread
+        network_rtthread
+        locale_rtthread
+        environment_rtthread
+        resource_rtthread
+        virtualization_rtthread
+        hardware_rtthread
+        power_rtthread
+        sensor_rtthread
+        security_rtthread
+        numa_rtthread
+        process_list_rtthread
+        printer_rtthread
+        audio_rtthread
+        software_rtthread
+        storage_rtthread
+        ipc_rtthread
+        connection_rtthread
+        gpu_rtthread
+        display_rtthread
+        input_rtthread
+        camera_rtthread
+        bluetooth_rtthread
+        wifi_rtthread)
+    foreach(rtthread_target IN LISTS RTTHREAD_TEST_TARGETS)
+        syscape_add_test(${rtthread_target} 17 syscape::hosted ${rtthread_target}.cpp)
+        target_compile_definitions(${rtthread_target} PRIVATE __RTTHREAD__=1 RTTHREAD=1)
+        target_link_libraries(${rtthread_target} PRIVATE rtthread_compat)
+    endforeach()
+
+    foreach(rtthread_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(rtthread_header_target "header_${rtthread_domain}_rtthread")
+        syscape_add_test(
+            ${rtthread_header_target}
+            17
+            syscape::hosted
+            header_${rtthread_domain}.cpp)
+        target_compile_definitions(${rtthread_header_target} PRIVATE __RTTHREAD__=1 RTTHREAD=1)
+        target_link_libraries(${rtthread_header_target} PRIVATE rtthread_compat)
+    endforeach()
+
+    syscape_add_test(
+        rtthread_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(rtthread_odr PRIVATE __RTTHREAD__=1 RTTHREAD=1)
+    target_link_libraries(rtthread_odr PRIVATE rtthread_compat)
+
+    syscape_add_test(os_rtthread_no_timer 17 syscape::hosted os_rtthread.cpp)
+    target_compile_definitions(os_rtthread_no_timer PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_NO_TIMER=1)
+    target_link_libraries(os_rtthread_no_timer PRIVATE rtthread_compat)
+
+    syscape_add_test(os_rtthread_legacy_version 17 syscape::hosted os_rtthread.cpp)
+    target_compile_definitions(os_rtthread_legacy_version PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_VERSION=5 RT_SUBVERSION=1 RT_REVISION=0)
+    target_link_libraries(os_rtthread_legacy_version PRIVATE rtthread_compat)
+
+    syscape_add_test(cpu_rtthread_smp 17 syscape::hosted cpu_rtthread.cpp)
+    target_compile_definitions(cpu_rtthread_smp PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_CPUS_NR=4)
+    target_link_libraries(cpu_rtthread_smp PRIVATE rtthread_compat)
+endif()
+
 # Compatibility environments and variants (Tier 3)
 syscape_add_test(cygwin_detection 11 syscape::syscape cygwin_detection.cpp)
 target_compile_definitions(cygwin_detection PRIVATE __CYGWIN__=1)
@@ -2174,6 +2252,9 @@ target_compile_definitions(sailfish_detection PRIVATE __SAILFISH__=1)
 
 syscape_add_test(kaios_detection 11 syscape::syscape kaios_detection.cpp)
 target_compile_definitions(kaios_detection PRIVATE __KAIOS__=1)
+
+syscape_add_test(rtthread_detection 11 syscape::syscape rtthread_detection.cpp)
+target_compile_definitions(rtthread_detection PRIVATE __RTTHREAD__=1)
 
 syscape_add_test(legacy_env_strings 11 syscape::syscape legacy_env_strings.cpp)
 

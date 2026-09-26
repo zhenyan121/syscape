@@ -883,6 +883,43 @@ jobs:
             --output-on-failure \
             -R riot
 
+  rtthread-backend-host-check:
+    name: RT-Thread backend selection host check (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC
+            cxx: g++
+          - compiler: Clang
+            cxx: clang++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang gcc g++ cmake ninja-build
+
+      - name: Configure RT-Thread backend selection checks
+        run: |
+          cmake -B build-rtthread -G Ninja \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DRTTHREAD=ON \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build-rtthread -j
+
+      - name: Run RT-Thread backend selection tests
+        run: |
+          ctest \
+            --test-dir build-rtthread \
+            --output-on-failure \
+            -R rtthread
 
   nuttx-backend-host-check:
 

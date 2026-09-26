@@ -91,7 +91,7 @@
     !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
     !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI) &&           \
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
-    !defined(SYSCAPE_TARGET_KAIOS)
+    !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD)
 #include <syscape/detail/memory/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/memory/windows.hpp>
@@ -193,6 +193,9 @@
 #include <syscape/detail/memory/sailfish.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_KAIOS)
 #include <syscape/detail/memory/kaios.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_RTTHREAD)
+#include <syscape/detail/memory/rtthread.hpp>
 #else
 #include <syscape/detail/memory/generic.hpp>
 #endif
