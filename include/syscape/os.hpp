@@ -37,6 +37,10 @@
 /// names, configurable version information via SYSCAPE_OPENVMS_VERSION,
 /// SYSCAPE_ZOS_VERSION, or SYSCAPE_IBMI_VERSION, and optional uptime overrides;
 /// queries without runtime APIs report not_supported.
+/// @note Tizen, Sailfish OS, and KaiOS report compile-target product and kernel
+/// names, configurable version information via SYSCAPE_TIZEN_VERSION,
+/// SYSCAPE_SAILFISH_VERSION, or SYSCAPE_KAIOS_VERSION, and optional uptime
+/// overrides; queries without runtime APIs report not_supported.
 
 #include <syscape/detail/config.hpp>
 
@@ -67,7 +71,9 @@
     !defined(SYSCAPE_TARGET_CYGWIN) && !defined(SYSCAPE_TARGET_DOS) &&         \
     !defined(SYSCAPE_TARGET_OS2) && !defined(SYSCAPE_TARGET_AMIGAOS) &&        \
     !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
-    !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI)
+    !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI) &&           \
+    !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
+    !defined(SYSCAPE_TARGET_KAIOS)
 #include <syscape/detail/os/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/os/windows.hpp>
@@ -162,6 +168,13 @@
 #include <syscape/detail/os/zos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_IBMI)
 #include <syscape/detail/os/ibmi.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_TIZEN)
+#include <syscape/detail/os/tizen.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_SAILFISH)
+#include <syscape/detail/os/sailfish.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_KAIOS)
+#include <syscape/detail/os/kaios.hpp>
 #else
 #include <syscape/detail/os/generic.hpp>
 #endif

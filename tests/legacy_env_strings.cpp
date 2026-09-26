@@ -24,5 +24,14 @@ int main() {
     assert(std::strcmp(
                syscape::operating_system_name(syscape::operating_system::ibmi),
                "ibmi") == 0);
+    assert(std::strcmp(
+               syscape::operating_system_name(syscape::operating_system::tizen),
+               "tizen") == 0);
+    assert(std::strcmp(syscape::operating_system_name(
+                           syscape::operating_system::sailfishos),
+                       "sailfishos") == 0);
+    assert(std::strcmp(
+               syscape::operating_system_name(syscape::operating_system::kaios),
+               "kaios") == 0);
     return 0;
 }

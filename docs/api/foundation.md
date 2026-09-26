@@ -102,7 +102,7 @@ const char* standard_library_name(standard_library value) noexcept;
 
 #### `enum class operating_system`
 Compile-target OS detection:
-- `unknown`, `windows`, `linux_os`, `macos`, `android`, `ios`, `ipados`, `watchos`, `tvos`, `visionos`, `freebsd`, `openbsd`, `netbsd`, `dragonfly_bsd`, `illumos`, `solaris`, `aix`, `hpux`, `haiku`, `serenityos`, `redox`, `hurd`, `minix`, `qnx`, `vxworks`, `rtems`, `zephyr`, `nuttx`, `wasi`, `emscripten`, `openharmony`.
+- `unknown`, `windows`, `linux_os`, `macos`, `android`, `ios`, `ipados`, `watchos`, `tvos`, `visionos`, `freebsd`, `openbsd`, `netbsd`, `dragonfly_bsd`, `illumos`, `solaris`, `aix`, `hpux`, `haiku`, `serenityos`, `redox`, `hurd`, `minix`, `qnx`, `vxworks`, `rtems`, `zephyr`, `nuttx`, `wasi`, `emscripten`, `openharmony`, `fuchsia`, `freertos`, `threadx`, `embos`, `ucos`, `integrity`, `tkernel`, `chibios`, `mynewt`, `mbed`, `riot`, `cygwin`, `dos`, `os2`, `amigaos`, `riscos`, `openvms`, `zos`, `ibmi`, `tizen`, `sailfishos`, `kaios`.
 
 #### `enum class execution_environment`
 Runtime environment classification:
