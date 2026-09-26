@@ -80,8 +80,6 @@ constexpr bool operator!=(const toolchain_version& lhs,
 constexpr compiler target_compiler() noexcept {
 #if defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return compiler::unknown;
-#elif defined(__EMSCRIPTEN__)
-    return compiler::emscripten;
 #elif defined(__open_xl_version__) || defined(__ibmxl_version__) ||            \
     defined(__open_xl__) || defined(__ibmxl__)
     return compiler::ibm_open_xl;
@@ -91,8 +89,6 @@ constexpr compiler target_compiler() noexcept {
     return compiler::intel_llvm;
 #elif defined(__INTEL_COMPILER)
     return compiler::intel_classic;
-#elif defined(__apple_build_version__) && defined(__clang__)
-    return compiler::apple_clang;
 #elif defined(__ARMCOMPILER_VERSION) || defined(__ARMCC_VERSION) ||            \
     defined(__CC_ARM)
     return compiler::arm_compiler;
@@ -116,6 +112,10 @@ constexpr compiler target_compiler() noexcept {
     return compiler::green_hills;
 #elif defined(__WATCOMC__)
     return compiler::open_watcom;
+#elif defined(__EMSCRIPTEN__)
+    return compiler::emscripten;
+#elif defined(__apple_build_version__) && defined(__clang__)
+    return compiler::apple_clang;
 #elif defined(__clang__)
     return compiler::clang;
 #elif defined(_MSC_VER)
@@ -131,36 +131,6 @@ constexpr compiler target_compiler() noexcept {
 constexpr toolchain_version target_compiler_version() noexcept {
 #if defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return {0U, 0U, 0U};
-#elif defined(__EMSCRIPTEN__)
-#if defined(__EMSCRIPTEN_major__)
-    return {static_cast<unsigned int>(__EMSCRIPTEN_major__),
-#if defined(__EMSCRIPTEN_minor__)
-            static_cast<unsigned int>(__EMSCRIPTEN_minor__),
-#else
-            0U,
-#endif
-#if defined(__EMSCRIPTEN_tiny__)
-            static_cast<unsigned int>(__EMSCRIPTEN_tiny__)
-#else
-            0U
-#endif
-    };
-#elif defined(__clang_major__)
-    return {static_cast<unsigned int>(__clang_major__),
-#if defined(__clang_minor__)
-            static_cast<unsigned int>(__clang_minor__),
-#else
-            0U,
-#endif
-#if defined(__clang_patchlevel__)
-            static_cast<unsigned int>(__clang_patchlevel__)
-#else
-            0U
-#endif
-    };
-#else
-    return {0U, 0U, 0U};
-#endif
 #elif defined(__open_xl_version__) || defined(__ibmxl_version__) ||            \
     defined(__open_xl__) || defined(__ibmxl__)
 #if defined(__open_xl_version__)
@@ -235,23 +205,6 @@ constexpr toolchain_version target_compiler_version() noexcept {
             static_cast<unsigned int>(__INTEL_COMPILER % 10)
 #endif
     };
-#elif defined(__apple_build_version__) && defined(__clang__)
-#if defined(__clang_major__)
-    return {static_cast<unsigned int>(__clang_major__),
-#if defined(__clang_minor__)
-            static_cast<unsigned int>(__clang_minor__),
-#else
-            0U,
-#endif
-#if defined(__clang_patchlevel__)
-            static_cast<unsigned int>(__clang_patchlevel__)
-#else
-            0U
-#endif
-    };
-#else
-    return {0U, 0U, 0U};
-#endif
 #elif defined(__ARMCOMPILER_VERSION) || defined(__ARMCC_VERSION) ||            \
     defined(__CC_ARM)
 #if defined(__ARMCOMPILER_VERSION)
@@ -370,6 +323,53 @@ constexpr toolchain_version target_compiler_version() noexcept {
                                           ? ((__WATCOMC__ - 1100) % 100) / 10
                                           : (__WATCOMC__ % 100) / 10),
             static_cast<unsigned int>(__WATCOMC__ % 10)};
+#elif defined(__EMSCRIPTEN__)
+#if defined(__EMSCRIPTEN_major__)
+    return {static_cast<unsigned int>(__EMSCRIPTEN_major__),
+#if defined(__EMSCRIPTEN_minor__)
+            static_cast<unsigned int>(__EMSCRIPTEN_minor__),
+#else
+            0U,
+#endif
+#if defined(__EMSCRIPTEN_tiny__)
+            static_cast<unsigned int>(__EMSCRIPTEN_tiny__)
+#else
+            0U
+#endif
+    };
+#elif defined(__clang_major__)
+    return {static_cast<unsigned int>(__clang_major__),
+#if defined(__clang_minor__)
+            static_cast<unsigned int>(__clang_minor__),
+#else
+            0U,
+#endif
+#if defined(__clang_patchlevel__)
+            static_cast<unsigned int>(__clang_patchlevel__)
+#else
+            0U
+#endif
+    };
+#else
+    return {0U, 0U, 0U};
+#endif
+#elif defined(__apple_build_version__) && defined(__clang__)
+#if defined(__clang_major__)
+    return {static_cast<unsigned int>(__clang_major__),
+#if defined(__clang_minor__)
+            static_cast<unsigned int>(__clang_minor__),
+#else
+            0U,
+#endif
+#if defined(__clang_patchlevel__)
+            static_cast<unsigned int>(__clang_patchlevel__)
+#else
+            0U
+#endif
+    };
+#else
+    return {0U, 0U, 0U};
+#endif
 #elif defined(__clang__)
 #if defined(__clang_major__)
     return {static_cast<unsigned int>(__clang_major__),
