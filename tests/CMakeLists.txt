@@ -2165,6 +2165,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL "RTTHREAD" OR RTTHREAD)
     target_compile_definitions(os_rtthread_legacy_version PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_LEGACY_VERSION=1 RT_VERSION=4 RT_SUBVERSION=1 RT_REVISION=0)
     target_link_libraries(os_rtthread_legacy_version PRIVATE rtthread_compat)
 
+    syscape_add_test(os_rtthread_version_override 17 syscape::hosted os_rtthread.cpp)
+    target_compile_definitions(os_rtthread_version_override PRIVATE __RTTHREAD__=1 RTTHREAD=1 SYSCAPE_RTTHREAD_VERSION_STRING="5.2.0-custom")
+    target_link_libraries(os_rtthread_version_override PRIVATE rtthread_compat)
+
+    syscape_add_test(memory_rtthread_no_heap 17 syscape::hosted memory_rtthread.cpp)
+    target_compile_definitions(memory_rtthread_no_heap PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_NO_HEAP=1)
+    target_link_libraries(memory_rtthread_no_heap PRIVATE rtthread_compat)
+
     syscape_add_test(cpu_rtthread_smp 17 syscape::hosted cpu_rtthread.cpp)
     target_compile_definitions(cpu_rtthread_smp PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_CPUS_NR=4)
     target_link_libraries(cpu_rtthread_smp PRIVATE rtthread_compat)
@@ -2251,6 +2259,9 @@ target_compile_definitions(kaios_detection PRIVATE __KAIOS__=1)
 
 syscape_add_test(rtthread_detection 11 syscape::syscape rtthread_detection.cpp)
 target_compile_definitions(rtthread_detection PRIVATE __RTTHREAD__=1 RTTHREAD=1)
+
+syscape_add_test(rtthread_priority_max_detection 11 syscape::syscape rtthread_detection.cpp)
+target_compile_definitions(rtthread_priority_max_detection PRIVATE RT_THREAD_PRIORITY_MAX=32)
 
 syscape_add_test(legacy_env_strings 11 syscape::syscape legacy_env_strings.cpp)
 

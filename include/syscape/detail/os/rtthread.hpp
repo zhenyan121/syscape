@@ -34,8 +34,8 @@ inline result<std::string> kernel_name() {
 }
 
 inline result<std::string> product_version() {
-#if defined(RT_VERSION_STRING)
-    return std::string(RT_VERSION_STRING);
+#if defined(SYSCAPE_RTTHREAD_VERSION_STRING)
+    return std::string(SYSCAPE_RTTHREAD_VERSION_STRING);
 #elif defined(RT_VERSION_MAJOR) && defined(RT_VERSION_MINOR) &&                \
     defined(RT_VERSION_PATCH)
     return std::to_string(RT_VERSION_MAJOR) + "." +
@@ -63,24 +63,12 @@ inline result<std::string> host_name() {
 inline result<std::chrono::milliseconds> uptime() {
 #if defined(SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS)
 #if defined(RT_TICK_PER_SECOND) && (RT_TICK_PER_SECOND > 0)
-    const std::uint64_t hz = static_cast<std::uint64_t>(RT_TICK_PER_SECOND);
-    if (hz == 0) {
-        return fail(errc::malformed_data);
-    }
+    const auto hz = static_cast<std::uint64_t>(RT_TICK_PER_SECOND);
     constexpr std::uint64_t max_ms =
         static_cast<std::uint64_t>((std::chrono::milliseconds::max)().count());
-    const std::uint64_t ticks = static_cast<std::uint64_t>(rt_tick_get());
-    if (ticks > max_ms / 1000ULL) {
-        if (ticks / hz > max_ms / 1000ULL) {
-            return fail(errc::value_too_large);
-        }
-        const std::uint64_t ms =
-            (ticks / hz) * 1000ULL + ((ticks % hz) * 1000ULL) / hz;
-        if (ms > max_ms) {
-            return fail(errc::value_too_large);
-        }
-        return std::chrono::milliseconds(
-            static_cast<std::chrono::milliseconds::rep>(ms));
+    const auto ticks = static_cast<std::uint64_t>(rt_tick_get());
+    if (ticks > UINT64_MAX / 1000ULL) {
+        return fail(errc::value_too_large);
     }
     const std::uint64_t ms = (ticks * 1000ULL) / hz;
     if (ms > max_ms) {

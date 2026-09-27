@@ -34,8 +34,10 @@
 #define RT_THREAD_PRIORITY_MAX 32
 #endif
 
+#if !defined(RT_NO_HEAP)
 #if !defined(RT_USING_HEAP)
 #define RT_USING_HEAP 1
+#endif
 #endif
 
 typedef uint32_t rt_tick_t;

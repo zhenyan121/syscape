@@ -17,6 +17,23 @@ void expect(bool condition, const char* message) {
 }
 
 void test_memory_queries() {
+#if defined(RT_NO_HEAP)
+    const auto phys = syscape::memory::physical_memory_bytes();
+    expect(!phys && phys.error() == syscape::errc::not_supported,
+           "physical memory must report not_supported when RT_USING_HEAP is "
+           "disabled");
+
+    const auto avail = syscape::memory::available_memory_bytes();
+    expect(!avail && avail.error() == syscape::errc::not_supported,
+           "available memory must report not_supported when RT_USING_HEAP is "
+           "disabled");
+
+    const auto load = syscape::memory::memory_load_percent();
+    expect(
+        !load && load.error() == syscape::errc::not_supported,
+        "memory load percent must report not_supported when RT_USING_HEAP is "
+        "disabled");
+#else
     const auto phys = syscape::memory::physical_memory_bytes();
     expect(phys.has_value() && *phys == 65536ULL,
            "physical memory must report total heap from rt_memory_info");
@@ -50,6 +67,7 @@ void test_memory_queries() {
            "memory load percent must report malformed_data when used > total");
 
     rtthread_mock_reset();
+#endif
 
     const auto page = syscape::memory::page_size_bytes();
     expect(!page && page.error() == syscape::errc::not_supported,

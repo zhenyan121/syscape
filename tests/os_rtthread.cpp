@@ -35,7 +35,10 @@ void test_runtime_queries() {
            "kernel name must be 'RT-Thread'");
 
     const auto kver = syscape::os::kernel_version();
-#if defined(RT_LEGACY_VERSION)
+#if defined(SYSCAPE_RTTHREAD_VERSION_STRING)
+    expect(kver.has_value() && *kver == SYSCAPE_RTTHREAD_VERSION_STRING,
+           "kernel version must match SYSCAPE_RTTHREAD_VERSION_STRING");
+#elif defined(RT_LEGACY_VERSION)
     expect(
         kver.has_value() && *kver == "4.1.0",
         "kernel version must be '4.1.0' for legacy RT-Thread version macros");
@@ -45,7 +48,10 @@ void test_runtime_queries() {
 #endif
 
     const auto pver = syscape::os::product_version();
-#if defined(RT_LEGACY_VERSION)
+#if defined(SYSCAPE_RTTHREAD_VERSION_STRING)
+    expect(pver.has_value() && *pver == SYSCAPE_RTTHREAD_VERSION_STRING,
+           "product version must match SYSCAPE_RTTHREAD_VERSION_STRING");
+#elif defined(RT_LEGACY_VERSION)
     expect(
         pver.has_value() && *pver == "4.1.0",
         "product version must be '4.1.0' for legacy RT-Thread version macros");

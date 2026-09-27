@@ -31,7 +31,7 @@ rt_thread_t rt_thread_self(void) {
     return g_mock_thread;
 }
 
-rt_int32_t rt_object_get_length(rt_uint8_t type) {
+int rt_object_get_length(enum rt_object_class_type type) {
     if (type == RT_Object_Class_Thread) {
         return g_mock_thread_count;
     }

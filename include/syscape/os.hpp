@@ -41,6 +41,11 @@
 /// names, configurable version information via SYSCAPE_TIZEN_VERSION,
 /// SYSCAPE_SAILFISH_VERSION, or SYSCAPE_KAIOS_VERSION, and optional uptime
 /// overrides; queries without runtime APIs report not_supported.
+/// @note RT-Thread reports compile-target product and kernel names, kernel
+/// version from RT_VERSION_MAJOR/MINOR/PATCH or legacy
+/// RT_VERSION/SUBVERSION/REVISION (with optional
+/// SYSCAPE_RTTHREAD_VERSION_STRING override), and monotonic uptime from
+/// rt_tick_get(); boot time and host name report not_supported.
 
 #include <syscape/detail/config.hpp>
 

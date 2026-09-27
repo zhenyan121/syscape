@@ -242,6 +242,8 @@ inline result<std::uint64_t> physical_memory_bytes() {
 /// UVM snapshot exposes only free pages. The estimate excludes cached data
 /// that can be reclaimed on demand only where the platform says so. The value
 /// changes continuously with system load.
+/// On RT-Thread, this query reports the unallocated capacity remaining in the
+/// kernel-managed heap via rt_memory_info() when RT_USING_HEAP is enabled.
 /// @return A byte count no greater than physical_memory_bytes(),
 /// not_supported when the platform does not expose such an estimate (for
 /// example kernels older than MemAvailable's introduction), malformed_data,

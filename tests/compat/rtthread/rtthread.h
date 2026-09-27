@@ -10,7 +10,7 @@ extern "C" {
 rt_tick_t rt_tick_get(void);
 void rt_memory_info(rt_size_t* total, rt_size_t* used, rt_size_t* max_used);
 rt_thread_t rt_thread_self(void);
-rt_int32_t rt_object_get_length(rt_uint8_t type);
+int rt_object_get_length(enum rt_object_class_type type);
 
 // Mock controller functions for test suites
 void rtthread_mock_set_tick(rt_tick_t tick);

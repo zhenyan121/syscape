@@ -38,10 +38,10 @@ inline result<std::uint64_t> process_count() {
 inline result<std::uint64_t> thread_count() {
 #if defined(SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS)
     const auto count = rt_object_get_length(RT_Object_Class_Thread);
-    if (count >= 0) {
-        return static_cast<std::uint64_t>(count);
+    if (count < 0) {
+        return fail(errc::malformed_data);
     }
-    return fail(errc::not_supported);
+    return static_cast<std::uint64_t>(count);
 #else
     return fail(errc::not_supported);
 #endif

@@ -28,8 +28,8 @@ void test_resource_queries() {
 
     rtthread_mock_set_thread_count(-1);
     const auto threads_err = syscape::resource::thread_count();
-    expect(!threads_err && threads_err.error() == syscape::errc::not_supported,
-           "thread count must report not_supported when count is negative");
+    expect(!threads_err && threads_err.error() == syscape::errc::malformed_data,
+           "thread count must report malformed_data when count is negative");
 
     rtthread_mock_reset();
 
