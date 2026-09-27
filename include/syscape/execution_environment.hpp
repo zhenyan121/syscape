@@ -65,7 +65,9 @@ enum class operating_system {
     tizen,
     sailfishos,
     kaios,
-    rtthread
+    rtthread,
+    browser_wasm,
+    embedded_wasm
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -131,6 +133,13 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::unknown;
 #elif defined(_WIN32)
     return operating_system::windows;
+#elif defined(SYSCAPE_TARGET_WASM_BROWSER) ||                                  \
+    defined(__EMSCRIPTEN_BROWSER__) || defined(__wasm_browser__)
+    return operating_system::browser_wasm;
+#elif defined(SYSCAPE_TARGET_WASM_EMBEDDED) || defined(__WAMR__) ||            \
+    defined(WASM_ENABLE_INTERP) || defined(WASM_ENABLE_AOT) ||                 \
+    defined(__wasm_embedded__) || defined(WASMTIME_EMBEDDED)
+    return operating_system::embedded_wasm;
 #elif defined(__EMSCRIPTEN__) || defined(EMSCRIPTEN) ||                        \
     defined(SYSCAPE_TARGET_EMSCRIPTEN)
     return operating_system::emscripten;
@@ -271,14 +280,16 @@ constexpr execution_environment target_execution_environment() noexcept {
 #elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN) ||                 \
     defined(__MINGW32__) || defined(__MINGW64__) || defined(__MSYS__)
     return execution_environment::compatibility;
-#elif defined(__EMSCRIPTEN__) || defined(EMSCRIPTEN) ||                        \
-    defined(SYSCAPE_TARGET_EMSCRIPTEN) || defined(__wasi__) ||                 \
-    defined(WASI) || defined(SYSCAPE_TARGET_WASI) || defined(__ANDROID__) ||   \
-    defined(__OHOS__) || defined(__OpenHarmony__) || defined(__Fuchsia__) ||   \
-    defined(FUCHSIA) || defined(SYSCAPE_TARGET_FUCHSIA) ||                     \
-    defined(__TIZEN__) || defined(__tizen__) ||                                \
-    defined(SYSCAPE_TARGET_TIZEN) || defined(__SAILFISH__) ||                  \
-    defined(__sailfish__) || defined(__sailfishos__) || defined(__SILICA__) || \
+#elif defined(SYSCAPE_TARGET_WASM_BROWSER) ||                                  \
+    defined(SYSCAPE_TARGET_WASM_EMBEDDED) || defined(__EMSCRIPTEN__) ||        \
+    defined(EMSCRIPTEN) || defined(SYSCAPE_TARGET_EMSCRIPTEN) ||               \
+    defined(__wasi__) || defined(WASI) || defined(SYSCAPE_TARGET_WASI) ||      \
+    defined(__ANDROID__) || defined(__OHOS__) || defined(__OpenHarmony__) ||   \
+    defined(__Fuchsia__) || defined(FUCHSIA) ||                                \
+    defined(SYSCAPE_TARGET_FUCHSIA) || defined(__TIZEN__) ||                   \
+    defined(__tizen__) || defined(SYSCAPE_TARGET_TIZEN) ||                     \
+    defined(__SAILFISH__) || defined(__sailfish__) ||                          \
+    defined(__sailfishos__) || defined(__SILICA__) ||                          \
     defined(SYSCAPE_TARGET_SAILFISH) || defined(__KAIOS__) ||                  \
     defined(__kaios__) || defined(__B2G__) || defined(SYSCAPE_TARGET_KAIOS) || \
     (defined(__APPLE__) &&                                                     \
@@ -425,6 +436,10 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "kaios";
     case operating_system::rtthread:
         return "rt-thread";
+    case operating_system::browser_wasm:
+        return "browser-wasm";
+    case operating_system::embedded_wasm:
+        return "embedded-wasm";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";

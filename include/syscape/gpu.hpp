@@ -115,7 +115,9 @@ struct gpu_device {
     !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
     !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI) &&           \
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
-    !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD)
+    !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD) &&     \
+    !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
+    !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/gpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/gpu/windows.hpp>
@@ -174,6 +176,12 @@ struct gpu_device {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_RTTHREAD)
 #include <syscape/detail/gpu/rtthread.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_WASM_BROWSER)
+#include <syscape/detail/gpu/wasm_browser.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_WASM_EMBEDDED)
+#include <syscape/detail/gpu/wasm_embedded.hpp>
 #else
 #include <syscape/detail/gpu/generic.hpp>
 #endif

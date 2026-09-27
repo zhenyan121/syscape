@@ -2813,6 +2813,74 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
     endforeach()
 endif()
 
+# ==============================================================================
+# WebAssembly Environments (Browser WASM & Embedded WASM)
+# ==============================================================================
+syscape_add_test(wasm_environments 11 syscape::syscape wasm_environments.cpp)
+
+syscape_add_test(wasm_browser_detection 11 syscape::syscape wasm_environments.cpp)
+target_compile_definitions(wasm_browser_detection PRIVATE TEST_WASM_BROWSER=1 SYSCAPE_TARGET_WASM_BROWSER=1)
+
+syscape_add_test(wasm_browser_macro_emscripten 11 syscape::syscape wasm_environments.cpp)
+target_compile_definitions(wasm_browser_macro_emscripten PRIVATE TEST_WASM_BROWSER=1 __EMSCRIPTEN__=1 __EMSCRIPTEN_BROWSER__=1)
+
+syscape_add_test(wasm_embedded_detection 11 syscape::syscape wasm_environments.cpp)
+target_compile_definitions(wasm_embedded_detection PRIVATE TEST_WASM_EMBEDDED=1 SYSCAPE_TARGET_WASM_EMBEDDED=1)
+
+syscape_add_test(wasm_embedded_macro_wamr 11 syscape::syscape wasm_environments.cpp)
+target_compile_definitions(wasm_embedded_macro_wamr PRIVATE TEST_WASM_EMBEDDED=1 __WAMR__=1)
+
+syscape_add_test(os_wasm_browser 17 syscape::hosted os_wasm_browser.cpp)
+target_compile_definitions(os_wasm_browser PRIVATE SYSCAPE_TARGET_WASM_BROWSER=1)
+
+syscape_add_test(os_wasm_embedded 17 syscape::hosted os_wasm_embedded.cpp)
+target_compile_definitions(os_wasm_embedded PRIVATE SYSCAPE_TARGET_WASM_EMBEDDED=1)
+
+syscape_add_test(memory_wasm_browser 17 syscape::hosted memory_wasm_browser.cpp)
+target_compile_definitions(memory_wasm_browser PRIVATE SYSCAPE_TARGET_WASM_BROWSER=1)
+
+syscape_add_test(memory_wasm_embedded 17 syscape::hosted memory_wasm_embedded.cpp)
+target_compile_definitions(memory_wasm_embedded PRIVATE SYSCAPE_TARGET_WASM_EMBEDDED=1)
+
+syscape_add_test(
+    wasm_browser_odr
+    17
+    syscape::hosted
+    odr_main.cpp
+    odr_other.cpp)
+target_compile_definitions(wasm_browser_odr PRIVATE SYSCAPE_TARGET_WASM_BROWSER=1)
+
+syscape_add_test(
+    wasm_embedded_odr
+    17
+    syscape::hosted
+    odr_main.cpp
+    odr_other.cpp)
+target_compile_definitions(wasm_embedded_odr PRIVATE SYSCAPE_TARGET_WASM_EMBEDDED=1)
+
+foreach(wasm_env_domain IN ITEMS
+        os cpu memory process user filesystem network locale environment
+        resource virtualization hardware power sensor security numa
+        process_list printer audio software storage ipc connection
+        gpu display input camera bluetooth wifi)
+    set(wasm_b_header_target "header_${wasm_env_domain}_wasm_browser")
+    syscape_add_test(
+        ${wasm_b_header_target}
+        17
+        syscape::hosted
+        header_${wasm_env_domain}.cpp)
+    target_compile_definitions(${wasm_b_header_target} PRIVATE SYSCAPE_TARGET_WASM_BROWSER=1)
+
+    set(wasm_e_header_target "header_${wasm_env_domain}_wasm_embedded")
+    syscape_add_test(
+        ${wasm_e_header_target}
+        17
+        syscape::hosted
+        header_${wasm_env_domain}.cpp)
+    target_compile_definitions(${wasm_e_header_target} PRIVATE SYSCAPE_TARGET_WASM_EMBEDDED=1)
+endforeach()
+
+
 
 if(APPLE)
     target_link_libraries(

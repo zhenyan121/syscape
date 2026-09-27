@@ -110,6 +110,17 @@
 #define SYSCAPE_TARGET_EMSCRIPTEN 1
 #endif
 
+#if defined(SYSCAPE_TARGET_WASM_BROWSER) || defined(__EMSCRIPTEN_BROWSER__) || \
+    defined(__wasm_browser__)
+#define SYSCAPE_TARGET_WASM_BROWSER 1
+#endif
+
+#if defined(SYSCAPE_TARGET_WASM_EMBEDDED) || defined(__WAMR__) ||              \
+    defined(WASM_ENABLE_INTERP) || defined(WASM_ENABLE_AOT) ||                 \
+    defined(__wasm_embedded__) || defined(WASMTIME_EMBEDDED)
+#define SYSCAPE_TARGET_WASM_EMBEDDED 1
+#endif
+
 #if defined(__Fuchsia__) || defined(FUCHSIA) || defined(SYSCAPE_TARGET_FUCHSIA)
 #define SYSCAPE_TARGET_FUCHSIA 1
 #endif
