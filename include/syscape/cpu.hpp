@@ -118,7 +118,7 @@ enum class cache_kind : std::uint8_t {
     !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
     !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI) &&           \
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
-    !defined(SYSCAPE_TARGET_KAIOS)
+    !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD)
 #include <syscape/detail/cpu/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/cpu/windows.hpp>
@@ -220,6 +220,9 @@ enum class cache_kind : std::uint8_t {
 #include <syscape/detail/cpu/sailfish.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_KAIOS)
 #include <syscape/detail/cpu/kaios.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_RTTHREAD)
+#include <syscape/detail/cpu/rtthread.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif

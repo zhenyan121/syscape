@@ -91,7 +91,7 @@
     !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
     !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI) &&           \
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
-    !defined(SYSCAPE_TARGET_KAIOS)
+    !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD)
 #include <syscape/detail/memory/linux.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/memory/windows.hpp>
@@ -193,6 +193,9 @@
 #include <syscape/detail/memory/sailfish.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_KAIOS)
 #include <syscape/detail/memory/kaios.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_RTTHREAD)
+#include <syscape/detail/memory/rtthread.hpp>
 #else
 #include <syscape/detail/memory/generic.hpp>
 #endif
@@ -218,6 +221,9 @@ inline result<std::uint64_t> page_size_bytes() {
 /// not restricted by process limits, cgroups, job objects, or virtual-machine
 /// memory configuration beyond what the host reports. The value normally
 /// remains unchanged while the process runs; hot-added memory can change it.
+/// On RT-Thread, this query reports the total capacity of the kernel-managed
+/// heap via rt_memory_info() when RT_USING_HEAP is enabled, representing the
+/// configured heap pool rather than total hardware RAM.
 /// @return A positive byte count, not_supported when no acceptable source
 /// exists, not_found when the platform source omits total capacity,
 /// malformed_data for inconsistent platform data, or a native platform error.
@@ -236,6 +242,8 @@ inline result<std::uint64_t> physical_memory_bytes() {
 /// UVM snapshot exposes only free pages. The estimate excludes cached data
 /// that can be reclaimed on demand only where the platform says so. The value
 /// changes continuously with system load.
+/// On RT-Thread, this query reports the unallocated capacity remaining in the
+/// kernel-managed heap via rt_memory_info() when RT_USING_HEAP is enabled.
 /// @return A byte count no greater than physical_memory_bytes(),
 /// not_supported when the platform does not expose such an estimate (for
 /// example kernels older than MemAvailable's introduction), malformed_data,
