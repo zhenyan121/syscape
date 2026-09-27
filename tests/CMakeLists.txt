@@ -2176,6 +2176,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "RTTHREAD" OR RTTHREAD)
     syscape_add_test(cpu_rtthread_smp 17 syscape::hosted cpu_rtthread.cpp)
     target_compile_definitions(cpu_rtthread_smp PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_CPUS_NR=4)
     target_link_libraries(cpu_rtthread_smp PRIVATE rtthread_compat)
+
+    syscape_add_test(rtthread_detection 11 syscape::syscape rtthread_detection.cpp)
+    target_compile_definitions(rtthread_detection PRIVATE __RTTHREAD__=1 RTTHREAD=1)
+
+    syscape_add_test(rtthread_priority_max_detection 11 syscape::syscape rtthread_detection.cpp)
+    target_compile_definitions(rtthread_priority_max_detection PRIVATE RT_THREAD_PRIORITY_MAX=32)
 endif()
 
 # Compatibility environments and variants (Tier 3)
@@ -2256,12 +2262,6 @@ target_compile_definitions(sailfish_detection PRIVATE __SAILFISH__=1)
 
 syscape_add_test(kaios_detection 11 syscape::syscape kaios_detection.cpp)
 target_compile_definitions(kaios_detection PRIVATE __KAIOS__=1)
-
-syscape_add_test(rtthread_detection 11 syscape::syscape rtthread_detection.cpp)
-target_compile_definitions(rtthread_detection PRIVATE __RTTHREAD__=1 RTTHREAD=1)
-
-syscape_add_test(rtthread_priority_max_detection 11 syscape::syscape rtthread_detection.cpp)
-target_compile_definitions(rtthread_priority_max_detection PRIVATE RT_THREAD_PRIORITY_MAX=32)
 
 syscape_add_test(legacy_env_strings 11 syscape::syscape legacy_env_strings.cpp)
 
