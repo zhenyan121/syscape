@@ -169,7 +169,7 @@
 #define SYSCAPE_TARGET_RIOT 1
 #endif
 
-#if defined(__RTTHREAD__) || defined(__rtthread__) ||                          \
+#if defined(__RTTHREAD__) || defined(__rtthread__) || defined(RTTHREAD) ||     \
     defined(RT_THREAD_PRIORITY_MAX) || defined(SYSCAPE_TARGET_RTTHREAD)
 #define SYSCAPE_TARGET_RTTHREAD 1
 #endif

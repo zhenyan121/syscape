@@ -228,7 +228,7 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(RIOT_VERSION) || defined(__RIOT__) || defined(RIOT) ||           \
     defined(SYSCAPE_TARGET_RIOT)
     return operating_system::riot;
-#elif defined(__RTTHREAD__) || defined(__rtthread__) ||                        \
+#elif defined(__RTTHREAD__) || defined(__rtthread__) || defined(RTTHREAD) ||   \
     defined(RT_THREAD_PRIORITY_MAX) || defined(SYSCAPE_TARGET_RTTHREAD)
     return operating_system::rtthread;
 #elif defined(__linux__)
@@ -314,8 +314,8 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(MBED_MAJOR_VERSION) || defined(SYSCAPE_TARGET_MBED) ||             \
     defined(RIOT_VERSION) || defined(__RIOT__) || defined(RIOT) ||             \
     defined(SYSCAPE_TARGET_RIOT) || defined(__RTTHREAD__) ||                   \
-    defined(__rtthread__) || defined(RT_THREAD_PRIORITY_MAX) ||                \
-    defined(SYSCAPE_TARGET_RTTHREAD)
+    defined(__rtthread__) || defined(RTTHREAD) ||                              \
+    defined(RT_THREAD_PRIORITY_MAX) || defined(SYSCAPE_TARGET_RTTHREAD)
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;

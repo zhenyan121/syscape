@@ -17,16 +17,21 @@ void expect(bool condition, const char* message) {
 }
 
 void test_resource_queries() {
-#if defined(RT_THREAD_COUNT)
     const auto threads = syscape::resource::thread_count();
-    expect(threads.has_value() && *threads == RT_THREAD_COUNT,
-           "thread count must report RT_THREAD_COUNT on RT-Thread");
-#else
-    const auto threads = syscape::resource::thread_count();
-    expect(!threads && threads.error() == syscape::errc::not_supported,
-           "thread count must report not_supported on RT-Thread when no count "
-           "macro is defined");
-#endif
+    expect(threads.has_value() && *threads == 3U,
+           "thread count must report 3 from rt_object_get_length");
+
+    rtthread_mock_set_thread_count(7);
+    const auto threads2 = syscape::resource::thread_count();
+    expect(threads2.has_value() && *threads2 == 7U,
+           "thread count must dynamically reflect rt_object_get_length count");
+
+    rtthread_mock_set_thread_count(-1);
+    const auto threads_err = syscape::resource::thread_count();
+    expect(!threads_err && threads_err.error() == syscape::errc::not_supported,
+           "thread count must report not_supported when count is negative");
+
+    rtthread_mock_reset();
 
     const auto load = syscape::resource::load_average();
     expect(!load && load.error() == syscape::errc::not_supported,

@@ -7,6 +7,7 @@ static rt_size_t g_mock_mem_max_used = 20480;
 
 static struct rt_thread g_default_thread = {12, 12, "main"};
 static rt_thread_t g_mock_thread = &g_default_thread;
+static rt_int32_t g_mock_thread_count = 3;
 
 extern "C" {
 
@@ -30,6 +31,13 @@ rt_thread_t rt_thread_self(void) {
     return g_mock_thread;
 }
 
+rt_int32_t rt_object_get_length(rt_uint8_t type) {
+    if (type == RT_Object_Class_Thread) {
+        return g_mock_thread_count;
+    }
+    return 0;
+}
+
 void rtthread_mock_set_tick(rt_tick_t tick) {
     g_mock_tick = tick;
 }
@@ -49,6 +57,10 @@ void rtthread_mock_set_priority(rt_uint8_t priority) {
     g_default_thread.current_priority = priority;
 }
 
+void rtthread_mock_set_thread_count(rt_int32_t count) {
+    g_mock_thread_count = count;
+}
+
 void rtthread_mock_reset(void) {
     g_mock_tick = 12345678;
     g_mock_mem_total = 65536;
@@ -58,6 +70,7 @@ void rtthread_mock_reset(void) {
     g_default_thread.init_priority = 12;
     g_default_thread.name = "main";
     g_mock_thread = &g_default_thread;
+    g_mock_thread_count = 3;
 }
 
 } // extern "C"

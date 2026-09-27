@@ -16,9 +16,6 @@
 #if __has_include(<rtthread.h>)
 #include <rtthread.h>
 #define SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS 1
-#elif __has_include(<rtdef.h>)
-#include <rtdef.h>
-#define SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS 1
 #endif
 #endif
 

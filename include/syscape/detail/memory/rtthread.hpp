@@ -14,9 +14,6 @@
 #if __has_include(<rtthread.h>)
 #include <rtthread.h>
 #define SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS 1
-#elif __has_include(<rtdef.h>)
-#include <rtdef.h>
-#define SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS 1
 #endif
 #endif
 
@@ -31,13 +28,13 @@ inline result<std::uint64_t> page_size_bytes() {
     return fail(errc::not_supported);
 }
 
-// Returns the total managed heap capacity in bytes on RT-Thread.
-// When dynamic heap management is enabled, queries rt_memory_info();
-// otherwise falls back to configured heap size macros.
+// Returns the total managed heap capacity in bytes on RT-Thread via
+// rt_memory_info() when dynamic heap management (RT_USING_HEAP) is enabled.
+// Note: This reports the kernel-managed heap pool rather than total hardware
+// RAM.
 inline result<std::uint64_t> physical_memory_bytes() {
 #if defined(SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS)
-#if defined(RT_USING_HEAP) || defined(RT_USING_MEMHEAP) ||                     \
-    defined(RT_USING_SMALL_MEM) || defined(RT_USING_SLAB)
+#if defined(RT_USING_HEAP)
     rt_size_t total = 0;
     rt_size_t used = 0;
     rt_size_t max_used = 0;
@@ -46,13 +43,7 @@ inline result<std::uint64_t> physical_memory_bytes() {
         return static_cast<std::uint64_t>(total);
     }
 #endif
-#if defined(RT_TOTAL_HEAP_SIZE) && (RT_TOTAL_HEAP_SIZE > 0)
-    return static_cast<std::uint64_t>(RT_TOTAL_HEAP_SIZE);
-#elif defined(RT_HEAP_SIZE) && (RT_HEAP_SIZE > 0)
-    return static_cast<std::uint64_t>(RT_HEAP_SIZE);
-#else
     return fail(errc::not_supported);
-#endif
 #else
     return fail(errc::not_supported);
 #endif
@@ -61,8 +52,7 @@ inline result<std::uint64_t> physical_memory_bytes() {
 // Returns the available free heap memory in bytes on RT-Thread.
 inline result<std::uint64_t> available_memory_bytes() {
 #if defined(SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS)
-#if defined(RT_USING_HEAP) || defined(RT_USING_MEMHEAP) ||                     \
-    defined(RT_USING_SMALL_MEM) || defined(RT_USING_SLAB)
+#if defined(RT_USING_HEAP)
     rt_size_t total = 0;
     rt_size_t used = 0;
     rt_size_t max_used = 0;
@@ -74,11 +64,7 @@ inline result<std::uint64_t> available_memory_bytes() {
         return static_cast<std::uint64_t>(total - used);
     }
 #endif
-#if defined(RT_FREE_HEAP_SIZE) && (RT_FREE_HEAP_SIZE > 0)
-    return static_cast<std::uint64_t>(RT_FREE_HEAP_SIZE);
-#else
     return fail(errc::not_supported);
-#endif
 #else
     return fail(errc::not_supported);
 #endif

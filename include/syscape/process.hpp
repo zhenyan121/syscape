@@ -383,13 +383,16 @@ inline result<std::uint32_t> thread_count() {
 /// - RIOT OS reports the thread scheduling priority obtained via
 ///   thread_get_priority() in the range 0 (highest priority) through
 ///   THREAD_PRIORITY_MIN (lowest priority / idle).
+/// - RT-Thread reports the thread scheduling priority obtained via
+///   rt_thread_self()->current_priority in the range 0 (highest priority)
+///   through RT_THREAD_PRIORITY_MAX - 1 (lowest priority).
 /// A lower POSIX value means more favorable scheduling, while a higher
-/// Windows base priority means more favorable scheduling. On RIOT OS and
-/// native VxWorks, lower numeric values represent more favorable scheduling
-/// (0 highest priority). On VxWorks the scheduling priority direction
-/// depends on posixPriorityNumbering: a higher numeric value represents
-/// more favorable scheduling when POSIX priority numbering is active,
-/// while the native VxWorks scale treats lower numeric values as more
+/// Windows base priority means more favorable scheduling. On RT-Thread, RIOT
+/// OS, and native VxWorks, lower numeric values represent more favorable
+/// scheduling (0 highest priority). On VxWorks the scheduling priority
+/// direction depends on posixPriorityNumbering: a higher numeric value
+/// represents more favorable scheduling when POSIX priority numbering is
+/// active, while the native VxWorks scale treats lower numeric values as more
 /// favorable (0 highest through 255 lowest).
 ///
 /// The value reflects a snapshot taken by the query and changes when the

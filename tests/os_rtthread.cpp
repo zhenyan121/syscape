@@ -35,22 +35,30 @@ void test_runtime_queries() {
            "kernel name must be 'RT-Thread'");
 
     const auto kver = syscape::os::kernel_version();
+#if defined(RT_LEGACY_VERSION)
+    expect(
+        kver.has_value() && *kver == "4.1.0",
+        "kernel version must be '4.1.0' for legacy RT-Thread version macros");
+#else
     expect(kver.has_value() && *kver == "5.1.0",
            "kernel version must be '5.1.0'");
+#endif
 
     const auto pver = syscape::os::product_version();
+#if defined(RT_LEGACY_VERSION)
+    expect(
+        pver.has_value() && *pver == "4.1.0",
+        "product version must be '4.1.0' for legacy RT-Thread version macros");
+#else
     expect(pver.has_value() && *pver == "5.1.0",
            "product version must be '5.1.0'");
+#endif
 
     const auto host = syscape::os::host_name();
     expect(!host && host.error() == syscape::errc::not_supported,
            "host name must report not_supported on RT-Thread");
 
     const auto elapsed = syscape::os::uptime();
-#if defined(RT_NO_TIMER)
-    expect(!elapsed && elapsed.error() == syscape::errc::not_supported,
-           "uptime must report not_supported when timer is disabled");
-#else
     expect(elapsed.has_value() && elapsed->count() == 12345678,
            "uptime must succeed and match mock milliseconds");
 
@@ -66,7 +74,6 @@ void test_runtime_queries() {
            "uptime must handle max 32-bit tick count");
 
     rtthread_mock_set_tick(12345678U);
-#endif
 
     const auto started = syscape::os::boot_time();
     expect(!started && started.error() == syscape::errc::not_supported,

@@ -13,9 +13,6 @@
 #if __has_include(<rtthread.h>)
 #include <rtthread.h>
 #define SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS 1
-#elif __has_include(<rtdef.h>)
-#include <rtdef.h>
-#define SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS 1
 #endif
 #endif
 
@@ -40,13 +37,11 @@ inline result<std::uint64_t> process_count() {
 
 inline result<std::uint64_t> thread_count() {
 #if defined(SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS)
-#if defined(RT_THREAD_COUNT) && (RT_THREAD_COUNT > 0)
-    return static_cast<std::uint64_t>(RT_THREAD_COUNT);
-#elif defined(RTTHREAD_MAX_THREADS) && (RTTHREAD_MAX_THREADS > 0)
-    return static_cast<std::uint64_t>(RTTHREAD_MAX_THREADS);
-#else
+    const auto count = rt_object_get_length(RT_Object_Class_Thread);
+    if (count >= 0) {
+        return static_cast<std::uint64_t>(count);
+    }
     return fail(errc::not_supported);
-#endif
 #else
     return fail(errc::not_supported);
 #endif

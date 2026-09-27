@@ -15,9 +15,6 @@
 #if __has_include(<rtthread.h>)
 #include <rtthread.h>
 #define SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS 1
-#elif __has_include(<rtdef.h>)
-#include <rtdef.h>
-#define SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS 1
 #endif
 #endif
 
@@ -60,17 +57,18 @@ inline result<std::string> host_name() {
     return fail(errc::not_supported);
 }
 
+// Computes monotonic uptime from rt_tick_get() and RT_TICK_PER_SECOND.
+// On 32-bit RT-Thread with 1000 Hz tick rate, the 32-bit tick counter wraps
+// after approximately 49.7 days.
 inline result<std::chrono::milliseconds> uptime() {
 #if defined(SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS)
-#if defined(RT_NO_TIMER)
-    return fail(errc::not_supported);
-#elif defined(RT_TICK_PER_SECOND) && (RT_TICK_PER_SECOND > 0)
+#if defined(RT_TICK_PER_SECOND) && (RT_TICK_PER_SECOND > 0)
     const std::uint64_t hz = static_cast<std::uint64_t>(RT_TICK_PER_SECOND);
     if (hz == 0) {
         return fail(errc::malformed_data);
     }
     constexpr std::uint64_t max_ms =
-        static_cast<std::uint64_t>(std::chrono::milliseconds::max().count());
+        static_cast<std::uint64_t>((std::chrono::milliseconds::max)().count());
     const std::uint64_t ticks = static_cast<std::uint64_t>(rt_tick_get());
     if (ticks > max_ms / 1000ULL) {
         if (ticks / hz > max_ms / 1000ULL) {

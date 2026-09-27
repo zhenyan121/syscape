@@ -2161,21 +2161,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "RTTHREAD" OR RTTHREAD)
     target_compile_definitions(rtthread_odr PRIVATE __RTTHREAD__=1 RTTHREAD=1)
     target_link_libraries(rtthread_odr PRIVATE rtthread_compat)
 
-    syscape_add_test(os_rtthread_no_timer 17 syscape::hosted os_rtthread.cpp)
-    target_compile_definitions(os_rtthread_no_timer PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_NO_TIMER=1)
-    target_link_libraries(os_rtthread_no_timer PRIVATE rtthread_compat)
-
     syscape_add_test(os_rtthread_legacy_version 17 syscape::hosted os_rtthread.cpp)
-    target_compile_definitions(os_rtthread_legacy_version PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_VERSION=5 RT_SUBVERSION=1 RT_REVISION=0)
+    target_compile_definitions(os_rtthread_legacy_version PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_LEGACY_VERSION=1 RT_VERSION=4 RT_SUBVERSION=1 RT_REVISION=0)
     target_link_libraries(os_rtthread_legacy_version PRIVATE rtthread_compat)
 
     syscape_add_test(cpu_rtthread_smp 17 syscape::hosted cpu_rtthread.cpp)
     target_compile_definitions(cpu_rtthread_smp PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_CPUS_NR=4)
     target_link_libraries(cpu_rtthread_smp PRIVATE rtthread_compat)
-
-    syscape_add_test(resource_rtthread_with_count 17 syscape::hosted resource_rtthread.cpp)
-    target_compile_definitions(resource_rtthread_with_count PRIVATE __RTTHREAD__=1 RTTHREAD=1 RT_THREAD_COUNT=8)
-    target_link_libraries(resource_rtthread_with_count PRIVATE rtthread_compat)
 endif()
 
 # Compatibility environments and variants (Tier 3)
@@ -2258,7 +2250,7 @@ syscape_add_test(kaios_detection 11 syscape::syscape kaios_detection.cpp)
 target_compile_definitions(kaios_detection PRIVATE __KAIOS__=1)
 
 syscape_add_test(rtthread_detection 11 syscape::syscape rtthread_detection.cpp)
-target_compile_definitions(rtthread_detection PRIVATE __RTTHREAD__=1)
+target_compile_definitions(rtthread_detection PRIVATE __RTTHREAD__=1 RTTHREAD=1)
 
 syscape_add_test(legacy_env_strings 11 syscape::syscape legacy_env_strings.cpp)
 

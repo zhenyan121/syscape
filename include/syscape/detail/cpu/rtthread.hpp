@@ -15,9 +15,6 @@
 #if __has_include(<rtthread.h>)
 #include <rtthread.h>
 #define SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS 1
-#elif __has_include(<rtdef.h>)
-#include <rtdef.h>
-#define SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS 1
 #endif
 #endif
 
@@ -39,10 +36,6 @@ inline result<std::vector<std::string>> model_names() {
 inline result<std::uint32_t> online_logical_processor_count() {
 #if defined(RT_CPUS_NR) && (RT_CPUS_NR > 0)
     return static_cast<std::uint32_t>(RT_CPUS_NR);
-#elif defined(RTTHREAD_CPU_COUNT) && (RTTHREAD_CPU_COUNT > 0)
-    return static_cast<std::uint32_t>(RTTHREAD_CPU_COUNT);
-#elif defined(NUM_CORES) && (NUM_CORES > 0)
-    return static_cast<std::uint32_t>(NUM_CORES);
 #elif defined(SYSCAPE_RTTHREAD_HAS_KERNEL_HEADERS)
     return 1U;
 #else

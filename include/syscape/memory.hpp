@@ -221,6 +221,9 @@ inline result<std::uint64_t> page_size_bytes() {
 /// not restricted by process limits, cgroups, job objects, or virtual-machine
 /// memory configuration beyond what the host reports. The value normally
 /// remains unchanged while the process runs; hot-added memory can change it.
+/// On RT-Thread, this query reports the total capacity of the kernel-managed
+/// heap via rt_memory_info() when RT_USING_HEAP is enabled, representing the
+/// configured heap pool rather than total hardware RAM.
 /// @return A positive byte count, not_supported when no acceptable source
 /// exists, not_found when the platform source omits total capacity,
 /// malformed_data for inconsistent platform data, or a native platform error.
