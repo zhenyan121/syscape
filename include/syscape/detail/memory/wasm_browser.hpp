@@ -6,7 +6,16 @@
 #include <cerrno>
 #include <cstdint>
 #include <system_error>
+
+#if defined(__has_include)
+#if __has_include(<unistd.h>)
 #include <unistd.h>
+#define SYSCAPE_DETAIL_HAS_UNISTD_H 1
+#endif
+#elif !defined(_WIN32)
+#include <unistd.h>
+#define SYSCAPE_DETAIL_HAS_UNISTD_H 1
+#endif
 
 #include <syscape/detail/memory/common.hpp>
 #include <syscape/result.hpp>
@@ -16,7 +25,8 @@ namespace detail {
 namespace memory_backend {
 
 inline result<std::uint64_t> page_size_bytes() {
-#if defined(_SC_PAGESIZE) || defined(_SC_PAGE_SIZE)
+#if defined(SYSCAPE_DETAIL_HAS_UNISTD_H) &&                                    \
+    (defined(_SC_PAGESIZE) || defined(_SC_PAGE_SIZE))
     errno = 0;
 #if defined(_SC_PAGESIZE)
     const long size = ::sysconf(_SC_PAGESIZE);
@@ -67,5 +77,9 @@ inline result<memory_common::pressure_status> memory_pressure() {
 } // namespace memory_backend
 } // namespace detail
 } // namespace syscape
+
+#if defined(SYSCAPE_DETAIL_HAS_UNISTD_H)
+#undef SYSCAPE_DETAIL_HAS_UNISTD_H
+#endif
 
 #endif

@@ -2824,8 +2824,14 @@ target_compile_definitions(wasm_browser_detection PRIVATE TEST_WASM_BROWSER=1 SY
 syscape_add_test(wasm_browser_macro_emscripten 11 syscape::syscape wasm_environments.cpp)
 target_compile_definitions(wasm_browser_macro_emscripten PRIVATE TEST_WASM_BROWSER=1 __EMSCRIPTEN__=1 __EMSCRIPTEN_BROWSER__=1)
 
+syscape_add_test(wasm_browser_precedence_over_emscripten 11 syscape::syscape wasm_environments.cpp)
+target_compile_definitions(wasm_browser_precedence_over_emscripten PRIVATE TEST_WASM_BROWSER=1 __EMSCRIPTEN__=1 SYSCAPE_TARGET_EMSCRIPTEN=1 SYSCAPE_TARGET_WASM_BROWSER=1)
+
 syscape_add_test(wasm_embedded_detection 11 syscape::syscape wasm_environments.cpp)
 target_compile_definitions(wasm_embedded_detection PRIVATE TEST_WASM_EMBEDDED=1 SYSCAPE_TARGET_WASM_EMBEDDED=1)
+
+syscape_add_test(wasm_embedded_precedence_over_wasi 11 syscape::syscape wasm_environments.cpp)
+target_compile_definitions(wasm_embedded_precedence_over_wasi PRIVATE TEST_WASM_EMBEDDED=1 __wasi__=1 SYSCAPE_TARGET_WASI=1 SYSCAPE_TARGET_WASM_EMBEDDED=1)
 
 syscape_add_test(wasm_embedded_macro_wamr 11 syscape::syscape wasm_environments.cpp)
 target_compile_definitions(wasm_embedded_macro_wamr PRIVATE TEST_WASM_EMBEDDED=1 __WAMR__=1)
@@ -2838,6 +2844,9 @@ target_compile_definitions(os_wasm_embedded PRIVATE SYSCAPE_TARGET_WASM_EMBEDDED
 
 syscape_add_test(memory_wasm_browser 17 syscape::hosted memory_wasm_browser.cpp)
 target_compile_definitions(memory_wasm_browser PRIVATE SYSCAPE_TARGET_WASM_BROWSER=1)
+
+syscape_add_test(memory_wasm_browser_macro_emscripten 17 syscape::hosted memory_wasm_browser.cpp)
+target_compile_definitions(memory_wasm_browser_macro_emscripten PRIVATE __EMSCRIPTEN__=1 __EMSCRIPTEN_BROWSER__=1)
 
 syscape_add_test(memory_wasm_embedded 17 syscape::hosted memory_wasm_embedded.cpp)
 target_compile_definitions(memory_wasm_embedded PRIVATE SYSCAPE_TARGET_WASM_EMBEDDED=1)

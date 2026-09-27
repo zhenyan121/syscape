@@ -19,6 +19,10 @@ static_assert(syscape::target_operating_system() ==
 static_assert(syscape::target_execution_environment() ==
                   syscape::execution_environment::sandboxed,
               "browser_wasm must select sandboxed execution environment");
+#if defined(SYSCAPE_TARGET_EMSCRIPTEN)
+#error                                                                         \
+    "SYSCAPE_TARGET_EMSCRIPTEN must NOT be defined when Browser WASM is active"
+#endif
 #elif defined(TEST_WASM_EMBEDDED)
 static_assert(syscape::target_operating_system() ==
                   syscape::operating_system::embedded_wasm,
@@ -26,6 +30,9 @@ static_assert(syscape::target_operating_system() ==
 static_assert(syscape::target_execution_environment() ==
                   syscape::execution_environment::sandboxed,
               "embedded_wasm must select sandboxed execution environment");
+#if defined(SYSCAPE_TARGET_WASI)
+#error "SYSCAPE_TARGET_WASI must NOT be defined when Embedded WASM is active"
+#endif
 #endif
 
 int main() {
