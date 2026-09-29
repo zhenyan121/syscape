@@ -199,16 +199,16 @@ struct device_info {
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/bluetooth/linux.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
-#include <syscape/detail/bluetooth/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
-#include <syscape/detail/bluetooth/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_WASM_BROWSER)
 #include <syscape/detail/bluetooth/wasm_browser.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/bluetooth/wasm_embedded.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
+#include <syscape/detail/bluetooth/windows.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
+#include <syscape/detail/bluetooth/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_EMSCRIPTEN)
 #include <syscape/detail/bluetooth/emscripten.hpp>

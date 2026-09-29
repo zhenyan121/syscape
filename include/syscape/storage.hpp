@@ -154,6 +154,12 @@ enum class drive_health_status : std::uint8_t {
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/storage/linux.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_WASM_BROWSER)
+#include <syscape/detail/storage/wasm_browser.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_WASM_EMBEDDED)
+#include <syscape/detail/storage/wasm_embedded.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/storage/windows.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
@@ -202,12 +208,6 @@ enum class drive_health_status : std::uint8_t {
 #include <syscape/detail/storage/zephyr.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/storage/nuttx.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
-    defined(SYSCAPE_TARGET_WASM_BROWSER)
-#include <syscape/detail/storage/wasm_browser.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
-    defined(SYSCAPE_TARGET_WASM_EMBEDDED)
-#include <syscape/detail/storage/wasm_embedded.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_WASI)
 #include <syscape/detail/storage/wasi.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \

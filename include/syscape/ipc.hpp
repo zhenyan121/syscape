@@ -75,6 +75,12 @@
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/ipc/linux.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_WASM_BROWSER)
+#include <syscape/detail/ipc/wasm_browser.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_WASM_EMBEDDED)
+#include <syscape/detail/ipc/wasm_embedded.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/ipc/windows.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
@@ -123,12 +129,6 @@
 #include <syscape/detail/ipc/zephyr.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/ipc/nuttx.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
-    defined(SYSCAPE_TARGET_WASM_BROWSER)
-#include <syscape/detail/ipc/wasm_browser.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
-    defined(SYSCAPE_TARGET_WASM_EMBEDDED)
-#include <syscape/detail/ipc/wasm_embedded.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_WASI)
 #include <syscape/detail/ipc/wasi.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \

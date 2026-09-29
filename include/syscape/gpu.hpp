@@ -119,16 +119,16 @@ struct gpu_device {
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/gpu/linux.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
-#include <syscape/detail/gpu/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
-#include <syscape/detail/gpu/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_WASM_BROWSER)
 #include <syscape/detail/gpu/wasm_browser.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/gpu/wasm_embedded.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
+#include <syscape/detail/gpu/windows.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
+#include <syscape/detail/gpu/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_EMSCRIPTEN)
 #include <syscape/detail/gpu/emscripten.hpp>

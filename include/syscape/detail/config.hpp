@@ -104,11 +104,12 @@
 #endif
 
 #if defined(SYSCAPE_TARGET_WASM_EMBEDDED) || defined(__WAMR__) ||              \
-    defined(WASM_ENABLE_INTERP) || defined(WASM_ENABLE_AOT) ||                 \
     defined(__wasm_embedded__) || defined(WASMTIME_EMBEDDED)
 #define SYSCAPE_TARGET_WASM_EMBEDDED 1
 #endif
 
+// When an explicit WebAssembly browser or embedded environment is selected, it
+// takes deterministic precedence over generic WASI or Emscripten host runtimes.
 #if defined(SYSCAPE_TARGET_WASM_BROWSER) ||                                    \
     defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #ifdef SYSCAPE_TARGET_WASI

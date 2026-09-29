@@ -5,8 +5,8 @@
 /// @brief Hosted environment variables, standard directories, and interactive
 /// terminal queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17
-/// (Sandboxed/Restricted on Apple mobile platforms, Android, OpenHarmony, and
-/// Emscripten).
+/// (Sandboxed/Restricted on Apple mobile platforms, Android, OpenHarmony,
+/// Emscripten, Browser WebAssembly, and Embedded WebAssembly).
 /// @note Linux, macOS, FreeBSD, Solaris, Haiku, AIX, HP-UX, GNU/Hurd,
 /// SerenityOS, and Redox OS use their documented POSIX and platform directory
 /// facilities; Windows provides a native
@@ -17,10 +17,11 @@
 /// provides process environment and working-directory queries; temporary and
 /// home directories are returned only when the recorded path exists, while
 /// configuration, data, and cache directories report not_supported.
-/// Emscripten provides process-environment snapshots, working-directory and
-/// terminal queries, validates configured temporary and home directories, and
-/// reports executable discovery as not_supported. Other targets use the
-/// generic fallback.
+/// Emscripten and Browser WebAssembly (requiring Emscripten-compatible libc)
+/// provide process-environment snapshots, working-directory and terminal
+/// queries, validate configured temporary and home directories, and report
+/// executable discovery as not_supported. Embedded WebAssembly and other
+/// targets use the generic fallback.
 /// @note All returned paths and strings are UTF-8 encoded.
 /// @note Thread-safety: queries observe the process environment without
 /// modifying it. C and POSIX environment mutation APIs do not provide a
@@ -96,6 +97,12 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/environment/linux.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_WASM_BROWSER)
+#include <syscape/detail/environment/wasm_browser.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_WASM_EMBEDDED)
+#include <syscape/detail/environment/wasm_embedded.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/environment/windows.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
@@ -144,12 +151,6 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
 #include <syscape/detail/environment/zephyr.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUTTX)
 #include <syscape/detail/environment/nuttx.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
-    defined(SYSCAPE_TARGET_WASM_BROWSER)
-#include <syscape/detail/environment/wasm_browser.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
-    defined(SYSCAPE_TARGET_WASM_EMBEDDED)
-#include <syscape/detail/environment/wasm_embedded.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_WASI)
 #include <syscape/detail/environment/wasi.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \

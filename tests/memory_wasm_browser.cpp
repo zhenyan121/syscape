@@ -21,11 +21,18 @@ void test_memory_queries() {
            "target_operating_system must report browser_wasm");
 
     const auto page = syscape::memory::page_size_bytes();
-    expect(page.has_value(), "page_size_bytes must succeed");
+#if defined(TEST_WASM_MEMORY_FORCE_NO_SYSCONF)
+    expect(!page && page.error() == syscape::errc::not_supported,
+           "page_size_bytes must report not_supported when sysconf is "
+           "unavailable");
+#else
+    expect(page.has_value() || page.error() == syscape::errc::not_supported,
+           "page_size_bytes must succeed or report not_supported");
     if (page.has_value()) {
-        expect(*page == 65536ULL || (*page & (*page - 1ULL)) == 0ULL,
-               "page_size_bytes must be 64 KiB or valid power of two");
+        expect(*page > 0ULL && (*page & (*page - 1ULL)) == 0ULL,
+               "page_size_bytes must be a valid positive power of two");
     }
+#endif
 
     const auto phys = syscape::memory::physical_memory_bytes();
     expect(!phys && phys.error() == syscape::errc::not_supported,

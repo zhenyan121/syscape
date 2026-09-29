@@ -171,16 +171,16 @@ struct camera_device {
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/camera/linux.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
-#include <syscape/detail/camera/windows.hpp>
-#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
-#include <syscape/detail/camera/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_WASM_BROWSER)
 #include <syscape/detail/camera/wasm_browser.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/camera/wasm_embedded.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
+#include <syscape/detail/camera/windows.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_MACOS)
+#include <syscape/detail/camera/macos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_EMSCRIPTEN)
 #include <syscape/detail/camera/emscripten.hpp>

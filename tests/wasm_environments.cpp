@@ -33,6 +33,17 @@ static_assert(syscape::target_execution_environment() ==
 #if defined(SYSCAPE_TARGET_WASI)
 #error "SYSCAPE_TARGET_WASI must NOT be defined when Embedded WASM is active"
 #endif
+#elif defined(TEST_WASM_NO_INTERP_MACRO)
+static_assert(syscape::target_operating_system() !=
+                  syscape::operating_system::embedded_wasm,
+              "WASM_ENABLE_INTERP=0 must not select embedded_wasm");
+#elif defined(TEST_WASM_EMBEDDED_MCU_ESP)
+static_assert(syscape::target_operating_system() ==
+                  syscape::operating_system::embedded_wasm,
+              "embedded_wasm must take precedence over MCU target");
+static_assert(syscape::target_execution_environment() ==
+                  syscape::execution_environment::sandboxed,
+              "embedded_wasm must report sandboxed even when MCU is defined");
 #endif
 
 int main() {
