@@ -98,13 +98,11 @@
 #define SYSCAPE_TARGET_NUTTX 1
 #endif
 
-#if defined(SYSCAPE_TARGET_WASM_BROWSER) || defined(__EMSCRIPTEN_BROWSER__) || \
-    defined(__wasm_browser__)
+#if defined(SYSCAPE_TARGET_WASM_BROWSER) || defined(__EMSCRIPTEN_BROWSER__)
 #define SYSCAPE_TARGET_WASM_BROWSER 1
 #endif
 
-#if defined(SYSCAPE_TARGET_WASM_EMBEDDED) || defined(__WAMR__) ||              \
-    defined(__wasm_embedded__) || defined(WASMTIME_EMBEDDED)
+#if defined(SYSCAPE_TARGET_WASM_EMBEDDED) || defined(__WAMR__)
 #define SYSCAPE_TARGET_WASM_EMBEDDED 1
 #endif
 

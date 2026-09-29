@@ -25,6 +25,8 @@ namespace detail {
 namespace memory_backend {
 
 inline result<std::uint64_t> page_size_bytes() {
+    // Internal test hook enabling isolated unit tests to simulate environments
+    // where sysconf(_SC_PAGESIZE) is not exposed or supported.
 #if !defined(SYSCAPE_DETAIL_MEMORY_WASM_FORCE_NO_SYSCONF) &&                   \
     defined(SYSCAPE_DETAIL_HAS_UNISTD_H) &&                                    \
     (defined(_SC_PAGESIZE) || defined(_SC_PAGE_SIZE))

@@ -85,6 +85,10 @@ enum class execution_environment {
 enum class compatibility_environment { none, unknown, cygwin, mingw, msys2 };
 
 /// Returns the operating system or runtime selected for this translation unit.
+/// @note For WebAssembly targets, SYSCAPE_TARGET_WASM_BROWSER and
+///       SYSCAPE_TARGET_WASM_EMBEDDED are the canonical configuration macros.
+///       __EMSCRIPTEN_BROWSER__ and __WAMR__ are supported as optional
+///       compatibility detection macros.
 constexpr operating_system target_operating_system() noexcept {
 #if defined(SYSCAPE_FORCE_GENERIC_BACKEND) || defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return operating_system::unknown;
@@ -122,11 +126,9 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::kaios;
 #elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN)
     return operating_system::cygwin;
-#elif defined(SYSCAPE_TARGET_WASM_BROWSER) ||                                  \
-    defined(__EMSCRIPTEN_BROWSER__) || defined(__wasm_browser__)
+#elif defined(SYSCAPE_TARGET_WASM_BROWSER) || defined(__EMSCRIPTEN_BROWSER__)
     return operating_system::browser_wasm;
-#elif defined(SYSCAPE_TARGET_WASM_EMBEDDED) || defined(__WAMR__) ||            \
-    defined(__wasm_embedded__) || defined(WASMTIME_EMBEDDED)
+#elif defined(SYSCAPE_TARGET_WASM_EMBEDDED) || defined(__WAMR__)
     return operating_system::embedded_wasm;
 #elif defined(SYSCAPE_TARGET_MCU_AVR) || defined(SYSCAPE_TARGET_MCU_SAM) ||    \
     defined(SYSCAPE_TARGET_MCU_ESP) || defined(SYSCAPE_TARGET_MCU_STM32) ||    \
@@ -251,7 +253,8 @@ constexpr execution_environment target_execution_environment() noexcept {
 #if defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return execution_environment::unknown;
 #elif defined(SYSCAPE_TARGET_WASM_BROWSER) ||                                  \
-    defined(SYSCAPE_TARGET_WASM_EMBEDDED)
+    defined(__EMSCRIPTEN_BROWSER__) ||                                         \
+    defined(SYSCAPE_TARGET_WASM_EMBEDDED) || defined(__WAMR__)
     return execution_environment::sandboxed;
 #elif defined(SYSCAPE_TARGET_MCU_AVR) || defined(SYSCAPE_TARGET_MCU_SAM) ||    \
     defined(SYSCAPE_TARGET_MCU_ESP) || defined(SYSCAPE_TARGET_MCU_STM32) ||    \
