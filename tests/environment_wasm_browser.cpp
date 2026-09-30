@@ -24,12 +24,15 @@ void test_environment_queries() {
            "current_working_directory must succeed or report not_supported");
 
     const auto vars = syscape::environment::environment_variables();
-    expect(vars.has_value(), "environment_variables must succeed");
+    expect(vars.has_value() || vars.error() == syscape::errc::not_supported,
+           "environment_variables must succeed or report not_supported");
 
     const auto missing =
         syscape::environment::get("SYSCAPE_NONEXISTENT_VAR_WASM_BROWSER");
-    expect(!missing && missing.error() == syscape::errc::not_found,
-           "missing environment variable must report not_found");
+    expect(
+        (!missing && missing.error() == syscape::errc::not_found) ||
+            (!missing && missing.error() == syscape::errc::not_supported),
+        "missing environment variable must report not_found or not_supported");
 
     const auto tmp = syscape::environment::temp_directory();
     expect(tmp.has_value() || tmp.error() == syscape::errc::not_supported ||

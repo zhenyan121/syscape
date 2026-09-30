@@ -1,6 +1,10 @@
 #ifndef SYSCAPE_DETAIL_ENVIRONMENT_EMSCRIPTEN_HPP
 #define SYSCAPE_DETAIL_ENVIRONMENT_EMSCRIPTEN_HPP
 
+#if defined(_WIN32)
+#include <syscape/detail/environment/generic.hpp>
+#else
+
 #include <atomic>
 #include <cerrno>
 #include <cstddef>
@@ -338,5 +342,7 @@ using environment_posix::is_interactive_stdout;
 } // namespace environment_backend
 } // namespace detail
 } // namespace syscape
+
+#endif // !_WIN32
 
 #endif

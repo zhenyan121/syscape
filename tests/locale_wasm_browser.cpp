@@ -24,8 +24,9 @@ void test_locale_queries() {
            "current_locale must return non-empty string");
 
     const auto enc = syscape::locale::text_encoding();
-    expect(enc.has_value() && !enc->empty(),
-           "text_encoding must return non-empty string");
+    expect((enc.has_value() && !enc->empty()) ||
+               (!enc && enc.error() == syscape::errc::not_supported),
+           "text_encoding must return non-empty string or not_supported");
 
     const auto offset = syscape::locale::utc_offset_seconds();
     expect(!offset && offset.error() == syscape::errc::not_supported,

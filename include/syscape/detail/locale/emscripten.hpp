@@ -6,7 +6,16 @@
 #include <string>
 #include <vector>
 
+#if defined(__has_include)
+#if __has_include(<langinfo.h>) && !defined(_WIN32)
 #include <langinfo.h>
+#define SYSCAPE_DETAIL_EMSCRIPTEN_HAS_LANGINFO_H 1
+#endif
+#elif !defined(_WIN32)
+#include <langinfo.h>
+#define SYSCAPE_DETAIL_EMSCRIPTEN_HAS_LANGINFO_H 1
+#endif
+
 #include <syscape/result.hpp>
 
 namespace syscape {
@@ -25,6 +34,8 @@ inline result<std::string> current_locale() {
 }
 
 inline result<std::string> text_encoding() {
+#if defined(SYSCAPE_DETAIL_EMSCRIPTEN_HAS_LANGINFO_H) &&                       \
+    (!defined(__ANDROID__) || __ANDROID_API__ >= 26)
     const char* const codeset = ::nl_langinfo(CODESET);
     if (codeset == nullptr) {
         return fail(errc::not_supported);
@@ -33,6 +44,9 @@ inline result<std::string> text_encoding() {
         return fail(errc::malformed_data);
     }
     return std::string(codeset);
+#else
+    return fail(errc::not_supported);
+#endif
 }
 
 inline result<std::int32_t> utc_offset_seconds() {
