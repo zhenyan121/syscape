@@ -65,7 +65,9 @@ enum class operating_system {
     tizen,
     sailfishos,
     kaios,
-    rtthread
+    rtthread,
+    browser_wasm,
+    embedded_wasm
 };
 
 /// Describes the broad execution restrictions of the compile target.
@@ -83,6 +85,10 @@ enum class execution_environment {
 enum class compatibility_environment { none, unknown, cygwin, mingw, msys2 };
 
 /// Returns the operating system or runtime selected for this translation unit.
+/// @note For WebAssembly targets, SYSCAPE_TARGET_WASM_BROWSER and
+///       SYSCAPE_TARGET_WASM_EMBEDDED are the canonical configuration macros.
+///       __EMSCRIPTEN_BROWSER__ and __WAMR__ are supported as optional
+///       compatibility detection macros.
 constexpr operating_system target_operating_system() noexcept {
 #if defined(SYSCAPE_FORCE_GENERIC_BACKEND) || defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return operating_system::unknown;
@@ -120,6 +126,10 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::kaios;
 #elif defined(__CYGWIN__) || defined(SYSCAPE_TARGET_CYGWIN)
     return operating_system::cygwin;
+#elif defined(SYSCAPE_TARGET_WASM_BROWSER) || defined(__EMSCRIPTEN_BROWSER__)
+    return operating_system::browser_wasm;
+#elif defined(SYSCAPE_TARGET_WASM_EMBEDDED) || defined(__WAMR__)
+    return operating_system::embedded_wasm;
 #elif defined(SYSCAPE_TARGET_MCU_AVR) || defined(SYSCAPE_TARGET_MCU_SAM) ||    \
     defined(SYSCAPE_TARGET_MCU_ESP) || defined(SYSCAPE_TARGET_MCU_STM32) ||    \
     defined(SYSCAPE_TARGET_MCU_RP) || defined(SYSCAPE_TARGET_MCU_NORDIC) ||    \
@@ -242,6 +252,10 @@ constexpr operating_system target_operating_system() noexcept {
 constexpr execution_environment target_execution_environment() noexcept {
 #if defined(SYSCAPE_FORCE_UNKNOWN_TARGET)
     return execution_environment::unknown;
+#elif defined(SYSCAPE_TARGET_WASM_BROWSER) ||                                  \
+    defined(__EMSCRIPTEN_BROWSER__) ||                                         \
+    defined(SYSCAPE_TARGET_WASM_EMBEDDED) || defined(__WAMR__)
+    return execution_environment::sandboxed;
 #elif defined(SYSCAPE_TARGET_MCU_AVR) || defined(SYSCAPE_TARGET_MCU_SAM) ||    \
     defined(SYSCAPE_TARGET_MCU_ESP) || defined(SYSCAPE_TARGET_MCU_STM32) ||    \
     defined(SYSCAPE_TARGET_MCU_RP) || defined(SYSCAPE_TARGET_MCU_NORDIC) ||    \
@@ -425,6 +439,10 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "kaios";
     case operating_system::rtthread:
         return "rt-thread";
+    case operating_system::browser_wasm:
+        return "browser-wasm";
+    case operating_system::embedded_wasm:
+        return "embedded-wasm";
     case operating_system::unknown: return "unknown";
     }
     return "unknown";

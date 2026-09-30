@@ -98,6 +98,25 @@
 #define SYSCAPE_TARGET_NUTTX 1
 #endif
 
+#if defined(SYSCAPE_TARGET_WASM_BROWSER) || defined(__EMSCRIPTEN_BROWSER__)
+#define SYSCAPE_TARGET_WASM_BROWSER 1
+#endif
+
+#if defined(SYSCAPE_TARGET_WASM_EMBEDDED) || defined(__WAMR__)
+#define SYSCAPE_TARGET_WASM_EMBEDDED 1
+#endif
+
+// When an explicit WebAssembly browser or embedded environment is selected, it
+// takes deterministic precedence over generic WASI or Emscripten host runtimes.
+#if defined(SYSCAPE_TARGET_WASM_BROWSER) ||                                    \
+    defined(SYSCAPE_TARGET_WASM_EMBEDDED)
+#ifdef SYSCAPE_TARGET_WASI
+#undef SYSCAPE_TARGET_WASI
+#endif
+#ifdef SYSCAPE_TARGET_EMSCRIPTEN
+#undef SYSCAPE_TARGET_EMSCRIPTEN
+#endif
+#else
 #if defined(__wasi__)
 #define SYSCAPE_TARGET_WASI 1
 #elif defined(WASI) || defined(SYSCAPE_TARGET_WASI)
@@ -108,6 +127,7 @@
 #define SYSCAPE_TARGET_EMSCRIPTEN 1
 #elif defined(EMSCRIPTEN) || defined(SYSCAPE_TARGET_EMSCRIPTEN)
 #define SYSCAPE_TARGET_EMSCRIPTEN 1
+#endif
 #endif
 
 #if defined(__Fuchsia__) || defined(FUCHSIA) || defined(SYSCAPE_TARGET_FUCHSIA)

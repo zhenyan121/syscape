@@ -5,8 +5,8 @@
 /// @brief Hosted system memory capacity, commit accounting, huge pages,
 /// utilization, and pressure-stall usage queries.
 /// @note Minimum compatibility profile: Hosted Full with C++17
-/// (Sandboxed/Restricted on Apple mobile platforms, Android, OpenHarmony, and
-/// Emscripten).
+/// (Sandboxed/Restricted on Apple mobile platforms, Android, OpenHarmony,
+/// Emscripten, Browser WebAssembly, and Embedded WebAssembly).
 /// @note Linux implements every query through the kernel-documented
 /// /proc/meminfo interface, POSIX sysconf values, and the kernel-documented
 /// /proc/pressure/memory records. Windows implements the capacity, commit,
@@ -43,9 +43,9 @@
 /// through getpagesize; all other memory queries report not_supported. Redox OS
 /// implements page size through getpagesize; all other memory queries report
 /// not_supported. RTEMS implements only the page-size query through sysconf.
-/// Emscripten reports the page size through sysconf when available; all other
-/// memory queries report not_supported. Other targets use the not-supported
-/// fallback.
+/// Emscripten, Browser WebAssembly, and Embedded WebAssembly report the page
+/// size through sysconf when available; all other memory queries report
+/// not_supported. Other targets use the not-supported fallback.
 /// @note The Windows commit query uses GetPerformanceInfo declared in
 /// <psapi.h>, which maps to Kernel32.lib on Windows 7 or later SDKs and may
 /// require Psapi.lib with older declarations.
@@ -91,8 +91,16 @@
     !defined(SYSCAPE_TARGET_RISCOS) && !defined(SYSCAPE_TARGET_OPENVMS) &&     \
     !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI) &&           \
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
-    !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD)
+    !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD) &&     \
+    !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
+    !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/memory/linux.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_WASM_BROWSER)
+#include <syscape/detail/memory/wasm_browser.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_WASM_EMBEDDED)
+#include <syscape/detail/memory/wasm_embedded.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(_WIN32)
 #include <syscape/detail/memory/windows.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
