@@ -2272,6 +2272,15 @@ if(CMAKE_SYSTEM_NAME STREQUAL "CMSIS_RTOS" OR CMSIS_RTOS)
     syscape_add_test(memory_cmsis_rtos_exhausted 17 syscape::hosted memory_cmsis_rtos.cpp)
     target_compile_definitions(memory_cmsis_rtos_exhausted PRIVATE __CMSIS_RTOS2=1 osCMSIS_RTX5=1 CMSIS_RTOS_TOTAL_HEAP_SIZE=65536 CMSIS_RTOS_FREE_HEAP_SIZE=0)
     target_link_libraries(memory_cmsis_rtos_exhausted PRIVATE cmsis_rtos_compat)
+
+    syscape_add_test(cmsis_rtos_detection 11 syscape::syscape cmsis_rtos_detection.cpp)
+    target_compile_definitions(cmsis_rtos_detection PRIVATE __CMSIS_RTOS2=1)
+
+    syscape_add_test(cmsis_rtx_detection 11 syscape::syscape cmsis_rtos_detection.cpp)
+    target_compile_definitions(cmsis_rtx_detection PRIVATE osCMSIS_RTX5=1)
+
+    syscape_add_test(cmsis_rtos_freertos_priority 11 syscape::syscape cmsis_rtos_coexistence.cpp)
+    target_compile_definitions(cmsis_rtos_freertos_priority PRIVATE FREERTOS=1 __CMSIS_RTOS2=1 osCMSIS=0x20000U)
 endif()
 
 # Compatibility environments and variants (Tier 3)
@@ -2403,15 +2412,6 @@ target_compile_definitions(mcu_arduino_detection PRIVATE ARDUINO=10819 SYSCAPE_T
 
 syscape_add_test(mcu_arduino_esp_priority 11 syscape::syscape mcu_arduino_esp_priority.cpp)
 target_compile_definitions(mcu_arduino_esp_priority PRIVATE ARDUINO=10819 ESP_PLATFORM=1)
-
-syscape_add_test(cmsis_rtos_detection 11 syscape::syscape cmsis_rtos_detection.cpp)
-target_compile_definitions(cmsis_rtos_detection PRIVATE __CMSIS_RTOS2=1)
-
-syscape_add_test(cmsis_rtx_detection 11 syscape::syscape cmsis_rtos_detection.cpp)
-target_compile_definitions(cmsis_rtx_detection PRIVATE osCMSIS_RTX5=1)
-
-syscape_add_test(cmsis_rtos_freertos_priority 11 syscape::syscape cmsis_rtos_coexistence.cpp)
-target_compile_definitions(cmsis_rtos_freertos_priority PRIVATE FREERTOS=1 __CMSIS_RTOS2=1 osCMSIS=0x20000U)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
     # DOS tests on POSIX host using SYSCAPE_TARGET_DOS=1

@@ -921,6 +921,44 @@ jobs:
             --output-on-failure \
             -R rtthread
 
+  cmsis-rtos-backend-host-check:
+    name: CMSIS-RTOS backend selection host check (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC
+            cxx: g++
+          - compiler: Clang
+            cxx: clang++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang gcc g++ cmake ninja-build
+
+      - name: Configure CMSIS-RTOS backend selection checks
+        run: |
+          cmake -B build-cmsis -G Ninja \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMSIS_RTOS=ON \
+            -DSYSCAPE_BUILD_TESTS=ON \
+            -DSYSCAPE_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build-cmsis -j
+
+      - name: Run CMSIS-RTOS backend selection tests
+        run: |
+          ctest \
+            --test-dir build-cmsis \
+            --output-on-failure \
+            -R cmsis
+
   nuttx-backend-host-check:
 
     name: NuttX backend selection host check (${{ matrix.compiler }})
