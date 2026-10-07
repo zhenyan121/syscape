@@ -78,6 +78,7 @@
     !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI) &&           \
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
     !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD) &&     \
+    !defined(SYSCAPE_TARGET_CMSIS_RTOS) &&                                     \
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/connection/linux.hpp>
@@ -190,6 +191,9 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_RTTHREAD)
 #include <syscape/detail/connection/rtthread.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_CMSIS_RTOS)
+#include <syscape/detail/connection/cmsis_rtos.hpp>
 #else
 #include <syscape/detail/connection/generic.hpp>
 #endif

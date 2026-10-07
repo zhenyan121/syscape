@@ -194,6 +194,43 @@
 #define SYSCAPE_TARGET_RTTHREAD 1
 #endif
 
+#if defined(SYSCAPE_TARGET_CMSIS_RTOS) || defined(SYSCAPE_TARGET_RTX)
+#undef SYSCAPE_TARGET_CMSIS_RTOS
+#define SYSCAPE_TARGET_CMSIS_RTOS 1
+#ifdef SYSCAPE_TARGET_FREERTOS
+#undef SYSCAPE_TARGET_FREERTOS
+#endif
+#ifdef SYSCAPE_TARGET_THREADX
+#undef SYSCAPE_TARGET_THREADX
+#endif
+#ifdef SYSCAPE_TARGET_RTTHREAD
+#undef SYSCAPE_TARGET_RTTHREAD
+#endif
+#ifdef SYSCAPE_TARGET_MBED
+#undef SYSCAPE_TARGET_MBED
+#endif
+#ifdef SYSCAPE_TARGET_ZEPHYR
+#undef SYSCAPE_TARGET_ZEPHYR
+#endif
+#elif !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX) && \
+    !defined(SYSCAPE_TARGET_RTTHREAD) && !defined(SYSCAPE_TARGET_MBED) &&      \
+    !defined(SYSCAPE_TARGET_ZEPHYR) && !defined(SYSCAPE_TARGET_NUTTX) &&       \
+    !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_EMBOS) &&      \
+    !defined(SYSCAPE_TARGET_UCOS) && !defined(SYSCAPE_TARGET_RIOT) &&          \
+    !defined(SYSCAPE_TARGET_MYNEWT) && !defined(SYSCAPE_TARGET_TKERNEL) &&     \
+    !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_VXWORKS) &&  \
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(__MBED__) && !defined(MBED) &&  \
+    !defined(MBED_MAJOR_VERSION) && !defined(FREERTOS) &&                      \
+    !defined(__FREERTOS__) && !defined(THREADX) && !defined(__THREADX__) &&    \
+    !defined(TX_API_H) && !defined(__RTTHREAD__) && !defined(__rtthread__) &&  \
+    !defined(RTTHREAD) && !defined(RT_THREAD_PRIORITY_MAX) &&                  \
+    !defined(__ZEPHYR__) && !defined(ZEPHYR) && !defined(__NuttX__) &&         \
+    !defined(NUTTX) &&                                                         \
+    (defined(osCMSIS) || defined(osCMSIS_RTX) || defined(osCMSIS_RTX5) ||      \
+     defined(__CMSIS_RTOS) || defined(__CMSIS_RTOS2))
+#define SYSCAPE_TARGET_CMSIS_RTOS 1
+#endif
+
 #if (defined(__CYGWIN__) || defined(CYGWIN) ||                                 \
      defined(SYSCAPE_TARGET_CYGWIN)) &&                                        \
     !defined(__MSYS__)
