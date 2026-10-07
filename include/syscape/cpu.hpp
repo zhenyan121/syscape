@@ -63,6 +63,9 @@
 /// @note NuttX implements online logical-processor count through sysconf.
 /// Topology, frequency, cache, feature, and cumulative-usage queries report
 /// not_supported.
+/// @note CMSIS-RTOS and Keil RTX report online logical processor count
+/// (defaulting to 1 uniprocessor or configured count); other CPU queries report
+/// not_supported.
 
 #include <syscape/detail/config.hpp>
 
@@ -119,6 +122,7 @@ enum class cache_kind : std::uint8_t {
     !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI) &&           \
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
     !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD) &&     \
+    !defined(SYSCAPE_TARGET_CMSIS_RTOS) &&                                     \
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/cpu/linux.hpp>
@@ -231,6 +235,9 @@ enum class cache_kind : std::uint8_t {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_RTTHREAD)
 #include <syscape/detail/cpu/rtthread.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
+    defined(SYSCAPE_TARGET_CMSIS_RTOS)
+#include <syscape/detail/cpu/cmsis_rtos.hpp>
 #else
 #include <syscape/detail/cpu/generic.hpp>
 #endif

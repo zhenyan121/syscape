@@ -66,6 +66,7 @@ enum class operating_system {
     sailfishos,
     kaios,
     rtthread,
+    cmsis_rtos,
     browser_wasm,
     embedded_wasm
 };
@@ -241,6 +242,25 @@ constexpr operating_system target_operating_system() noexcept {
 #elif defined(__RTTHREAD__) || defined(__rtthread__) || defined(RTTHREAD) ||   \
     defined(RT_THREAD_PRIORITY_MAX) || defined(SYSCAPE_TARGET_RTTHREAD)
     return operating_system::rtthread;
+#elif defined(SYSCAPE_TARGET_CMSIS_RTOS) ||                                    \
+    (!defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX) &&  \
+     !defined(SYSCAPE_TARGET_RTTHREAD) && !defined(SYSCAPE_TARGET_MBED) &&     \
+     !defined(SYSCAPE_TARGET_ZEPHYR) && !defined(SYSCAPE_TARGET_NUTTX) &&      \
+     !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_EMBOS) &&     \
+     !defined(SYSCAPE_TARGET_UCOS) && !defined(SYSCAPE_TARGET_RIOT) &&         \
+     !defined(SYSCAPE_TARGET_MYNEWT) && !defined(SYSCAPE_TARGET_TKERNEL) &&    \
+     !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_VXWORKS) && \
+     !defined(SYSCAPE_TARGET_RTEMS) && !defined(__MBED__) && !defined(MBED) && \
+     !defined(MBED_MAJOR_VERSION) && !defined(FREERTOS) &&                     \
+     !defined(__FREERTOS__) && !defined(THREADX) && !defined(__THREADX__) &&   \
+     !defined(TX_API_H) && !defined(__RTTHREAD__) && !defined(__rtthread__) && \
+     !defined(RTTHREAD) && !defined(RT_THREAD_PRIORITY_MAX) &&                 \
+     !defined(__ZEPHYR__) && !defined(ZEPHYR) && !defined(__NuttX__) &&        \
+     !defined(NUTTX) &&                                                        \
+     (defined(osCMSIS) || defined(osCMSIS_RTX) || defined(osCMSIS_RTX5) ||     \
+      defined(__CMSIS_RTOS) || defined(__CMSIS_RTOS2) ||                       \
+      defined(SYSCAPE_TARGET_RTX)))
+    return operating_system::cmsis_rtos;
 #elif defined(__linux__)
     return operating_system::linux_os;
 #else
@@ -329,7 +349,25 @@ constexpr execution_environment target_execution_environment() noexcept {
     defined(RIOT_VERSION) || defined(__RIOT__) || defined(RIOT) ||             \
     defined(SYSCAPE_TARGET_RIOT) || defined(__RTTHREAD__) ||                   \
     defined(__rtthread__) || defined(RTTHREAD) ||                              \
-    defined(RT_THREAD_PRIORITY_MAX) || defined(SYSCAPE_TARGET_RTTHREAD)
+    defined(RT_THREAD_PRIORITY_MAX) || defined(SYSCAPE_TARGET_RTTHREAD) ||     \
+    defined(SYSCAPE_TARGET_CMSIS_RTOS) ||                                      \
+    (!defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX) &&  \
+     !defined(SYSCAPE_TARGET_RTTHREAD) && !defined(SYSCAPE_TARGET_MBED) &&     \
+     !defined(SYSCAPE_TARGET_ZEPHYR) && !defined(SYSCAPE_TARGET_NUTTX) &&      \
+     !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_EMBOS) &&     \
+     !defined(SYSCAPE_TARGET_UCOS) && !defined(SYSCAPE_TARGET_RIOT) &&         \
+     !defined(SYSCAPE_TARGET_MYNEWT) && !defined(SYSCAPE_TARGET_TKERNEL) &&    \
+     !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_VXWORKS) && \
+     !defined(SYSCAPE_TARGET_RTEMS) && !defined(__MBED__) && !defined(MBED) && \
+     !defined(MBED_MAJOR_VERSION) && !defined(FREERTOS) &&                     \
+     !defined(__FREERTOS__) && !defined(THREADX) && !defined(__THREADX__) &&   \
+     !defined(TX_API_H) && !defined(__RTTHREAD__) && !defined(__rtthread__) && \
+     !defined(RTTHREAD) && !defined(RT_THREAD_PRIORITY_MAX) &&                 \
+     !defined(__ZEPHYR__) && !defined(ZEPHYR) && !defined(__NuttX__) &&        \
+     !defined(NUTTX) &&                                                        \
+     (defined(osCMSIS) || defined(osCMSIS_RTX) || defined(osCMSIS_RTX5) ||     \
+      defined(__CMSIS_RTOS) || defined(__CMSIS_RTOS2) ||                       \
+      defined(SYSCAPE_TARGET_RTX)))
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
@@ -439,6 +477,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "kaios";
     case operating_system::rtthread:
         return "rt-thread";
+    case operating_system::cmsis_rtos:
+        return "cmsis-rtos";
     case operating_system::browser_wasm:
         return "browser-wasm";
     case operating_system::embedded_wasm:

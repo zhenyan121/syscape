@@ -36,5 +36,8 @@ int main() {
     assert(std::strcmp(syscape::operating_system_name(
                            syscape::operating_system::rtthread),
                        "rt-thread") == 0);
+    assert(std::strcmp(syscape::operating_system_name(
+                           syscape::operating_system::cmsis_rtos),
+                       "cmsis-rtos") == 0);
     return 0;
 }

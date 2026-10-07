@@ -2184,6 +2184,96 @@ if(CMAKE_SYSTEM_NAME STREQUAL "RTTHREAD" OR RTTHREAD)
     target_compile_definitions(rtthread_priority_max_detection PRIVATE RT_THREAD_PRIORITY_MAX=32)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "CMSIS_RTOS" OR CMSIS_RTOS)
+    add_library(cmsis_rtos_compat STATIC compat/cmsis_rtos/cmsis_rtos_compat.cpp)
+    target_include_directories(cmsis_rtos_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/cmsis_rtos)
+    target_compile_features(cmsis_rtos_compat PUBLIC cxx_std_17)
+
+    set(CMSIS_RTOS_TEST_TARGETS
+        os_cmsis_rtos
+        cpu_cmsis_rtos
+        memory_cmsis_rtos
+        process_cmsis_rtos
+        user_cmsis_rtos
+        filesystem_cmsis_rtos
+        network_cmsis_rtos
+        locale_cmsis_rtos
+        environment_cmsis_rtos
+        resource_cmsis_rtos
+        virtualization_cmsis_rtos
+        hardware_cmsis_rtos
+        power_cmsis_rtos
+        sensor_cmsis_rtos
+        security_cmsis_rtos
+        numa_cmsis_rtos
+        process_list_cmsis_rtos
+        printer_cmsis_rtos
+        audio_cmsis_rtos
+        software_cmsis_rtos
+        storage_cmsis_rtos
+        ipc_cmsis_rtos
+        connection_cmsis_rtos
+        gpu_cmsis_rtos
+        display_cmsis_rtos
+        input_cmsis_rtos
+        camera_cmsis_rtos
+        bluetooth_cmsis_rtos
+        wifi_cmsis_rtos)
+    foreach(cmsis_rtos_target IN LISTS CMSIS_RTOS_TEST_TARGETS)
+        syscape_add_test(${cmsis_rtos_target} 17 syscape::hosted ${cmsis_rtos_target}.cpp)
+        target_compile_definitions(${cmsis_rtos_target} PRIVATE __CMSIS_RTOS2=1 osCMSIS_RTX5=1)
+        target_link_libraries(${cmsis_rtos_target} PRIVATE cmsis_rtos_compat)
+    endforeach()
+
+    foreach(cmsis_rtos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(cmsis_rtos_header_target "header_${cmsis_rtos_domain}_cmsis_rtos")
+        syscape_add_test(
+            ${cmsis_rtos_header_target}
+            17
+            syscape::hosted
+            header_${cmsis_rtos_domain}.cpp)
+        target_compile_definitions(${cmsis_rtos_header_target} PRIVATE __CMSIS_RTOS2=1 osCMSIS_RTX5=1)
+        target_link_libraries(${cmsis_rtos_header_target} PRIVATE cmsis_rtos_compat)
+    endforeach()
+
+    syscape_add_test(
+        cmsis_rtos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(cmsis_rtos_odr PRIVATE __CMSIS_RTOS2=1 osCMSIS_RTX5=1)
+    target_link_libraries(cmsis_rtos_odr PRIVATE cmsis_rtos_compat)
+
+    syscape_add_test(os_cmsis_rtos_v1 17 syscape::hosted os_cmsis_rtos.cpp)
+    target_compile_definitions(os_cmsis_rtos_v1 PRIVATE __CMSIS_RTOS=1 osCMSIS_RTX=1)
+    target_link_libraries(os_cmsis_rtos_v1 PRIVATE cmsis_rtos_compat)
+
+    syscape_add_test(os_cmsis_rtos_generic 17 syscape::hosted os_cmsis_rtos.cpp)
+    target_compile_definitions(os_cmsis_rtos_generic PRIVATE __CMSIS_RTOS2=1 osCMSIS=0x20000U CMSIS_RTOS_GENERIC_TEST=1)
+    target_link_libraries(os_cmsis_rtos_generic PRIVATE cmsis_rtos_compat)
+
+    syscape_add_test(os_cmsis_rtos_override 17 syscape::hosted os_cmsis_rtos.cpp)
+    target_compile_definitions(os_cmsis_rtos_override PRIVATE __CMSIS_RTOS2=1 osCMSIS_RTX5=1 SYSCAPE_CMSIS_RTOS_VERSION_STRING="2.1.3")
+    target_link_libraries(os_cmsis_rtos_override PRIVATE cmsis_rtos_compat)
+
+    syscape_add_test(cpu_cmsis_rtos_configured 17 syscape::hosted cpu_cmsis_rtos.cpp)
+    target_compile_definitions(cpu_cmsis_rtos_configured PRIVATE __CMSIS_RTOS2=1 osCMSIS_RTX5=1 CMSIS_RTOS_CPU_COUNT=4)
+    target_link_libraries(cpu_cmsis_rtos_configured PRIVATE cmsis_rtos_compat)
+
+    syscape_add_test(memory_cmsis_rtos_heap 17 syscape::hosted memory_cmsis_rtos.cpp)
+    target_compile_definitions(memory_cmsis_rtos_heap PRIVATE __CMSIS_RTOS2=1 osCMSIS_RTX5=1 CMSIS_RTOS_TOTAL_HEAP_SIZE=65536 CMSIS_RTOS_FREE_HEAP_SIZE=32768)
+    target_link_libraries(memory_cmsis_rtos_heap PRIVATE cmsis_rtos_compat)
+
+    syscape_add_test(memory_cmsis_rtos_exhausted 17 syscape::hosted memory_cmsis_rtos.cpp)
+    target_compile_definitions(memory_cmsis_rtos_exhausted PRIVATE __CMSIS_RTOS2=1 osCMSIS_RTX5=1 CMSIS_RTOS_TOTAL_HEAP_SIZE=65536 CMSIS_RTOS_FREE_HEAP_SIZE=0)
+    target_link_libraries(memory_cmsis_rtos_exhausted PRIVATE cmsis_rtos_compat)
+endif()
+
 # Compatibility environments and variants (Tier 3)
 syscape_add_test(cygwin_detection 11 syscape::syscape cygwin_detection.cpp)
 target_compile_definitions(cygwin_detection PRIVATE __CYGWIN__=1)
@@ -2313,6 +2403,15 @@ target_compile_definitions(mcu_arduino_detection PRIVATE ARDUINO=10819 SYSCAPE_T
 
 syscape_add_test(mcu_arduino_esp_priority 11 syscape::syscape mcu_arduino_esp_priority.cpp)
 target_compile_definitions(mcu_arduino_esp_priority PRIVATE ARDUINO=10819 ESP_PLATFORM=1)
+
+syscape_add_test(cmsis_rtos_detection 11 syscape::syscape cmsis_rtos_detection.cpp)
+target_compile_definitions(cmsis_rtos_detection PRIVATE __CMSIS_RTOS2=1)
+
+syscape_add_test(cmsis_rtx_detection 11 syscape::syscape cmsis_rtos_detection.cpp)
+target_compile_definitions(cmsis_rtx_detection PRIVATE osCMSIS_RTX5=1)
+
+syscape_add_test(cmsis_rtos_freertos_priority 11 syscape::syscape cmsis_rtos_coexistence.cpp)
+target_compile_definitions(cmsis_rtos_freertos_priority PRIVATE FREERTOS=1 __CMSIS_RTOS2=1 osCMSIS=0x20000U)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
     # DOS tests on POSIX host using SYSCAPE_TARGET_DOS=1
