@@ -52,6 +52,9 @@
 /// @note CMSIS-RTOS and Keil RTX implement active thread scheduling priority
 /// through osThreadGetPriority(osThreadGetId()). Other process queries report
 /// not_supported.
+/// @note TI-RTOS and SYS/BIOS implement active task scheduling priority
+/// through Task_getPri(Task_self()). Other process queries report
+/// not_supported.
 
 #include <syscape/detail/config.hpp>
 
@@ -87,7 +90,7 @@
     !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI) &&           \
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
     !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD) &&     \
-    !defined(SYSCAPE_TARGET_CMSIS_RTOS) &&                                     \
+    !defined(SYSCAPE_TARGET_CMSIS_RTOS) && !defined(SYSCAPE_TARGET_TI_RTOS) && \
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/process/linux.hpp>
@@ -203,6 +206,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_CMSIS_RTOS)
 #include <syscape/detail/process/cmsis_rtos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_TI_RTOS)
+#include <syscape/detail/process/ti_rtos.hpp>
 #else
 #include <syscape/detail/process/generic.hpp>
 #endif
