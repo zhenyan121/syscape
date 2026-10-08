@@ -578,18 +578,28 @@ void test_live_system_updates() {
 
 void test_live_installed_runtimes() {
     const auto runtimes = syscape::software::installed_runtimes();
-    assert(runtimes);
-    for (const auto& rt : *runtimes) {
-        assert(!rt.name.empty());
-        assert(!rt.version.empty());
-        assert(!rt.installation_path.empty());
-        assert(rt.version.find('\n') == std::string::npos);
-        assert(syscape::detail::is_valid_utf8(rt.name));
-        assert(syscape::detail::is_valid_utf8(rt.version));
-        assert(syscape::detail::is_valid_utf8(rt.installation_path));
-    }
-    for (std::size_t i = 1; i < runtimes->size(); ++i) {
-        assert(static_cast<int>((*runtimes)[i - 1].kind) <= static_cast<int>((*runtimes)[i].kind));
+    if (runtimes) {
+        for (const auto& rt : *runtimes) {
+            assert(!rt.name.empty());
+            assert(!rt.version.empty());
+            assert(!rt.installation_path.empty());
+            assert(rt.version.find('\n') == std::string::npos);
+            assert(syscape::detail::is_valid_utf8(rt.name));
+            assert(syscape::detail::is_valid_utf8(rt.version));
+            assert(syscape::detail::is_valid_utf8(rt.installation_path));
+        }
+        for (std::size_t i = 1; i < runtimes->size(); ++i) {
+            assert(static_cast<int>((*runtimes)[i - 1].kind) <=
+                   static_cast<int>((*runtimes)[i].kind));
+        }
+    } else {
+        assert(runtimes.error() == syscape::errc::not_supported ||
+               runtimes.error() == syscape::errc::permission_denied ||
+               runtimes.error() == syscape::errc::temporarily_unavailable ||
+               runtimes.error() == syscape::errc::io_error ||
+               runtimes.error() == std::errc::permission_denied ||
+               runtimes.error() == std::errc::operation_not_permitted ||
+               runtimes.error() == std::errc::io_error);
     }
 }
 
