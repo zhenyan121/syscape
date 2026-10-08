@@ -157,7 +157,7 @@ enum class power_source_type : std::uint8_t {
     !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI) &&           \
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
     !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD) &&     \
-    !defined(SYSCAPE_TARGET_CMSIS_RTOS) &&                                     \
+    !defined(SYSCAPE_TARGET_CMSIS_RTOS) && !defined(SYSCAPE_TARGET_TI_RTOS) && \
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/power/linux.hpp>
@@ -273,6 +273,8 @@ enum class power_source_type : std::uint8_t {
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_CMSIS_RTOS)
 #include <syscape/detail/power/cmsis_rtos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_TI_RTOS)
+#include <syscape/detail/power/ti_rtos.hpp>
 #else
 #include <syscape/detail/power/generic.hpp>
 #endif

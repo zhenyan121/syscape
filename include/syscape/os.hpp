@@ -51,6 +51,11 @@
 /// SYSCAPE_CMSIS_RTOS_VERSION_STRING or SYSCAPE_RTX_VERSION_STRING override),
 /// and monotonic uptime from osKernelGetTickCount() and osKernelGetTickFreq()
 /// or osKernelSysTick(); boot time and host name report not_supported.
+/// @note TI-RTOS and SYS/BIOS report product name "TI-RTOS" (or "SYS/BIOS"),
+/// kernel name "SYS/BIOS", version from ti_sysbios_BIOS_version/Str (with
+/// optional SYSCAPE_TI_RTOS_VERSION_STRING override), and monotonic uptime from
+/// Clock_getTicks() and Clock_tickPeriod; boot time and host name report
+/// not_supported.
 
 #include <syscape/detail/config.hpp>
 
@@ -84,7 +89,7 @@
     !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI) &&           \
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
     !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD) &&     \
-    !defined(SYSCAPE_TARGET_CMSIS_RTOS) &&                                     \
+    !defined(SYSCAPE_TARGET_CMSIS_RTOS) && !defined(SYSCAPE_TARGET_TI_RTOS) && \
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/os/linux.hpp>
@@ -200,6 +205,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_CMSIS_RTOS)
 #include <syscape/detail/os/cmsis_rtos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_TI_RTOS)
+#include <syscape/detail/os/ti_rtos.hpp>
 #else
 #include <syscape/detail/os/generic.hpp>
 #endif

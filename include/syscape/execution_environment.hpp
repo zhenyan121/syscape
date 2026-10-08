@@ -67,6 +67,7 @@ enum class operating_system {
     kaios,
     rtthread,
     cmsis_rtos,
+    ti_rtos,
     browser_wasm,
     embedded_wasm
 };
@@ -261,6 +262,8 @@ constexpr operating_system target_operating_system() noexcept {
       defined(__CMSIS_RTOS) || defined(__CMSIS_RTOS2) ||                       \
       defined(SYSCAPE_TARGET_RTX)))
     return operating_system::cmsis_rtos;
+#elif defined(SYSCAPE_TARGET_TI_RTOS)
+    return operating_system::ti_rtos;
 #elif defined(__linux__)
     return operating_system::linux_os;
 #else
@@ -367,7 +370,8 @@ constexpr execution_environment target_execution_environment() noexcept {
      !defined(NUTTX) &&                                                        \
      (defined(osCMSIS) || defined(osCMSIS_RTX) || defined(osCMSIS_RTX5) ||     \
       defined(__CMSIS_RTOS) || defined(__CMSIS_RTOS2) ||                       \
-      defined(SYSCAPE_TARGET_RTX)))
+      defined(SYSCAPE_TARGET_RTX))) ||                                         \
+    defined(SYSCAPE_TARGET_TI_RTOS)
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
@@ -479,6 +483,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "rt-thread";
     case operating_system::cmsis_rtos:
         return "cmsis-rtos";
+    case operating_system::ti_rtos:
+        return "ti-rtos";
     case operating_system::browser_wasm:
         return "browser-wasm";
     case operating_system::embedded_wasm:

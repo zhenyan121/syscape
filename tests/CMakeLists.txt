@@ -2283,6 +2283,108 @@ if(CMAKE_SYSTEM_NAME STREQUAL "CMSIS_RTOS" OR CMSIS_RTOS)
     target_compile_definitions(cmsis_rtos_freertos_priority PRIVATE FREERTOS=1 __CMSIS_RTOS2=1 osCMSIS=0x20000U)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "TI_RTOS" OR TI_RTOS)
+    add_library(ti_rtos_compat STATIC compat/ti_rtos/ti_rtos_compat.cpp)
+    target_include_directories(ti_rtos_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/ti_rtos)
+    target_compile_features(ti_rtos_compat PUBLIC cxx_std_17)
+
+    set(TI_RTOS_TEST_TARGETS
+        os_ti_rtos
+        cpu_ti_rtos
+        memory_ti_rtos
+        process_ti_rtos
+        user_ti_rtos
+        filesystem_ti_rtos
+        network_ti_rtos
+        locale_ti_rtos
+        environment_ti_rtos
+        resource_ti_rtos
+        virtualization_ti_rtos
+        hardware_ti_rtos
+        power_ti_rtos
+        sensor_ti_rtos
+        security_ti_rtos
+        numa_ti_rtos
+        process_list_ti_rtos
+        printer_ti_rtos
+        audio_ti_rtos
+        software_ti_rtos
+        storage_ti_rtos
+        ipc_ti_rtos
+        connection_ti_rtos
+        gpu_ti_rtos
+        display_ti_rtos
+        input_ti_rtos
+        camera_ti_rtos
+        bluetooth_ti_rtos
+        wifi_ti_rtos)
+    foreach(ti_rtos_target IN LISTS TI_RTOS_TEST_TARGETS)
+        syscape_add_test(${ti_rtos_target} 17 syscape::hosted ${ti_rtos_target}.cpp)
+        target_compile_definitions(${ti_rtos_target} PRIVATE __TI_SYSBIOS__=1 ti_sysbios_BIOS__=1 xdc_target__=1)
+        target_link_libraries(${ti_rtos_target} PRIVATE ti_rtos_compat)
+    endforeach()
+
+    foreach(ti_rtos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(ti_rtos_header_target "header_${ti_rtos_domain}_ti_rtos")
+        syscape_add_test(
+            ${ti_rtos_header_target}
+            17
+            syscape::hosted
+            header_${ti_rtos_domain}.cpp)
+        target_compile_definitions(${ti_rtos_header_target} PRIVATE __TI_SYSBIOS__=1 ti_sysbios_BIOS__=1 xdc_target__=1)
+        target_link_libraries(${ti_rtos_header_target} PRIVATE ti_rtos_compat)
+    endforeach()
+
+    syscape_add_test(
+        ti_rtos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(ti_rtos_odr PRIVATE __TI_SYSBIOS__=1 ti_sysbios_BIOS__=1 xdc_target__=1)
+    target_link_libraries(ti_rtos_odr PRIVATE ti_rtos_compat)
+
+    syscape_add_test(os_ti_rtos_override 17 syscape::hosted os_ti_rtos.cpp)
+    target_compile_definitions(os_ti_rtos_override PRIVATE __TI_SYSBIOS__=1 ti_sysbios_BIOS__=1 xdc_target__=1 SYSCAPE_TI_RTOS_VERSION_STRING="6.85.01.20")
+    target_link_libraries(os_ti_rtos_override PRIVATE ti_rtos_compat)
+
+    syscape_add_test(os_ti_rtos_bios_only 17 syscape::hosted os_ti_rtos.cpp)
+    target_compile_definitions(os_ti_rtos_bios_only PRIVATE SYSCAPE_TARGET_SYSBIOS=1)
+    target_link_libraries(os_ti_rtos_bios_only PRIVATE ti_rtos_compat)
+
+    syscape_add_test(cpu_ti_rtos_configured 17 syscape::hosted cpu_ti_rtos.cpp)
+    target_compile_definitions(cpu_ti_rtos_configured PRIVATE __TI_SYSBIOS__=1 ti_sysbios_BIOS__=1 xdc_target__=1 TI_RTOS_CPU_COUNT=8)
+    target_link_libraries(cpu_ti_rtos_configured PRIVATE ti_rtos_compat)
+
+    syscape_add_test(memory_ti_rtos_heap 17 syscape::hosted memory_ti_rtos.cpp)
+    target_compile_definitions(memory_ti_rtos_heap PRIVATE __TI_SYSBIOS__=1 ti_sysbios_BIOS__=1 xdc_target__=1 TI_RTOS_TOTAL_HEAP_SIZE=131072 TI_RTOS_FREE_HEAP_SIZE=65536)
+    target_link_libraries(memory_ti_rtos_heap PRIVATE ti_rtos_compat)
+
+    syscape_add_test(memory_ti_rtos_exhausted 17 syscape::hosted memory_ti_rtos.cpp)
+    target_compile_definitions(memory_ti_rtos_exhausted PRIVATE __TI_SYSBIOS__=1 ti_sysbios_BIOS__=1 xdc_target__=1 TI_RTOS_TOTAL_HEAP_SIZE=131072 TI_RTOS_FREE_HEAP_SIZE=0)
+    target_link_libraries(memory_ti_rtos_exhausted PRIVATE ti_rtos_compat)
+
+    syscape_add_test(resource_ti_rtos_configured 17 syscape::hosted resource_ti_rtos.cpp)
+    target_compile_definitions(resource_ti_rtos_configured PRIVATE __TI_SYSBIOS__=1 ti_sysbios_BIOS__=1 xdc_target__=1 TI_RTOS_THREAD_COUNT=16)
+    target_link_libraries(resource_ti_rtos_configured PRIVATE ti_rtos_compat)
+
+    syscape_add_test(ti_rtos_detection 11 syscape::syscape ti_rtos_detection.cpp)
+    target_compile_definitions(ti_rtos_detection PRIVATE __TI_SYSBIOS__=1)
+
+    syscape_add_test(ti_rtos_sysbios_detection 11 syscape::syscape ti_rtos_detection.cpp)
+    target_compile_definitions(ti_rtos_sysbios_detection PRIVATE ti_sysbios_BIOS__=1)
+
+    syscape_add_test(ti_rtos_standalone_sysbios_detection 11 syscape::syscape ti_rtos_detection.cpp)
+    target_compile_definitions(ti_rtos_standalone_sysbios_detection PRIVATE SYSCAPE_TARGET_SYSBIOS=1)
+
+    syscape_add_test(ti_rtos_freertos_priority 11 syscape::syscape ti_rtos_coexistence.cpp)
+    target_compile_definitions(ti_rtos_freertos_priority PRIVATE FREERTOS=1 __TI_SYSBIOS__=1)
+endif()
+
 # Compatibility environments and variants (Tier 3)
 syscape_add_test(cygwin_detection 11 syscape::syscape cygwin_detection.cpp)
 target_compile_definitions(cygwin_detection PRIVATE __CYGWIN__=1)

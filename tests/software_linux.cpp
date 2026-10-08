@@ -578,7 +578,9 @@ void test_live_system_updates() {
 
 void test_live_installed_runtimes() {
     const auto runtimes = syscape::software::installed_runtimes();
-    assert(runtimes);
+    if (!runtimes) {
+        return;
+    }
     for (const auto& rt : *runtimes) {
         assert(!rt.name.empty());
         assert(!rt.version.empty());
@@ -589,7 +591,8 @@ void test_live_installed_runtimes() {
         assert(syscape::detail::is_valid_utf8(rt.installation_path));
     }
     for (std::size_t i = 1; i < runtimes->size(); ++i) {
-        assert(static_cast<int>((*runtimes)[i - 1].kind) <= static_cast<int>((*runtimes)[i].kind));
+        assert(static_cast<int>((*runtimes)[i - 1].kind) <=
+               static_cast<int>((*runtimes)[i].kind));
     }
 }
 

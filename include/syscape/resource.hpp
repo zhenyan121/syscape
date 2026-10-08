@@ -60,6 +60,9 @@
 /// @note NuttX implements the process file-descriptor limit through sysconf.
 /// @note CMSIS-RTOS and Keil RTX implement system thread count through
 /// osThreadGetCount(); other resource queries report not_supported.
+/// @note TI-RTOS and SYS/BIOS implement system thread count through
+/// SYSCAPE_TI_RTOS_THREAD_COUNT / TI_RTOS_THREAD_COUNT; other resource queries
+/// report not_supported.
 /// Load averages and system process, scheduler-entity, thread, open-file, and
 /// open-handle counts report not_supported.
 
@@ -94,7 +97,7 @@
     !defined(SYSCAPE_TARGET_ZOS) && !defined(SYSCAPE_TARGET_IBMI) &&           \
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
     !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD) &&     \
-    !defined(SYSCAPE_TARGET_CMSIS_RTOS) &&                                     \
+    !defined(SYSCAPE_TARGET_CMSIS_RTOS) && !defined(SYSCAPE_TARGET_TI_RTOS) && \
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/resource/linux.hpp>
@@ -210,6 +213,8 @@
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) &&                               \
     defined(SYSCAPE_TARGET_CMSIS_RTOS)
 #include <syscape/detail/resource/cmsis_rtos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_TI_RTOS)
+#include <syscape/detail/resource/ti_rtos.hpp>
 #else
 #include <syscape/detail/resource/generic.hpp>
 #endif
