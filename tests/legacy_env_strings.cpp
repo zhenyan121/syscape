@@ -39,5 +39,11 @@ int main() {
     assert(std::strcmp(syscape::operating_system_name(
                            syscape::operating_system::cmsis_rtos),
                        "cmsis-rtos") == 0);
+    assert(std::strcmp(syscape::operating_system_name(
+                           syscape::operating_system::ti_rtos),
+                       "ti-rtos") == 0);
+    assert(std::strcmp(syscape::operating_system_name(
+                           syscape::operating_system::nucleus),
+                       "nucleus") == 0);
     return 0;
 }

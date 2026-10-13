@@ -98,6 +98,7 @@
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
     !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD) &&     \
     !defined(SYSCAPE_TARGET_CMSIS_RTOS) && !defined(SYSCAPE_TARGET_TI_RTOS) && \
+    !defined(SYSCAPE_TARGET_NUCLEUS) &&                                        \
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/resource/linux.hpp>
@@ -215,6 +216,8 @@
 #include <syscape/detail/resource/cmsis_rtos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_TI_RTOS)
 #include <syscape/detail/resource/ti_rtos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUCLEUS)
+#include <syscape/detail/resource/nucleus.hpp>
 #else
 #include <syscape/detail/resource/generic.hpp>
 #endif

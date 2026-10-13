@@ -2385,6 +2385,108 @@ if(CMAKE_SYSTEM_NAME STREQUAL "TI_RTOS" OR TI_RTOS)
     target_compile_definitions(ti_rtos_freertos_priority PRIVATE FREERTOS=1 __TI_SYSBIOS__=1)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "NUCLEUS" OR NUCLEUS)
+    add_library(nucleus_compat STATIC compat/nucleus/nucleus_compat.cpp)
+    target_include_directories(nucleus_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/nucleus)
+    target_compile_features(nucleus_compat PUBLIC cxx_std_17)
+
+    set(NUCLEUS_TEST_TARGETS
+        os_nucleus
+        cpu_nucleus
+        memory_nucleus
+        process_nucleus
+        user_nucleus
+        filesystem_nucleus
+        network_nucleus
+        locale_nucleus
+        environment_nucleus
+        resource_nucleus
+        virtualization_nucleus
+        hardware_nucleus
+        power_nucleus
+        sensor_nucleus
+        security_nucleus
+        numa_nucleus
+        process_list_nucleus
+        printer_nucleus
+        audio_nucleus
+        software_nucleus
+        storage_nucleus
+        ipc_nucleus
+        connection_nucleus
+        gpu_nucleus
+        display_nucleus
+        input_nucleus
+        camera_nucleus
+        bluetooth_nucleus
+        wifi_nucleus)
+    foreach(nucleus_target IN LISTS NUCLEUS_TEST_TARGETS)
+        syscape_add_test(${nucleus_target} 17 syscape::hosted ${nucleus_target}.cpp)
+        target_compile_definitions(${nucleus_target} PRIVATE PLUS_VERSION_NUMBER=2021000000 NU_PLUS=1)
+        target_link_libraries(${nucleus_target} PRIVATE nucleus_compat)
+    endforeach()
+
+    foreach(nucleus_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(nucleus_header_target "header_${nucleus_domain}_nucleus")
+        syscape_add_test(
+            ${nucleus_header_target}
+            17
+            syscape::hosted
+            header_${nucleus_domain}.cpp)
+        target_compile_definitions(${nucleus_header_target} PRIVATE PLUS_VERSION_NUMBER=2021000000 NU_PLUS=1)
+        target_link_libraries(${nucleus_header_target} PRIVATE nucleus_compat)
+    endforeach()
+
+    syscape_add_test(
+        nucleus_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(nucleus_odr PRIVATE PLUS_VERSION_NUMBER=2021000000 NU_PLUS=1)
+    target_link_libraries(nucleus_odr PRIVATE nucleus_compat)
+
+    syscape_add_test(os_nucleus_override 17 syscape::hosted os_nucleus.cpp)
+    target_compile_definitions(os_nucleus_override PRIVATE PLUS_VERSION_NUMBER=2021000000 NU_PLUS=1 SYSCAPE_NUCLEUS_VERSION_STRING="Nucleus ReadyStart v2021.05")
+    target_link_libraries(os_nucleus_override PRIVATE nucleus_compat)
+
+    syscape_add_test(os_nucleus_standalone_detection 17 syscape::hosted os_nucleus.cpp)
+    target_compile_definitions(os_nucleus_standalone_detection PRIVATE SYSCAPE_TARGET_NUCLEUS=1 PLUS_VERSION_NUMBER=3)
+    target_link_libraries(os_nucleus_standalone_detection PRIVATE nucleus_compat)
+
+    syscape_add_test(cpu_nucleus_configured 17 syscape::hosted cpu_nucleus.cpp)
+    target_compile_definitions(cpu_nucleus_configured PRIVATE PLUS_VERSION_NUMBER=2021000000 NU_PLUS=1 SYSCAPE_NUCLEUS_CPU_COUNT=4)
+    target_link_libraries(cpu_nucleus_configured PRIVATE nucleus_compat)
+
+    syscape_add_test(memory_nucleus_heap 17 syscape::hosted memory_nucleus.cpp)
+    target_compile_definitions(memory_nucleus_heap PRIVATE PLUS_VERSION_NUMBER=2021000000 NU_PLUS=1 SYSCAPE_NUCLEUS_TOTAL_HEAP_SIZE=262144 SYSCAPE_NUCLEUS_FREE_HEAP_SIZE=131072)
+    target_link_libraries(memory_nucleus_heap PRIVATE nucleus_compat)
+
+    syscape_add_test(memory_nucleus_exhausted 17 syscape::hosted memory_nucleus.cpp)
+    target_compile_definitions(memory_nucleus_exhausted PRIVATE PLUS_VERSION_NUMBER=2021000000 NU_PLUS=1 SYSCAPE_NUCLEUS_TOTAL_HEAP_SIZE=262144 SYSCAPE_NUCLEUS_FREE_HEAP_SIZE=0)
+    target_link_libraries(memory_nucleus_exhausted PRIVATE nucleus_compat)
+
+    syscape_add_test(resource_nucleus_configured 17 syscape::hosted resource_nucleus.cpp)
+    target_compile_definitions(resource_nucleus_configured PRIVATE PLUS_VERSION_NUMBER=2021000000 NU_PLUS=1 SYSCAPE_NUCLEUS_THREAD_COUNT=12)
+    target_link_libraries(resource_nucleus_configured PRIVATE nucleus_compat)
+
+    syscape_add_test(nucleus_detection 11 syscape::syscape nucleus_detection.cpp)
+    target_compile_definitions(nucleus_detection PRIVATE PLUS_VERSION_NUMBER=2021000000)
+
+    syscape_add_test(nucleus_macro_detection 11 syscape::syscape nucleus_detection.cpp)
+    target_compile_definitions(nucleus_macro_detection PRIVATE __NUCLEUS__=1)
+
+    syscape_add_test(nucleus_standalone_detection 11 syscape::syscape nucleus_detection.cpp)
+    target_compile_definitions(nucleus_standalone_detection PRIVATE SYSCAPE_TARGET_NUCLEUS=1)
+
+    syscape_add_test(nucleus_freertos_priority 11 syscape::syscape nucleus_coexistence.cpp)
+    target_compile_definitions(nucleus_freertos_priority PRIVATE FREERTOS=1 PLUS_VERSION_NUMBER=2021000000)
+endif()
+
 # Compatibility environments and variants (Tier 3)
 syscape_add_test(cygwin_detection 11 syscape::syscape cygwin_detection.cpp)
 target_compile_definitions(cygwin_detection PRIVATE __CYGWIN__=1)

@@ -258,6 +258,36 @@
 #define SYSCAPE_TARGET_TI_RTOS 1
 #endif
 
+// Detect Siemens / Mentor Graphics Nucleus RTOS. PLUS_VERSION_NUMBER and
+// NU_PLUS are defined by official Nucleus PLUS headers (<nucleus.h>). Mutual
+// exclusion against earlier-checked RTOS families ensures foreign SDKs defining
+// generic version macros will not inadvertently activate Nucleus detection.
+#if defined(SYSCAPE_TARGET_NUCLEUS)
+#undef SYSCAPE_TARGET_NUCLEUS
+#define SYSCAPE_TARGET_NUCLEUS 1
+#elif !defined(SYSCAPE_TARGET_FREERTOS) && !defined(SYSCAPE_TARGET_THREADX) && \
+    !defined(SYSCAPE_TARGET_RTTHREAD) && !defined(SYSCAPE_TARGET_MBED) &&      \
+    !defined(SYSCAPE_TARGET_ZEPHYR) && !defined(SYSCAPE_TARGET_NUTTX) &&       \
+    !defined(SYSCAPE_TARGET_CHIBIOS) && !defined(SYSCAPE_TARGET_EMBOS) &&      \
+    !defined(SYSCAPE_TARGET_UCOS) && !defined(SYSCAPE_TARGET_RIOT) &&          \
+    !defined(SYSCAPE_TARGET_MYNEWT) && !defined(SYSCAPE_TARGET_TKERNEL) &&     \
+    !defined(SYSCAPE_TARGET_INTEGRITY) && !defined(SYSCAPE_TARGET_VXWORKS) &&  \
+    !defined(SYSCAPE_TARGET_RTEMS) && !defined(SYSCAPE_TARGET_CMSIS_RTOS) &&   \
+    !defined(SYSCAPE_TARGET_TI_RTOS) && !defined(__MBED__) &&                  \
+    !defined(MBED) && !defined(MBED_MAJOR_VERSION) && !defined(FREERTOS) &&    \
+    !defined(__FREERTOS__) && !defined(THREADX) && !defined(__THREADX__) &&    \
+    !defined(TX_API_H) && !defined(__RTTHREAD__) && !defined(__rtthread__) &&  \
+    !defined(RTTHREAD) && !defined(RT_THREAD_PRIORITY_MAX) &&                  \
+    !defined(__ZEPHYR__) && !defined(ZEPHYR) && !defined(__NuttX__) &&         \
+    !defined(NUTTX) && !defined(osCMSIS) && !defined(osCMSIS_RTX) &&           \
+    !defined(osCMSIS_RTX5) && !defined(__CMSIS_RTOS) &&                        \
+    !defined(__CMSIS_RTOS2) && !defined(__TI_SYSBIOS__) &&                     \
+    !defined(ti_sysbios_BIOS__) && !defined(xdc_target__) &&                   \
+    !defined(TI_SYSBIOS) &&                                                    \
+    (defined(PLUS_VERSION_NUMBER) || defined(__NUCLEUS__) || defined(NU_PLUS))
+#define SYSCAPE_TARGET_NUCLEUS 1
+#endif
+
 #if (defined(__CYGWIN__) || defined(CYGWIN) ||                                 \
      defined(SYSCAPE_TARGET_CYGWIN)) &&                                        \
     !defined(__MSYS__)
