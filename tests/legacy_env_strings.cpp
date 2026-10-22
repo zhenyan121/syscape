@@ -45,5 +45,8 @@ int main() {
     assert(std::strcmp(syscape::operating_system_name(
                            syscape::operating_system::nucleus),
                        "nucleus") == 0);
+    assert(std::strcmp(
+               syscape::operating_system_name(syscape::operating_system::ecos),
+               "ecos") == 0);
     return 0;
 }

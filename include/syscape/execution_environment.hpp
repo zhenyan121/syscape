@@ -69,6 +69,7 @@ enum class operating_system {
     cmsis_rtos,
     ti_rtos,
     nucleus,
+    ecos,
     browser_wasm,
     embedded_wasm
 };
@@ -267,6 +268,8 @@ constexpr operating_system target_operating_system() noexcept {
     return operating_system::ti_rtos;
 #elif defined(SYSCAPE_TARGET_NUCLEUS)
     return operating_system::nucleus;
+#elif defined(SYSCAPE_TARGET_ECOS)
+    return operating_system::ecos;
 #elif defined(__linux__)
     return operating_system::linux_os;
 #else
@@ -374,7 +377,8 @@ constexpr execution_environment target_execution_environment() noexcept {
      (defined(osCMSIS) || defined(osCMSIS_RTX) || defined(osCMSIS_RTX5) ||     \
       defined(__CMSIS_RTOS) || defined(__CMSIS_RTOS2) ||                       \
       defined(SYSCAPE_TARGET_RTX))) ||                                         \
-    defined(SYSCAPE_TARGET_TI_RTOS) || defined(SYSCAPE_TARGET_NUCLEUS)
+    defined(SYSCAPE_TARGET_TI_RTOS) || defined(SYSCAPE_TARGET_NUCLEUS) ||      \
+    defined(SYSCAPE_TARGET_ECOS)
     return execution_environment::rtos;
 #elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0)
     return execution_environment::bare_metal;
@@ -490,6 +494,8 @@ SYSCAPE_DETAIL_CONSTEXPR14 const char* operating_system_name(
         return "ti-rtos";
     case operating_system::nucleus:
         return "nucleus";
+    case operating_system::ecos:
+        return "ecos";
     case operating_system::browser_wasm:
         return "browser-wasm";
     case operating_system::embedded_wasm:

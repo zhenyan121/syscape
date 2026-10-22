@@ -2487,6 +2487,108 @@ if(CMAKE_SYSTEM_NAME STREQUAL "NUCLEUS" OR NUCLEUS)
     target_compile_definitions(nucleus_freertos_priority PRIVATE FREERTOS=1 PLUS_VERSION_NUMBER=2021000000)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "ECOS" OR ECOS)
+    add_library(ecos_compat STATIC compat/ecos/ecos_compat.cpp)
+    target_include_directories(ecos_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/ecos)
+    target_compile_features(ecos_compat PUBLIC cxx_std_17)
+
+    set(ECOS_TEST_TARGETS
+        os_ecos
+        cpu_ecos
+        memory_ecos
+        process_ecos
+        user_ecos
+        filesystem_ecos
+        network_ecos
+        locale_ecos
+        environment_ecos
+        resource_ecos
+        virtualization_ecos
+        hardware_ecos
+        power_ecos
+        sensor_ecos
+        security_ecos
+        numa_ecos
+        process_list_ecos
+        printer_ecos
+        audio_ecos
+        software_ecos
+        storage_ecos
+        ipc_ecos
+        connection_ecos
+        gpu_ecos
+        display_ecos
+        input_ecos
+        camera_ecos
+        bluetooth_ecos
+        wifi_ecos)
+    foreach(ecos_target IN LISTS ECOS_TEST_TARGETS)
+        syscape_add_test(${ecos_target} 17 syscape::hosted ${ecos_target}.cpp)
+        target_compile_definitions(${ecos_target} PRIVATE __ECOS__=1 CYG_VERSION_CURRENT=30000)
+        target_link_libraries(${ecos_target} PRIVATE ecos_compat)
+    endforeach()
+
+    foreach(ecos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(ecos_header_target "header_${ecos_domain}_ecos")
+        syscape_add_test(
+            ${ecos_header_target}
+            17
+            syscape::hosted
+            header_${ecos_domain}.cpp)
+        target_compile_definitions(${ecos_header_target} PRIVATE __ECOS__=1 CYG_VERSION_CURRENT=30000)
+        target_link_libraries(${ecos_header_target} PRIVATE ecos_compat)
+    endforeach()
+
+    syscape_add_test(
+        ecos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(ecos_odr PRIVATE __ECOS__=1 CYG_VERSION_CURRENT=30000)
+    target_link_libraries(ecos_odr PRIVATE ecos_compat)
+
+    syscape_add_test(os_ecos_override 17 syscape::hosted os_ecos.cpp)
+    target_compile_definitions(os_ecos_override PRIVATE __ECOS__=1 SYSCAPE_ECOS_VERSION_STRING="eCos 3.0")
+    target_link_libraries(os_ecos_override PRIVATE ecos_compat)
+
+    syscape_add_test(os_ecos_standalone_detection 17 syscape::hosted os_ecos.cpp)
+    target_compile_definitions(os_ecos_standalone_detection PRIVATE SYSCAPE_TARGET_ECOS=1 CYG_VERSION_INIT=3)
+    target_link_libraries(os_ecos_standalone_detection PRIVATE ecos_compat)
+
+    syscape_add_test(cpu_ecos_configured 17 syscape::hosted cpu_ecos.cpp)
+    target_compile_definitions(cpu_ecos_configured PRIVATE __ECOS__=1 SYSCAPE_ECOS_CPU_COUNT=4)
+    target_link_libraries(cpu_ecos_configured PRIVATE ecos_compat)
+
+    syscape_add_test(memory_ecos_heap 17 syscape::hosted memory_ecos.cpp)
+    target_compile_definitions(memory_ecos_heap PRIVATE __ECOS__=1 SYSCAPE_ECOS_TOTAL_HEAP_SIZE=262144 SYSCAPE_ECOS_FREE_HEAP_SIZE=131072)
+    target_link_libraries(memory_ecos_heap PRIVATE ecos_compat)
+
+    syscape_add_test(memory_ecos_exhausted 17 syscape::hosted memory_ecos.cpp)
+    target_compile_definitions(memory_ecos_exhausted PRIVATE __ECOS__=1 SYSCAPE_ECOS_TOTAL_HEAP_SIZE=262144 SYSCAPE_ECOS_FREE_HEAP_SIZE=0)
+    target_link_libraries(memory_ecos_exhausted PRIVATE ecos_compat)
+
+    syscape_add_test(resource_ecos_configured 17 syscape::hosted resource_ecos.cpp)
+    target_compile_definitions(resource_ecos_configured PRIVATE __ECOS__=1 SYSCAPE_ECOS_THREAD_COUNT=12)
+    target_link_libraries(resource_ecos_configured PRIVATE ecos_compat)
+
+    syscape_add_test(ecos_detection 11 syscape::syscape ecos_detection.cpp)
+    target_compile_definitions(ecos_detection PRIVATE __ECOS__=1)
+
+    syscape_add_test(ecos_macro_detection 11 syscape::syscape ecos_detection.cpp)
+    target_compile_definitions(ecos_macro_detection PRIVATE __ECOS=1)
+
+    syscape_add_test(ecos_standalone_detection 11 syscape::syscape ecos_detection.cpp)
+    target_compile_definitions(ecos_standalone_detection PRIVATE SYSCAPE_TARGET_ECOS=1)
+
+    syscape_add_test(ecos_freertos_priority 11 syscape::syscape ecos_coexistence.cpp)
+    target_compile_definitions(ecos_freertos_priority PRIVATE FREERTOS=1 __ECOS__=1)
+endif()
+
 # Compatibility environments and variants (Tier 3)
 syscape_add_test(cygwin_detection 11 syscape::syscape cygwin_detection.cpp)
 target_compile_definitions(cygwin_detection PRIVATE __CYGWIN__=1)
