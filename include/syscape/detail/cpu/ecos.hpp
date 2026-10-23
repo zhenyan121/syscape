@@ -6,8 +6,7 @@
 /// @note Minimum compatibility profile: Hosted Full with C++17
 /// (RTOS/Constrained profile).
 /// @note Minimum language version: C++17.
-/// @note Uses CYGNUM_KERNEL_CPU_MAX / CYG_KERNEL_SMP_CPUS /
-/// SYSCAPE_ECOS_CPU_COUNT.
+/// @note Uses SYSCAPE_ECOS_CPU_COUNT or ECOS_CPU_COUNT for processor counts.
 
 #include <syscape/detail/config.hpp>
 
@@ -50,12 +49,6 @@ inline result<std::uint32_t> online_logical_processor_count() {
 #elif defined(ECOS_CPU_COUNT)
     static_assert(ECOS_CPU_COUNT > 0, "ECOS_CPU_COUNT must be positive");
     return static_cast<std::uint32_t>(ECOS_CPU_COUNT);
-#elif defined(HAL_SMP_CPU_COUNT)
-    const auto count = HAL_SMP_CPU_COUNT;
-    if (count > 0) {
-        return static_cast<std::uint32_t>(count);
-    }
-    return fail(errc::not_supported);
 #else
     return fail(errc::not_supported);
 #endif

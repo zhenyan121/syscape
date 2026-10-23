@@ -60,6 +60,8 @@ void test_runtime_queries() {
     expect(!host && host.error() == syscape::errc::not_supported,
            "host name must report not_supported on eCos");
 
+#if defined(SYSCAPE_ECOS_TICKS_PER_SECOND) ||                                  \
+    (defined(CYGNUM_HAL_RTC_NUMERATOR) && defined(CYGNUM_HAL_RTC_DENOMINATOR))
     const auto elapsed = syscape::os::uptime();
     expect(elapsed.has_value() && elapsed->count() == 1000000,
            "uptime must succeed and match mock milliseconds (100000 ticks * "
@@ -71,6 +73,11 @@ void test_runtime_queries() {
            "uptime must dynamically reflect updated ticks");
 
     syscape_test_reset_ecos_mock();
+#else
+    const auto elapsed = syscape::os::uptime();
+    expect(!elapsed && elapsed.error() == syscape::errc::not_supported,
+           "uptime must report not_supported on eCos when RTC is unconfigured");
+#endif
 
     const auto boot = syscape::os::boot_time();
     expect(!boot && boot.error() == syscape::errc::not_supported,

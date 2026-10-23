@@ -93,6 +93,9 @@ constexpr std::uint64_t rtc_gcd(std::uint64_t a, std::uint64_t b) noexcept {
 
 inline result<std::chrono::milliseconds> uptime() {
 #if defined(SYSCAPE_ECOS_HAS_KAPI_H)
+#if defined(SYSCAPE_ECOS_TICKS_PER_SECOND) ||                                  \
+    defined(ECOS_TICKS_PER_SECOND) ||                                          \
+    (defined(CYGNUM_HAL_RTC_NUMERATOR) && defined(CYGNUM_HAL_RTC_DENOMINATOR))
     const cyg_tick_count_t raw_ticks = cyg_current_time();
     const std::uint64_t ticks = static_cast<std::uint64_t>(raw_ticks);
 
@@ -143,8 +146,6 @@ inline result<std::chrono::milliseconds> uptime() {
         return fail(errc::value_too_large);
     }
     const std::uint64_t ms = (ticks * num_reduced) / effective_denominator;
-#else
-    return fail(errc::not_supported);
 #endif
 
     if (ms >
@@ -152,6 +153,9 @@ inline result<std::chrono::milliseconds> uptime() {
         return fail(errc::value_too_large);
     }
     return std::chrono::milliseconds(static_cast<std::int64_t>(ms));
+#else
+    return fail(errc::not_supported);
+#endif
 #else
     return fail(errc::not_supported);
 #endif

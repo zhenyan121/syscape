@@ -16,14 +16,24 @@ void expect(bool condition, const char* message) {
 }
 
 void test_process_queries() {
+    // Mock base priority is 20, while current effective priority is 10.
+    // syscape::process::priority() must report current priority (10).
     const auto prio = syscape::process::priority();
     expect(prio.has_value() && *prio == 10,
-           "priority must match mock thread priority on eCos");
+           "priority must match current effective priority (10) on eCos");
 
-    syscape_test_set_ecos_thread_priority(25);
+    // Changing base priority must not alter current effective priority.
+    syscape_test_set_ecos_thread_priority(30);
+    const auto prio_base = syscape::process::priority();
+    expect(prio_base.has_value() && *prio_base == 10,
+           "priority must still report current effective priority (10) when "
+           "base changes");
+
+    // Updating current effective priority must be dynamically reflected.
+    syscape_test_set_ecos_thread_current_priority(5);
     const auto prio2 = syscape::process::priority();
-    expect(prio2.has_value() && *prio2 == 25,
-           "priority must dynamically reflect updated priority");
+    expect(prio2.has_value() && *prio2 == 5,
+           "priority must dynamically reflect updated current priority");
 
     syscape_test_set_ecos_thread_null(1);
     const auto prio_null = syscape::process::priority();
