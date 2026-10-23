@@ -2615,6 +2615,135 @@ if(CMAKE_SYSTEM_NAME STREQUAL "ECOS" OR ECOS)
     target_compile_definitions(ecos_freertos_priority PRIVATE FREERTOS=1 __ECOS__=1)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "PIKEOS" OR PIKEOS)
+    add_library(pikeos_compat STATIC compat/pikeos/pikeos_compat.cpp)
+    target_include_directories(pikeos_compat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/compat/pikeos)
+    target_compile_features(pikeos_compat PUBLIC cxx_std_17)
+
+    set(PIKEOS_TEST_TARGETS
+        os_pikeos
+        cpu_pikeos
+        memory_pikeos
+        process_pikeos
+        user_pikeos
+        filesystem_pikeos
+        network_pikeos
+        locale_pikeos
+        environment_pikeos
+        resource_pikeos
+        virtualization_pikeos
+        hardware_pikeos
+        power_pikeos
+        sensor_pikeos
+        security_pikeos
+        numa_pikeos
+        process_list_pikeos
+        printer_pikeos
+        audio_pikeos
+        software_pikeos
+        storage_pikeos
+        ipc_pikeos
+        connection_pikeos
+        gpu_pikeos
+        display_pikeos
+        input_pikeos
+        camera_pikeos
+        bluetooth_pikeos
+        wifi_pikeos)
+    foreach(pikeos_target IN LISTS PIKEOS_TEST_TARGETS)
+        syscape_add_test(${pikeos_target} 17 syscape::hosted ${pikeos_target}.cpp)
+        target_compile_definitions(${pikeos_target} PRIVATE __PIKEOS__=1 P4_KERNEL=1)
+        target_link_libraries(${pikeos_target} PRIVATE pikeos_compat)
+    endforeach()
+
+    foreach(pikeos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(pikeos_header_target "header_${pikeos_domain}_pikeos")
+        syscape_add_test(
+            ${pikeos_header_target}
+            17
+            syscape::hosted
+            header_${pikeos_domain}.cpp)
+        target_compile_definitions(${pikeos_header_target} PRIVATE __PIKEOS__=1 P4_KERNEL=1)
+        target_link_libraries(${pikeos_header_target} PRIVATE pikeos_compat)
+    endforeach()
+
+    syscape_add_test(
+        pikeos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(pikeos_odr PRIVATE __PIKEOS__=1 P4_KERNEL=1)
+    target_link_libraries(pikeos_odr PRIVATE pikeos_compat)
+
+    syscape_add_test(os_pikeos_override 17 syscape::hosted os_pikeos.cpp)
+    target_compile_definitions(os_pikeos_override PRIVATE __PIKEOS__=1 P4_KERNEL=1 SYSCAPE_PIKEOS_VERSION_STRING="PikeOS 5.1")
+    target_link_libraries(os_pikeos_override PRIVATE pikeos_compat)
+
+    syscape_add_test(os_pikeos_version 17 syscape::hosted os_pikeos.cpp)
+    target_compile_definitions(os_pikeos_version PRIVATE __PIKEOS__=1 P4_KERNEL=1 PIKEOS_VERSION_STRING="5.1.3")
+    target_link_libraries(os_pikeos_version PRIVATE pikeos_compat)
+
+    syscape_add_test(os_pikeos_p4_version 17 syscape::hosted os_pikeos.cpp)
+    target_compile_definitions(os_pikeos_p4_version PRIVATE __PIKEOS__=1 P4_KERNEL=1 P4_VERSION="5.0")
+    target_link_libraries(os_pikeos_p4_version PRIVATE pikeos_compat)
+
+    syscape_add_test(os_pikeos_p4_numeric_version 17 syscape::hosted os_pikeos.cpp)
+    target_compile_definitions(os_pikeos_p4_numeric_version PRIVATE __PIKEOS__=1 P4_KERNEL=1 P4_VERSION=5)
+    target_link_libraries(os_pikeos_p4_numeric_version PRIVATE pikeos_compat)
+
+    syscape_add_test(os_pikeos_standalone_detection 17 syscape::hosted os_pikeos.cpp)
+    target_compile_definitions(os_pikeos_standalone_detection PRIVATE SYSCAPE_TARGET_PIKEOS=1)
+    target_link_libraries(os_pikeos_standalone_detection PRIVATE pikeos_compat)
+
+    syscape_add_test(cpu_pikeos_configured 17 syscape::hosted cpu_pikeos.cpp)
+    target_compile_definitions(cpu_pikeos_configured PRIVATE __PIKEOS__=1 P4_KERNEL=1 SYSCAPE_PIKEOS_CPU_COUNT=8)
+    target_link_libraries(cpu_pikeos_configured PRIVATE pikeos_compat)
+
+    syscape_add_test(cpu_pikeos_legacy 17 syscape::hosted cpu_pikeos.cpp)
+    target_compile_definitions(cpu_pikeos_legacy PRIVATE __PIKEOS__=1 P4_KERNEL=1 PIKEOS_CPU_COUNT=2)
+    target_link_libraries(cpu_pikeos_legacy PRIVATE pikeos_compat)
+
+    syscape_add_test(cpu_pikeos_p4_macro 17 syscape::hosted cpu_pikeos.cpp)
+    target_compile_definitions(cpu_pikeos_p4_macro PRIVATE __PIKEOS__=1 P4_KERNEL=1 P4_CPU_COUNT=4)
+    target_link_libraries(cpu_pikeos_p4_macro PRIVATE pikeos_compat)
+
+    syscape_add_test(memory_pikeos_heap 17 syscape::hosted memory_pikeos.cpp)
+    target_compile_definitions(memory_pikeos_heap PRIVATE __PIKEOS__=1 P4_KERNEL=1 SYSCAPE_PIKEOS_TOTAL_HEAP_SIZE=262144 SYSCAPE_PIKEOS_FREE_HEAP_SIZE=131072)
+    target_link_libraries(memory_pikeos_heap PRIVATE pikeos_compat)
+
+    syscape_add_test(memory_pikeos_exhausted 17 syscape::hosted memory_pikeos.cpp)
+    target_compile_definitions(memory_pikeos_exhausted PRIVATE __PIKEOS__=1 P4_KERNEL=1 SYSCAPE_PIKEOS_TOTAL_HEAP_SIZE=262144 SYSCAPE_PIKEOS_FREE_HEAP_SIZE=0)
+    target_link_libraries(memory_pikeos_exhausted PRIVATE pikeos_compat)
+
+    syscape_add_test(resource_pikeos_configured 17 syscape::hosted resource_pikeos.cpp)
+    target_compile_definitions(resource_pikeos_configured PRIVATE __PIKEOS__=1 P4_KERNEL=1 SYSCAPE_PIKEOS_THREAD_COUNT=16)
+    target_link_libraries(resource_pikeos_configured PRIVATE pikeos_compat)
+
+    syscape_add_test(resource_pikeos_p4_macro 17 syscape::hosted resource_pikeos.cpp)
+    target_compile_definitions(resource_pikeos_p4_macro PRIVATE __PIKEOS__=1 P4_KERNEL=1 P4_TASK_COUNT=10)
+    target_link_libraries(resource_pikeos_p4_macro PRIVATE pikeos_compat)
+
+    syscape_add_test(pikeos_detection 11 syscape::syscape pikeos_detection.cpp)
+    target_compile_definitions(pikeos_detection PRIVATE __PIKEOS__=1)
+
+    syscape_add_test(pikeos_macro_detection 11 syscape::syscape pikeos_detection.cpp)
+    target_compile_definitions(pikeos_macro_detection PRIVATE PIKEOS=1)
+
+    syscape_add_test(pikeos_p4_detection 11 syscape::syscape pikeos_detection.cpp)
+    target_compile_definitions(pikeos_p4_detection PRIVATE P4_VERSION="5.0")
+
+    syscape_add_test(pikeos_standalone_detection 11 syscape::syscape pikeos_detection.cpp)
+    target_compile_definitions(pikeos_standalone_detection PRIVATE SYSCAPE_TARGET_PIKEOS=1)
+
+    syscape_add_test(pikeos_freertos_priority 11 syscape::syscape pikeos_coexistence.cpp)
+    target_compile_definitions(pikeos_freertos_priority PRIVATE FREERTOS=1 __PIKEOS__=1)
+endif()
+
 # Compatibility environments and variants (Tier 3)
 syscape_add_test(cygwin_detection 11 syscape::syscape cygwin_detection.cpp)
 target_compile_definitions(cygwin_detection PRIVATE __CYGWIN__=1)
