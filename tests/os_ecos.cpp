@@ -33,21 +33,28 @@ void test_runtime_queries() {
            "kernel name must be 'eCos Kernel'");
 
     const auto kver = syscape::os::kernel_version();
+    const auto pver = syscape::os::product_version();
 #if defined(SYSCAPE_ECOS_VERSION_STRING)
     expect(kver.has_value() && *kver == SYSCAPE_ECOS_VERSION_STRING,
            "kernel version must match SYSCAPE_ECOS_VERSION_STRING");
+    expect(pver.has_value() && *pver == SYSCAPE_ECOS_VERSION_STRING,
+           "product version must match SYSCAPE_ECOS_VERSION_STRING");
+#elif defined(ECOS_VERSION_STRING)
+    expect(kver.has_value() && *kver == ECOS_VERSION_STRING,
+           "kernel version must match ECOS_VERSION_STRING");
+    expect(pver.has_value() && *pver == ECOS_VERSION_STRING,
+           "product version must match ECOS_VERSION_STRING");
 #elif defined(CYG_VERSION_STRING)
     expect(kver.has_value() && *kver == CYG_VERSION_STRING,
            "kernel version must match CYG_VERSION_STRING");
-#elif defined(CYG_VERSION_CURRENT)
-    expect(kver.has_value() && *kver == std::to_string(CYG_VERSION_CURRENT),
-           "kernel version must match CYG_VERSION_CURRENT");
+    expect(pver.has_value() && *pver == CYG_VERSION_STRING,
+           "product version must match CYG_VERSION_STRING");
 #else
-    expect(kver.has_value(), "kernel version must succeed");
+    expect(!kver && kver.error() == syscape::errc::not_supported,
+           "kernel version must report not_supported on eCos by default");
+    expect(!pver && pver.error() == syscape::errc::not_supported,
+           "product version must report not_supported on eCos by default");
 #endif
-
-    const auto pver = syscape::os::product_version();
-    expect(pver.has_value(), "product version must succeed");
 
     const auto host = syscape::os::host_name();
     expect(!host && host.error() == syscape::errc::not_supported,

@@ -70,14 +70,14 @@ inline result<std::uint32_t> thread_count() {
     return fail(errc::not_supported);
 }
 
-// Returns the active thread's scheduling priority on eCos.
+// Returns the active thread's current scheduling priority on eCos.
 inline result<int> priority() {
 #if defined(SYSCAPE_ECOS_HAS_KAPI_H)
     const cyg_handle_t th = cyg_thread_self();
     if (th == 0) {
         return fail(errc::not_found);
     }
-    const cyg_priority_t prio = cyg_thread_get_priority(th);
+    const cyg_priority_t prio = cyg_thread_get_current_priority(th);
     return static_cast<int>(prio);
 #else
     return fail(errc::not_supported);

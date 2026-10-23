@@ -44,32 +44,20 @@ inline result<std::vector<std::string>> model_names() {
 
 inline result<std::uint32_t> online_logical_processor_count() {
 #if defined(SYSCAPE_ECOS_CPU_COUNT)
-    if (SYSCAPE_ECOS_CPU_COUNT > 0) {
-        return static_cast<std::uint32_t>(SYSCAPE_ECOS_CPU_COUNT);
-    }
-    return fail(errc::not_supported);
+    static_assert(SYSCAPE_ECOS_CPU_COUNT > 0,
+                  "SYSCAPE_ECOS_CPU_COUNT must be positive");
+    return static_cast<std::uint32_t>(SYSCAPE_ECOS_CPU_COUNT);
 #elif defined(ECOS_CPU_COUNT)
-    if (ECOS_CPU_COUNT > 0) {
-        return static_cast<std::uint32_t>(ECOS_CPU_COUNT);
+    static_assert(ECOS_CPU_COUNT > 0, "ECOS_CPU_COUNT must be positive");
+    return static_cast<std::uint32_t>(ECOS_CPU_COUNT);
+#elif defined(HAL_SMP_CPU_COUNT)
+    const auto count = HAL_SMP_CPU_COUNT;
+    if (count > 0) {
+        return static_cast<std::uint32_t>(count);
     }
     return fail(errc::not_supported);
-#elif defined(CYGNUM_KERNEL_CPU_MAX)
-    if (CYGNUM_KERNEL_CPU_MAX > 0) {
-        return static_cast<std::uint32_t>(CYGNUM_KERNEL_CPU_MAX);
-    }
-    return 1U;
-#elif defined(CYG_KERNEL_SMP_CPUS)
-    if (CYG_KERNEL_SMP_CPUS > 0) {
-        return static_cast<std::uint32_t>(CYG_KERNEL_SMP_CPUS);
-    }
-    return 1U;
-#elif defined(CYGNUM_HAL_SMP_CPU_MAX)
-    if (CYGNUM_HAL_SMP_CPU_MAX > 0) {
-        return static_cast<std::uint32_t>(CYGNUM_HAL_SMP_CPU_MAX);
-    }
-    return 1U;
 #else
-    return 1U;
+    return fail(errc::not_supported);
 #endif
 }
 

@@ -44,9 +44,12 @@ inline result<std::uint64_t> process_count() {
 }
 
 inline result<std::uint64_t> thread_count() {
-#if defined(SYSCAPE_ECOS_THREAD_COUNT) && (SYSCAPE_ECOS_THREAD_COUNT > 0)
+#if defined(SYSCAPE_ECOS_THREAD_COUNT)
+    static_assert(SYSCAPE_ECOS_THREAD_COUNT > 0,
+                  "SYSCAPE_ECOS_THREAD_COUNT must be positive");
     return static_cast<std::uint64_t>(SYSCAPE_ECOS_THREAD_COUNT);
-#elif defined(ECOS_THREAD_COUNT) && (ECOS_THREAD_COUNT > 0)
+#elif defined(ECOS_THREAD_COUNT)
+    static_assert(ECOS_THREAD_COUNT > 0, "ECOS_THREAD_COUNT must be positive");
     return static_cast<std::uint64_t>(ECOS_THREAD_COUNT);
 #else
     return fail(errc::not_supported);

@@ -23,9 +23,14 @@ void test_cpu_queries() {
 #elif defined(ECOS_CPU_COUNT)
     expect(logical.has_value() && *logical == ECOS_CPU_COUNT,
            "logical processor count must match ECOS_CPU_COUNT");
+#elif defined(HAL_SMP_CPU_COUNT)
+    expect(logical.has_value() &&
+               *logical == static_cast<std::uint32_t>(HAL_SMP_CPU_COUNT),
+           "logical processor count must match HAL_SMP_CPU_COUNT");
 #else
-    expect(logical.has_value() && *logical == 1U,
-           "logical processor count must default to 1 on eCos");
+    expect(!logical && logical.error() == syscape::errc::not_supported,
+           "logical processor count must report not_supported on eCos by "
+           "default");
 #endif
 
     const auto phys = syscape::cpu::online_physical_core_count();

@@ -26,9 +26,13 @@ inline result<std::uint64_t> page_size_bytes() {
 }
 
 inline result<std::uint64_t> physical_memory_bytes() {
-#if defined(SYSCAPE_ECOS_TOTAL_HEAP_SIZE) && (SYSCAPE_ECOS_TOTAL_HEAP_SIZE > 0)
+#if defined(SYSCAPE_ECOS_TOTAL_HEAP_SIZE)
+    static_assert(SYSCAPE_ECOS_TOTAL_HEAP_SIZE > 0,
+                  "SYSCAPE_ECOS_TOTAL_HEAP_SIZE must be positive");
     return static_cast<std::uint64_t>(SYSCAPE_ECOS_TOTAL_HEAP_SIZE);
-#elif defined(ECOS_TOTAL_HEAP_SIZE) && (ECOS_TOTAL_HEAP_SIZE > 0)
+#elif defined(ECOS_TOTAL_HEAP_SIZE)
+    static_assert(ECOS_TOTAL_HEAP_SIZE > 0,
+                  "ECOS_TOTAL_HEAP_SIZE must be positive");
     return static_cast<std::uint64_t>(ECOS_TOTAL_HEAP_SIZE);
 #else
     return fail(errc::not_supported);
@@ -37,14 +41,14 @@ inline result<std::uint64_t> physical_memory_bytes() {
 
 // Returns the available free heap or memory pool space in bytes on eCos.
 // Note: Available memory of 0 bytes is a valid state (memory exhausted)
-// and is not treated as an error sentinel. A guard of >= 0 ensures that
-// negative values or unconfigured macros report not_supported.
+// and is not treated as an error sentinel. A negative value is rejected at
+// compile-time via static_assert.
 inline result<std::uint64_t> available_memory_bytes() {
-#if defined(SYSCAPE_ECOS_FREE_HEAP_SIZE) && (SYSCAPE_ECOS_FREE_HEAP_SIZE >= 0)
+#if defined(SYSCAPE_ECOS_FREE_HEAP_SIZE)
     static_assert(SYSCAPE_ECOS_FREE_HEAP_SIZE >= 0,
                   "SYSCAPE_ECOS_FREE_HEAP_SIZE must not be negative");
     return static_cast<std::uint64_t>(SYSCAPE_ECOS_FREE_HEAP_SIZE);
-#elif defined(ECOS_FREE_HEAP_SIZE) && (ECOS_FREE_HEAP_SIZE >= 0)
+#elif defined(ECOS_FREE_HEAP_SIZE)
     static_assert(ECOS_FREE_HEAP_SIZE >= 0,
                   "ECOS_FREE_HEAP_SIZE must not be negative");
     return static_cast<std::uint64_t>(ECOS_FREE_HEAP_SIZE);

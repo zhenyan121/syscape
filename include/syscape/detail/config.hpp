@@ -289,8 +289,9 @@
 #endif
 
 // Detect eCos (Embedded Configurable Operating System). __ECOS, __ECOS__,
-// __ecos, CYG_VERSION_INIT, or CYG_VERSION_CURRENT are defined by official
-// eCos headers (<cyg/kernel/kapi.h>, <cyg/infra/cyg_type.h>). Mutual exclusion
+// or __ecos are defined by eCos cross-compilers. CYGPKG_KERNEL, CYGPKG_HAL,
+// or CYGNUM_KERNEL_SCHED_PRIORITIES are defined by official eCos configuration
+// headers (<pkgconf/system.h>, <cyg/kernel/kapi.h>). Mutual exclusion
 // against earlier-checked RTOS families ensures foreign SDKs defining generic
 // macros will not inadvertently activate eCos detection.
 #if defined(SYSCAPE_TARGET_ECOS)
@@ -318,7 +319,7 @@
     !defined(PLUS_VERSION_NUMBER) && !defined(__NUCLEUS__) &&                  \
     !defined(NU_PLUS) &&                                                       \
     (defined(__ECOS) || defined(__ECOS__) || defined(__ecos) ||                \
-     defined(CYG_VERSION_INIT) || defined(CYG_VERSION_CURRENT) ||              \
+     defined(CYGPKG_KERNEL) || defined(CYGPKG_HAL) ||                          \
      defined(CYGNUM_KERNEL_SCHED_PRIORITIES))
 #define SYSCAPE_TARGET_ECOS 1
 #endif

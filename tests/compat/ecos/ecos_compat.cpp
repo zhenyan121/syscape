@@ -1,7 +1,7 @@
 #include <cyg/kernel/kapi.h>
 
 static cyg_tick_count_t g_mock_ticks = 100000ULL;
-static cyg_priority_t g_mock_priority = 10U;
+static cyg_priority_t g_mock_priority = 10;
 static int g_mock_thread_null = 0;
 
 extern "C" {
