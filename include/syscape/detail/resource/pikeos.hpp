@@ -12,18 +12,6 @@
 
 #include <cstdint>
 
-#if !defined(SYSCAPE_PIKEOS_HAS_P4_H)
-#if defined(__has_include)
-#if __has_include(<p4.h>)
-#include <p4.h>
-#define SYSCAPE_PIKEOS_HAS_P4_H 1
-#elif __has_include("p4.h")
-#include "p4.h"
-#define SYSCAPE_PIKEOS_HAS_P4_H 1
-#endif
-#endif
-#endif
-
 #include <syscape/detail/resource/common.hpp>
 #include <syscape/result.hpp>
 

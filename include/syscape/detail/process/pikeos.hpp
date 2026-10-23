@@ -6,7 +6,7 @@
 /// @note Minimum compatibility profile: Hosted Full with C++17
 /// (RTOS/Constrained profile).
 /// @note Minimum language version: C++17.
-/// @note Uses <p4.h> when available for active task priority.
+/// @note Uses SYSCAPE_PIKEOS_PRIORITY / PIKEOS_PRIORITY configuration macros.
 
 #include <syscape/detail/config.hpp>
 
@@ -14,18 +14,6 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-
-#if !defined(SYSCAPE_PIKEOS_HAS_P4_H)
-#if defined(__has_include)
-#if __has_include(<p4.h>)
-#include <p4.h>
-#define SYSCAPE_PIKEOS_HAS_P4_H 1
-#elif __has_include("p4.h")
-#include "p4.h"
-#define SYSCAPE_PIKEOS_HAS_P4_H 1
-#endif
-#endif
-#endif
 
 #include <syscape/detail/process/common.hpp>
 #include <syscape/result.hpp>
@@ -70,15 +58,12 @@ inline result<std::uint32_t> thread_count() {
     return fail(errc::not_supported);
 }
 
-// Returns the active task's current scheduling priority on PikeOS.
+// Returns the active thread's current scheduling priority on PikeOS.
 inline result<int> priority() {
-#if defined(SYSCAPE_PIKEOS_HAS_P4_H)
-    const P4_task_t th = p4_task_self();
-    if (th == 0) {
-        return fail(errc::not_found);
-    }
-    const P4_prio_t prio = p4_task_get_prio(th);
-    return static_cast<int>(prio);
+#if defined(SYSCAPE_PIKEOS_PRIORITY)
+    return static_cast<int>(SYSCAPE_PIKEOS_PRIORITY);
+#elif defined(PIKEOS_PRIORITY)
+    return static_cast<int>(PIKEOS_PRIORITY);
 #else
     return fail(errc::not_supported);
 #endif

@@ -66,6 +66,16 @@ template <typename T>
 inline auto format_version_value(T value) ->
     typename std::enable_if<std::is_integral<T>::value,
                             result<std::string>>::type {
+    if (value <= 0) {
+        return fail(errc::not_found);
+    }
+    // When P4_VERSION is passed as a compiler flag -DP4_VERSION without a
+    // value, the preprocessor defines it as 1. A bare numeric 1 is a target
+    // detection flag rather than a valid PikeOS version number (versions
+    // are 3.x, 4.x, 5.x).
+    if (value == 1) {
+        return fail(errc::not_supported);
+    }
     return std::to_string(value);
 }
 
@@ -95,38 +105,59 @@ inline result<std::string> product_version() {
 #endif
 }
 
-inline result<std::chrono::milliseconds> uptime() {
+namespace os_detail {
+
 #if defined(SYSCAPE_PIKEOS_HAS_P4_H)
-    P4_time_t raw_time = 0;
-    const P4_e_t status = p4_get_time(&raw_time);
-    if (status != 0) {
+template <typename F>
+inline auto invoke_p4_get_time(F&& f, int)
+    -> decltype(f(), result<std::uint64_t> {}) {
+    const auto t = f();
+    return static_cast<std::uint64_t>(t);
+}
+
+template <typename F>
+inline auto invoke_p4_get_time(F&& f, long)
+    -> decltype(f(static_cast<P4_time_t*>(nullptr)), result<std::uint64_t> {}) {
+    P4_time_t t = 0;
+    const auto err = f(&t);
+    if (err != 0) {
         return fail(errc::io_error);
     }
+    return static_cast<std::uint64_t>(t);
+}
+#endif
+
+} // namespace os_detail
+
+inline result<std::chrono::milliseconds> uptime() {
+#if defined(SYSCAPE_PIKEOS_HAS_P4_H)
+    const auto time_res = os_detail::invoke_p4_get_time(::p4_get_time, 0);
+    if (!time_res) {
+        return fail(time_res.error());
+    }
+    const std::uint64_t raw_time = *time_res;
 
 #if defined(SYSCAPE_PIKEOS_TICKS_PER_SECOND)
     static_assert(SYSCAPE_PIKEOS_TICKS_PER_SECOND > 0,
                   "SYSCAPE_PIKEOS_TICKS_PER_SECOND must be positive");
     constexpr std::uint64_t ticks_per_sec =
         static_cast<std::uint64_t>(SYSCAPE_PIKEOS_TICKS_PER_SECOND);
-    const std::uint64_t ticks = static_cast<std::uint64_t>(raw_time);
-    if (ticks > (std::numeric_limits<std::uint64_t>::max() / 1000ULL)) {
+    if (raw_time > (std::numeric_limits<std::uint64_t>::max() / 1000ULL)) {
         return fail(errc::value_too_large);
     }
-    const std::uint64_t ms = (ticks * 1000ULL) / ticks_per_sec;
+    const std::uint64_t ms = (raw_time * 1000ULL) / ticks_per_sec;
 #elif defined(PIKEOS_TICKS_PER_SECOND)
     static_assert(PIKEOS_TICKS_PER_SECOND > 0,
                   "PIKEOS_TICKS_PER_SECOND must be positive");
     constexpr std::uint64_t ticks_per_sec =
         static_cast<std::uint64_t>(PIKEOS_TICKS_PER_SECOND);
-    const std::uint64_t ticks = static_cast<std::uint64_t>(raw_time);
-    if (ticks > (std::numeric_limits<std::uint64_t>::max() / 1000ULL)) {
+    if (raw_time > (std::numeric_limits<std::uint64_t>::max() / 1000ULL)) {
         return fail(errc::value_too_large);
     }
-    const std::uint64_t ms = (ticks * 1000ULL) / ticks_per_sec;
+    const std::uint64_t ms = (raw_time * 1000ULL) / ticks_per_sec;
 #else
     // Default PikeOS p4_get_time reports nanoseconds.
-    const std::uint64_t ns = static_cast<std::uint64_t>(raw_time);
-    const std::uint64_t ms = ns / 1000000ULL;
+    const std::uint64_t ms = raw_time / 1000000ULL;
 #endif
 
     if (ms >
@@ -162,5 +193,9 @@ inline result<std::string> boot_identifier() {
 } // namespace os_backend
 } // namespace detail
 } // namespace syscape
+
+#if defined(SYSCAPE_PIKEOS_HAS_P4_H)
+#undef SYSCAPE_PIKEOS_HAS_P4_H
+#endif
 
 #endif // SYSCAPE_DETAIL_OS_PIKEOS_HPP

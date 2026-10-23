@@ -2696,9 +2696,33 @@ if(CMAKE_SYSTEM_NAME STREQUAL "PIKEOS" OR PIKEOS)
     target_compile_definitions(os_pikeos_p4_numeric_version PRIVATE __PIKEOS__=1 P4_KERNEL=1 P4_VERSION=5)
     target_link_libraries(os_pikeos_p4_numeric_version PRIVATE pikeos_compat)
 
+    syscape_add_test(os_pikeos_p4_flag_version 17 syscape::hosted os_pikeos.cpp)
+    target_compile_definitions(os_pikeos_p4_flag_version PRIVATE __PIKEOS__=1 P4_KERNEL=1 P4_VERSION=1 SYSCAPE_TEST_P4_VERSION_NOT_SUPPORTED=1)
+    target_link_libraries(os_pikeos_p4_flag_version PRIVATE pikeos_compat)
+
+    syscape_add_test(os_pikeos_p4_zero_version 17 syscape::hosted os_pikeos.cpp)
+    target_compile_definitions(os_pikeos_p4_zero_version PRIVATE __PIKEOS__=1 P4_KERNEL=1 P4_VERSION=0 SYSCAPE_TEST_P4_VERSION_NOT_FOUND=1)
+    target_link_libraries(os_pikeos_p4_zero_version PRIVATE pikeos_compat)
+
+    syscape_add_test(os_pikeos_rate_override 17 syscape::hosted os_pikeos.cpp)
+    target_compile_definitions(os_pikeos_rate_override PRIVATE __PIKEOS__=1 P4_KERNEL=1 SYSCAPE_PIKEOS_TICKS_PER_SECOND=1000000ULL)
+    target_link_libraries(os_pikeos_rate_override PRIVATE pikeos_compat)
+
+    syscape_add_test(os_pikeos_legacy_rate 17 syscape::hosted os_pikeos.cpp)
+    target_compile_definitions(os_pikeos_legacy_rate PRIVATE __PIKEOS__=1 P4_KERNEL=1 PIKEOS_TICKS_PER_SECOND=200ULL)
+    target_link_libraries(os_pikeos_legacy_rate PRIVATE pikeos_compat)
+
     syscape_add_test(os_pikeos_standalone_detection 17 syscape::hosted os_pikeos.cpp)
     target_compile_definitions(os_pikeos_standalone_detection PRIVATE SYSCAPE_TARGET_PIKEOS=1)
     target_link_libraries(os_pikeos_standalone_detection PRIVATE pikeos_compat)
+
+    syscape_add_test(process_pikeos_priority 17 syscape::hosted process_pikeos.cpp)
+    target_compile_definitions(process_pikeos_priority PRIVATE __PIKEOS__=1 P4_KERNEL=1 SYSCAPE_PIKEOS_PRIORITY=42)
+    target_link_libraries(process_pikeos_priority PRIVATE pikeos_compat)
+
+    syscape_add_test(process_pikeos_legacy_priority 17 syscape::hosted process_pikeos.cpp)
+    target_compile_definitions(process_pikeos_legacy_priority PRIVATE __PIKEOS__=1 P4_KERNEL=1 PIKEOS_PRIORITY=10)
+    target_link_libraries(process_pikeos_legacy_priority PRIVATE pikeos_compat)
 
     syscape_add_test(cpu_pikeos_configured 17 syscape::hosted cpu_pikeos.cpp)
     target_compile_definitions(cpu_pikeos_configured PRIVATE __PIKEOS__=1 P4_KERNEL=1 SYSCAPE_PIKEOS_CPU_COUNT=8)
@@ -2742,6 +2766,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "PIKEOS" OR PIKEOS)
 
     syscape_add_test(pikeos_freertos_priority 11 syscape::syscape pikeos_coexistence.cpp)
     target_compile_definitions(pikeos_freertos_priority PRIVATE FREERTOS=1 __PIKEOS__=1)
+
+    syscape_add_test(pikeos_header_detection 11 syscape::syscape pikeos_header_detection.cpp)
+    target_include_directories(pikeos_header_detection PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/compat/pikeos)
 endif()
 
 # Compatibility environments and variants (Tier 3)

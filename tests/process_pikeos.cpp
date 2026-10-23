@@ -17,20 +17,16 @@ void expect(bool condition, const char* message) {
 
 void test_process_queries() {
     const auto prio = syscape::process::priority();
-    expect(prio.has_value() && *prio == 120,
-           "priority must match mock task priority (120) on PikeOS");
-
-    syscape_test_set_pikeos_task_prio(64);
-    const auto prio2 = syscape::process::priority();
-    expect(prio2.has_value() && *prio2 == 64,
-           "priority must dynamically reflect updated priority (64)");
-
-    syscape_test_set_pikeos_task_null(1);
-    const auto prio_null = syscape::process::priority();
-    expect(!prio_null && prio_null.error() == syscape::errc::not_found,
-           "priority must report not_found when p4_task_self() is 0");
-
-    syscape_test_reset_pikeos_mock();
+#if defined(SYSCAPE_PIKEOS_PRIORITY)
+    expect(prio.has_value() && *prio == SYSCAPE_PIKEOS_PRIORITY,
+           "priority must report SYSCAPE_PIKEOS_PRIORITY");
+#elif defined(PIKEOS_PRIORITY)
+    expect(prio.has_value() && *prio == PIKEOS_PRIORITY,
+           "priority must report PIKEOS_PRIORITY");
+#else
+    expect(!prio && prio.error() == syscape::errc::not_supported,
+           "priority must report not_supported on PikeOS by default");
+#endif
 
     const auto threads = syscape::process::thread_count();
     expect(!threads && threads.error() == syscape::errc::not_supported,

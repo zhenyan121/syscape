@@ -356,7 +356,10 @@
     !defined(__ECOS__) && !defined(__ecos) && !defined(CYGPKG_KERNEL) &&       \
     !defined(CYGPKG_HAL) && !defined(CYGNUM_KERNEL_SCHED_PRIORITIES) &&        \
     (defined(__PIKEOS__) || defined(__PIKEOS) || defined(PIKEOS) ||            \
-     defined(P4_VERSION) || defined(P4_KERNEL))
+     defined(P4_VERSION) || defined(P4_KERNEL) || defined(P4_E_OK) ||          \
+     defined(P4_THR_MYSELF) || defined(P4_NUM_PRIOS) ||                        \
+     defined(PIKEOS_P4_H) || defined(_P4_H) || defined(_P4_H_) ||              \
+     defined(P4_H))
 #define SYSCAPE_TARGET_PIKEOS 1
 #endif
 

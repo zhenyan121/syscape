@@ -6,25 +6,13 @@
 /// @note Minimum compatibility profile: Hosted Full with C++17
 /// (RTOS/Constrained profile).
 /// @note Minimum language version: C++17.
-/// @note Uses p4_cpu_count() or SYSCAPE_PIKEOS_CPU_COUNT / PIKEOS_CPU_COUNT.
+/// @note Uses SYSCAPE_PIKEOS_CPU_COUNT / PIKEOS_CPU_COUNT / P4_CPU_COUNT.
 
 #include <syscape/detail/config.hpp>
 
 #include <cstdint>
 #include <string>
 #include <vector>
-
-#if !defined(SYSCAPE_PIKEOS_HAS_P4_H)
-#if defined(__has_include)
-#if __has_include(<p4.h>)
-#include <p4.h>
-#define SYSCAPE_PIKEOS_HAS_P4_H 1
-#elif __has_include("p4.h")
-#include "p4.h"
-#define SYSCAPE_PIKEOS_HAS_P4_H 1
-#endif
-#endif
-#endif
 
 #include <syscape/detail/cpu/common.hpp>
 #include <syscape/result.hpp>
@@ -52,12 +40,6 @@ inline result<std::uint32_t> online_logical_processor_count() {
 #elif defined(P4_CPU_COUNT)
     static_assert(P4_CPU_COUNT > 0, "P4_CPU_COUNT must be positive");
     return static_cast<std::uint32_t>(P4_CPU_COUNT);
-#elif defined(SYSCAPE_PIKEOS_HAS_P4_H)
-    const P4_cpu_t cpus = p4_cpu_count();
-    if (cpus > 0) {
-        return static_cast<std::uint32_t>(cpus);
-    }
-    return fail(errc::not_supported);
 #else
     return fail(errc::not_supported);
 #endif

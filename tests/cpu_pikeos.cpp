@@ -27,15 +27,9 @@ void test_cpu_queries() {
     expect(logical.has_value() && *logical == P4_CPU_COUNT,
            "logical processor count must match P4_CPU_COUNT");
 #else
-    expect(logical.has_value() && *logical == 4,
-           "logical processor count must match p4_cpu_count mock (4)");
-
-    syscape_test_set_pikeos_cpu_count(8);
-    const auto logical8 = syscape::cpu::online_logical_processor_count();
-    expect(logical8.has_value() && *logical8 == 8,
-           "logical processor count must dynamically reflect updated mock (8)");
-
-    syscape_test_reset_pikeos_mock();
+    expect(!logical && logical.error() == syscape::errc::not_supported,
+           "logical processor count must report not_supported on PikeOS by "
+           "default");
 #endif
 
     const auto phys = syscape::cpu::online_physical_core_count();
