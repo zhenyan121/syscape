@@ -152,7 +152,7 @@ enum class drive_health_status : std::uint8_t {
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
     !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD) &&     \
     !defined(SYSCAPE_TARGET_CMSIS_RTOS) && !defined(SYSCAPE_TARGET_TI_RTOS) && \
-    !defined(SYSCAPE_TARGET_NUCLEUS) &&                                        \
+    !defined(SYSCAPE_TARGET_NUCLEUS) && !defined(SYSCAPE_TARGET_ECOS) &&       \
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/storage/linux.hpp>
@@ -272,6 +272,8 @@ enum class drive_health_status : std::uint8_t {
 #include <syscape/detail/storage/ti_rtos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUCLEUS)
 #include <syscape/detail/storage/nucleus.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ECOS)
+#include <syscape/detail/storage/ecos.hpp>
 #else
 #include <syscape/detail/storage/generic.hpp>
 #endif

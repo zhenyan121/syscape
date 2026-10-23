@@ -265,7 +265,7 @@ struct tpm_info {
     !defined(SYSCAPE_TARGET_TIZEN) && !defined(SYSCAPE_TARGET_SAILFISH) &&     \
     !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD) &&     \
     !defined(SYSCAPE_TARGET_CMSIS_RTOS) && !defined(SYSCAPE_TARGET_TI_RTOS) && \
-    !defined(SYSCAPE_TARGET_NUCLEUS) &&                                        \
+    !defined(SYSCAPE_TARGET_NUCLEUS) && !defined(SYSCAPE_TARGET_ECOS) &&       \
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/security/linux.hpp>
@@ -385,6 +385,8 @@ struct tpm_info {
 #include <syscape/detail/security/ti_rtos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_NUCLEUS)
 #include <syscape/detail/security/nucleus.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_ECOS)
+#include <syscape/detail/security/ecos.hpp>
 #else
 #include <syscape/detail/security/generic.hpp>
 #endif
