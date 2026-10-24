@@ -8,11 +8,13 @@
 /// (RTOS/Constrained profile).
 /// @note Minimum language version: C++17.
 /// @note Uses sysconf(_SC_OPEN_MAX) and SYSCAPE_LYNXOS_THREAD_COUNT /
-/// TASK_COUNT macros.
+/// SYSCAPE_LYNXOS_TASK_COUNT macros.
 
 #include <syscape/detail/config.hpp>
 
+#include <cerrno>
 #include <cstdint>
+#include <system_error>
 #include <unistd.h>
 
 #include <syscape/detail/resource/common.hpp>
@@ -75,9 +77,17 @@ inline result<std::uint64_t> open_handle_count() {
 
 inline result<std::uint64_t> file_descriptor_limit() {
 #if defined(_SC_OPEN_MAX)
+    errno = 0;
     const long limit = ::sysconf(_SC_OPEN_MAX);
     if (limit > 0) {
         return static_cast<std::uint64_t>(limit);
+    }
+    const int error = errno;
+    if (error != 0) {
+        if (error == EINVAL) {
+            return fail(errc::not_supported);
+        }
+        return fail(std::error_code(error, std::generic_category()));
     }
 #endif
     return fail(errc::not_supported);

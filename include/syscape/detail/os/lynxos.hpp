@@ -148,7 +148,14 @@ inline result<std::chrono::milliseconds> uptime() {
     if (saved_errno == EACCES || saved_errno == EPERM) {
         return fail(errc::permission_denied);
     }
-    if (saved_errno == EINVAL) {
+    if (saved_errno == EINVAL || saved_errno == ENOSYS
+#if defined(ENOTSUP)
+        || saved_errno == ENOTSUP
+#endif
+#if defined(EOPNOTSUPP) && (!defined(ENOTSUP) || (EOPNOTSUPP != ENOTSUP))
+        || saved_errno == EOPNOTSUPP
+#endif
+    ) {
         return fail(errc::not_supported);
     }
     if (saved_errno != 0) {
@@ -186,6 +193,16 @@ inline result<std::string> host_name() {
             const int err = errno;
             if (err == EACCES || err == EPERM) {
                 return fail(errc::permission_denied);
+            }
+            if (err == ENOSYS
+#if defined(ENOTSUP)
+                || err == ENOTSUP
+#endif
+#if defined(EOPNOTSUPP) && (!defined(ENOTSUP) || (EOPNOTSUPP != ENOTSUP))
+                || err == EOPNOTSUPP
+#endif
+            ) {
+                return fail(errc::not_supported);
             }
             if (err != ENAMETOOLONG && err != EINVAL) {
                 return fail(std::error_code(err, std::generic_category()));

@@ -64,8 +64,10 @@ void test_resource_queries() {
     if (fd_lim.has_value()) {
         expect(*fd_lim > 0, "file_descriptor_limit must be positive");
     } else {
-        expect(fd_lim.error() == syscape::errc::not_supported,
-               "file_descriptor_limit failure must report not_supported");
+        expect(fd_lim.error() == syscape::errc::not_supported ||
+                   fd_lim.error().category() == std::generic_category(),
+               "file_descriptor_limit failure must report not_supported or "
+               "native error");
     }
 }
 

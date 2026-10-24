@@ -90,15 +90,15 @@ inline result<std::uint64_t> available_memory_bytes() {
     }
     errno = 0;
     const long pages = ::sysconf(_SC_AVPHYS_PAGES);
-    if (pages > 0) {
+    if (pages >= 0) {
+        if (pages == 0) {
+            return static_cast<std::uint64_t>(0U);
+        }
         if (static_cast<std::uint64_t>(pages) >
             (std::numeric_limits<std::uint64_t>::max)() / *page) {
             return fail(errc::value_too_large);
         }
         return static_cast<std::uint64_t>(pages) * *page;
-    }
-    if (pages == 0) {
-        return fail(errc::malformed_data);
     }
     const int error = errno;
     if (error != 0 && error != EINVAL) {

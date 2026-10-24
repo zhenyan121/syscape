@@ -64,22 +64,27 @@ void test_runtime_queries() {
     expect(pver.has_value() && *pver == LYNXOS_VERSION_STRING,
            "product version must match LYNXOS_VERSION_STRING");
 #elif defined(LYNXOS_VERSION)
-#if defined(SYSCAPE_TEST_LYNXOS_VERSION_NOT_SUPPORTED)
-    expect(!kver && kver.error() == syscape::errc::not_supported,
-           "kernel version must report not_supported");
-    expect(!pver && pver.error() == syscape::errc::not_supported,
-           "product version must report not_supported");
-#elif defined(SYSCAPE_TEST_LYNXOS_VERSION_NOT_FOUND)
+#if defined(SYSCAPE_TEST_LYNXOS_VERSION_INVALID)
     expect(!kver && kver.error() == syscape::errc::not_found,
-           "kernel version must report not_found");
+           "kernel version must report not_found for invalid version");
     expect(!pver && pver.error() == syscape::errc::not_found,
-           "product version must report not_found");
+           "product version must report not_found for invalid version");
 #else
     expect(kver.has_value() && *kver == to_test_string(LYNXOS_VERSION),
            "kernel version must match LYNXOS_VERSION");
     expect(pver.has_value() && *pver == to_test_string(LYNXOS_VERSION),
            "product version must match LYNXOS_VERSION");
 #endif
+#elif defined(_LYNXOS_VERSION)
+    expect(kver.has_value() && *kver == to_test_string(_LYNXOS_VERSION),
+           "kernel version must match _LYNXOS_VERSION");
+    expect(pver.has_value() && *pver == to_test_string(_LYNXOS_VERSION),
+           "product version must match _LYNXOS_VERSION");
+#elif defined(__LYNXOS_VERSION__)
+    expect(kver.has_value() && *kver == to_test_string(__LYNXOS_VERSION__),
+           "kernel version must match __LYNXOS_VERSION__");
+    expect(pver.has_value() && *pver == to_test_string(__LYNXOS_VERSION__),
+           "product version must match __LYNXOS_VERSION__");
 #else
     expect(!kver && kver.error() == syscape::errc::not_supported,
            "kernel version must report not_supported on LynxOS by default");
@@ -90,14 +95,23 @@ void test_runtime_queries() {
     const auto host = syscape::os::host_name();
     if (host.has_value()) {
         expect(!host->empty(), "host name must not be empty if reported");
+    } else {
+        expect(host.error() == syscape::errc::not_supported ||
+                   host.error() == syscape::errc::permission_denied ||
+                   host.error() == syscape::errc::value_too_large ||
+                   host.error().category() == std::generic_category(),
+               "host_name error must be a recognized error code");
     }
 
     const auto elapsed = syscape::os::uptime();
     if (elapsed.has_value()) {
         expect(elapsed->count() >= 0, "uptime must not be negative");
     } else {
-        expect(elapsed.error() == syscape::errc::not_supported,
-               "uptime error must report not_supported");
+        expect(elapsed.error() == syscape::errc::not_supported ||
+                   elapsed.error() == syscape::errc::permission_denied ||
+                   elapsed.error() == syscape::errc::not_found ||
+                   elapsed.error().category() == std::generic_category(),
+               "uptime error must report a recognized error code");
     }
 
     const auto boot = syscape::os::boot_time();

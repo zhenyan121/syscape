@@ -32,7 +32,6 @@ void test_memory_queries() {
 
     const auto avail = syscape::memory::available_memory_bytes();
     if (avail.has_value()) {
-        expect(*avail > 0, "available memory must be positive");
         if (phys.has_value()) {
             expect(*avail <= *phys,
                    "available memory must not exceed physical memory");
