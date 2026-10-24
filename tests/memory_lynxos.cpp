@@ -23,38 +23,33 @@ void test_memory_queries() {
     }
 
     const auto phys = syscape::memory::physical_memory_bytes();
-#if defined(SYSCAPE_LYNXOS_TOTAL_HEAP_SIZE)
-    expect(phys.has_value() && *phys == SYSCAPE_LYNXOS_TOTAL_HEAP_SIZE,
-           "physical memory must match SYSCAPE_LYNXOS_TOTAL_HEAP_SIZE");
-#elif defined(LYNXOS_TOTAL_HEAP_SIZE)
-    expect(phys.has_value() && *phys == LYNXOS_TOTAL_HEAP_SIZE,
-           "physical memory must match LYNXOS_TOTAL_HEAP_SIZE");
-#else
-    expect(!phys && phys.error() == syscape::errc::not_supported,
-           "physical memory must report not_supported on LynxOS by default");
-#endif
+    if (phys.has_value()) {
+        expect(*phys > 0, "physical memory must be positive");
+    } else {
+        expect(phys.error() == syscape::errc::not_supported,
+               "physical memory must report not_supported if unexposed");
+    }
 
     const auto avail = syscape::memory::available_memory_bytes();
-#if defined(SYSCAPE_LYNXOS_FREE_HEAP_SIZE)
-    expect(avail.has_value() && *avail == SYSCAPE_LYNXOS_FREE_HEAP_SIZE,
-           "available memory must match SYSCAPE_LYNXOS_FREE_HEAP_SIZE");
-#elif defined(LYNXOS_FREE_HEAP_SIZE)
-    expect(avail.has_value() && *avail == LYNXOS_FREE_HEAP_SIZE,
-           "available memory must match LYNXOS_FREE_HEAP_SIZE");
-#else
-    expect(!avail && avail.error() == syscape::errc::not_supported,
-           "available memory must report not_supported on LynxOS by default");
-#endif
+    if (avail.has_value()) {
+        expect(*avail > 0, "available memory must be positive");
+        if (phys.has_value()) {
+            expect(*avail <= *phys,
+                   "available memory must not exceed physical memory");
+        }
+    } else {
+        expect(avail.error() == syscape::errc::not_supported,
+               "available memory must report not_supported if unexposed");
+    }
 
     const auto load = syscape::memory::memory_load_percent();
-#if (defined(SYSCAPE_LYNXOS_TOTAL_HEAP_SIZE) ||                                \
-     defined(LYNXOS_TOTAL_HEAP_SIZE)) &&                                       \
-    (defined(SYSCAPE_LYNXOS_FREE_HEAP_SIZE) || defined(LYNXOS_FREE_HEAP_SIZE))
-    expect(load.has_value() && *load <= 100,
-           "memory load percent must succeed and be <= 100");
-#else
-    expect(!load, "memory load percent must report not_supported by default");
-#endif
+    if (phys.has_value() && avail.has_value()) {
+        expect(load.has_value() && *load <= 100,
+               "memory load percent must succeed and be <= 100");
+    } else {
+        expect(!load && load.error() == syscape::errc::not_supported,
+               "memory load percent must report not_supported if unavailable");
+    }
 
     const auto swap = syscape::memory::swap_status();
     expect(!swap && swap.error() == syscape::errc::not_supported,

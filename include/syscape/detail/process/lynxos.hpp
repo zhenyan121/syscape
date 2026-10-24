@@ -21,6 +21,7 @@
 #include <vector>
 
 #include <syscape/detail/process/common.hpp>
+#include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
 
 namespace syscape {
@@ -68,7 +69,14 @@ inline result<std::string> working_directory() {
         std::vector<char> buf(size);
         errno = 0;
         if (::getcwd(buf.data(), size) != nullptr) {
-            return std::string(buf.data());
+            std::string path(buf.data());
+            if (path.empty()) {
+                return fail(errc::malformed_data);
+            }
+            if (!is_valid_utf8(path)) {
+                return fail(errc::invalid_encoding);
+            }
+            return path;
         }
         const int err = errno;
         if (err == ERANGE) {

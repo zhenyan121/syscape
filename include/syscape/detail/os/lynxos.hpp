@@ -12,13 +12,17 @@
 
 #include <cerrno>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <limits>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <type_traits>
 #include <unistd.h>
+#include <vector>
 
 #include <syscape/detail/utf8.hpp>
 #include <syscape/result.hpp>
@@ -27,26 +31,43 @@ namespace syscape {
 namespace detail {
 namespace os_backend {
 
-inline result<std::string> parse_version_string(const char* content) {
-    if (content == nullptr) {
+inline result<std::string> parse_version_string(std::string_view content) {
+    std::string_view text = content;
+    while (!text.empty() && (text.front() == ' ' || text.front() == '\t')) {
+        text.remove_prefix(1U);
+    }
+    while (!text.empty() && (text.back() == '\r' || text.back() == '\n' ||
+                             text.back() == ' ' || text.back() == '\t')) {
+        text.remove_suffix(1U);
+    }
+    if (text.empty()) {
         return fail(errc::not_found);
     }
-    const char* text = content;
-    while (*text == ' ' || *text == '\t') {
-        ++text;
+    std::string result_str(text);
+    if (!is_valid_utf8(result_str)) {
+        return fail(errc::invalid_encoding);
     }
-    if (*text == '\0') {
+    return result_str;
+}
+
+inline result<std::string> parse_host_name(std::string_view content) {
+    std::string_view text = content;
+    while (!text.empty() && (text.front() == ' ' || text.front() == '\t')) {
+        text.remove_prefix(1U);
+    }
+    while (!text.empty() && (text.back() == '\r' || text.back() == '\n' ||
+                             text.back() == ' ' || text.back() == '\t')) {
+        text.remove_suffix(1U);
+    }
+    if (text.empty()) {
         return fail(errc::not_found);
     }
-    const char* end = text + std::strlen(text);
-    while (end > text && (*(end - 1) == '\r' || *(end - 1) == '\n' ||
-                          *(end - 1) == ' ' || *(end - 1) == '\t')) {
-        --end;
+    for (char c : text) {
+        if (c == '\0' || c == '\n' || c == '\r') {
+            return fail(errc::malformed_data);
+        }
     }
-    if (end == text) {
-        return fail(errc::not_found);
-    }
-    std::string result_str(text, static_cast<std::size_t>(end - text));
+    std::string result_str(text);
     if (!is_valid_utf8(result_str)) {
         return fail(errc::invalid_encoding);
     }
@@ -60,14 +81,13 @@ inline auto format_version_value(T value) ->
     if (value <= 0) {
         return fail(errc::not_found);
     }
-    // Bare numeric 1 is a feature-test macro rather than a genuine version.
-    if (value == 1) {
-        return fail(errc::not_supported);
-    }
     return std::to_string(value);
 }
 
 inline result<std::string> format_version_value(const char* content) {
+    if (content == nullptr) {
+        return fail(errc::not_found);
+    }
     return parse_version_string(content);
 }
 
@@ -128,15 +148,13 @@ inline result<std::chrono::milliseconds> uptime() {
     if (saved_errno == EACCES || saved_errno == EPERM) {
         return fail(errc::permission_denied);
     }
-#endif
-#if defined(SYSCAPE_LYNXOS_TICKS_PER_SECOND)
-    static_assert(SYSCAPE_LYNXOS_TICKS_PER_SECOND > 0,
-                  "SYSCAPE_LYNXOS_TICKS_PER_SECOND must be positive");
-    return fail(errc::not_supported);
-#elif defined(LYNXOS_TICKS_PER_SECOND)
-    static_assert(LYNXOS_TICKS_PER_SECOND > 0,
-                  "LYNXOS_TICKS_PER_SECOND must be positive");
-    return fail(errc::not_supported);
+    if (saved_errno == EINVAL) {
+        return fail(errc::not_supported);
+    }
+    if (saved_errno != 0) {
+        return fail(std::error_code(saved_errno, std::generic_category()));
+    }
+    return fail(errc::io_error);
 #else
     return fail(errc::not_supported);
 #endif
@@ -151,20 +169,34 @@ inline result<std::string> kernel_version() {
 }
 
 inline result<std::string> host_name() {
-#if defined(_SC_HOST_NAME_MAX) || defined(HOST_NAME_MAX)
-    char buf[256];
-    if (::gethostname(buf, sizeof(buf)) == 0) {
-        buf[sizeof(buf) - 1] = '\0';
-        return parse_version_string(buf);
+    std::vector<char> buffer(256U);
+    constexpr std::size_t max_buffer_size = 64U * 1024U;
+    while (buffer.size() <= max_buffer_size) {
+        errno = 0;
+        if (::gethostname(buffer.data(), buffer.size()) == 0) {
+            std::size_t end = 0U;
+            while (end < buffer.size() && buffer[end] != '\0') {
+                ++end;
+            }
+            if (end < buffer.size()) {
+                return parse_host_name(std::string_view(buffer.data(), end));
+            }
+            // Buffer full without null terminator indicates truncation.
+        } else {
+            const int err = errno;
+            if (err == EACCES || err == EPERM) {
+                return fail(errc::permission_denied);
+            }
+            if (err != ENAMETOOLONG && err != EINVAL) {
+                return fail(std::error_code(err, std::generic_category()));
+            }
+        }
+        if (buffer.size() >= max_buffer_size) {
+            return fail(errc::value_too_large);
+        }
+        buffer.resize(buffer.size() * 2U);
     }
-    const int saved_errno = errno;
-    if (saved_errno == EACCES || saved_errno == EPERM) {
-        return fail(errc::permission_denied);
-    }
-    return fail(errc::io_error);
-#else
-    return fail(errc::not_supported);
-#endif
+    return fail(errc::value_too_large);
 }
 
 inline result<std::string> build_identifier() {

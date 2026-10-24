@@ -2838,6 +2838,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "LYNXOS" OR LYNXOS)
     syscape_add_test(os_lynxos_numeric_version 17 syscape::hosted os_lynxos.cpp)
     target_compile_definitions(os_lynxos_numeric_version PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_VERSION=7)
 
+    syscape_add_test(os_lynxos_version_one 17 syscape::hosted os_lynxos.cpp)
+    target_compile_definitions(os_lynxos_version_one PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_VERSION=1)
+
     syscape_add_test(os_lynxos_178 17 syscape::hosted os_lynxos.cpp)
     target_compile_definitions(os_lynxos_178 PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_178=1)
 
@@ -2859,20 +2862,20 @@ if(CMAKE_SYSTEM_NAME STREQUAL "LYNXOS" OR LYNXOS)
     syscape_add_test(cpu_lynxos_legacy 17 syscape::hosted cpu_lynxos.cpp)
     target_compile_definitions(cpu_lynxos_legacy PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_CPU_COUNT=2)
 
-    syscape_add_test(memory_lynxos_heap 17 syscape::hosted memory_lynxos.cpp)
-    target_compile_definitions(memory_lynxos_heap PRIVATE __Lynx__=1 LYNXOS=1 SYSCAPE_LYNXOS_TOTAL_HEAP_SIZE=524288 SYSCAPE_LYNXOS_FREE_HEAP_SIZE=262144)
-
-    syscape_add_test(memory_lynxos_exhausted 17 syscape::hosted memory_lynxos.cpp)
-    target_compile_definitions(memory_lynxos_exhausted PRIVATE __Lynx__=1 LYNXOS=1 SYSCAPE_LYNXOS_TOTAL_HEAP_SIZE=524288 SYSCAPE_LYNXOS_FREE_HEAP_SIZE=0)
-
     syscape_add_test(resource_lynxos_configured 17 syscape::hosted resource_lynxos.cpp)
     target_compile_definitions(resource_lynxos_configured PRIVATE __Lynx__=1 LYNXOS=1 SYSCAPE_LYNXOS_THREAD_COUNT=32 SYSCAPE_LYNXOS_PROCESS_COUNT=8)
 
     syscape_add_test(lynxos_detection 11 syscape::syscape lynxos_detection.cpp)
     target_compile_definitions(lynxos_detection PRIVATE __Lynx__=1)
 
+    syscape_add_test(lynxos_lowercase_detection 11 syscape::syscape lynxos_detection.cpp)
+    target_compile_definitions(lynxos_lowercase_detection PRIVATE __lynx__=1)
+
     syscape_add_test(lynxos_macro_detection 11 syscape::syscape lynxos_detection.cpp)
     target_compile_definitions(lynxos_macro_detection PRIVATE LYNXOS=1)
+
+    syscape_add_test(lynxos_underscore_macro_detection 11 syscape::syscape lynxos_detection.cpp)
+    target_compile_definitions(lynxos_underscore_macro_detection PRIVATE _LYNXOS=1)
 
     syscape_add_test(lynxos_standalone_detection 11 syscape::syscape lynxos_detection.cpp)
     target_compile_definitions(lynxos_standalone_detection PRIVATE SYSCAPE_TARGET_LYNXOS=1)

@@ -363,10 +363,11 @@
 #define SYSCAPE_TARGET_PIKEOS 1
 #endif
 
-// Detect LynxOS / LynxOS-178 RTOS. __Lynx__, __LYNX__, __LYNXOS__, LYNXOS, or
-// _LYNXOS are defined by LynxOS toolchains and SDK headers. Mutual exclusion
-// against earlier-checked RTOS families ensures foreign SDKs defining generic
-// macros will not inadvertently activate LynxOS detection.
+// Detect LynxOS / LynxOS-178 RTOS. __Lynx__, __LYNX__, __LYNXOS__, and
+// __lynx__ are predefined by LynxOS toolchains. LYNXOS or _LYNXOS with positive
+// values are defined in LynxOS build configurations. Mutual exclusion against
+// earlier-checked RTOS families ensures foreign SDKs defining generic macros
+// will not inadvertently activate LynxOS detection.
 #if defined(SYSCAPE_TARGET_LYNXOS)
 #undef SYSCAPE_TARGET_LYNXOS
 #define SYSCAPE_TARGET_LYNXOS 1
@@ -399,7 +400,8 @@
     !defined(P4_NUM_PRIOS) && !defined(PIKEOS_P4_H) && !defined(_P4_H) &&      \
     !defined(_P4_H_) && !defined(P4_H) &&                                      \
     (defined(__Lynx__) || defined(__LYNX__) || defined(__LYNXOS__) ||          \
-     defined(LYNXOS) || defined(_LYNXOS) || defined(__lynx__))
+     defined(__lynx__) || (defined(LYNXOS) && (LYNXOS + 0 > 0)) ||             \
+     (defined(_LYNXOS) && (_LYNXOS + 0 > 0)))
 #define SYSCAPE_TARGET_LYNXOS 1
 #endif
 

@@ -6,14 +6,16 @@
 /// @note Minimum compatibility profile: Hosted Full with C++17
 /// (RTOS/Constrained profile).
 /// @note Minimum language version: C++17.
-/// @note Uses sysconf(_SC_PAGESIZE) and
-/// SYSCAPE_LYNXOS_TOTAL_HEAP_SIZE/FREE_HEAP_SIZE macros.
+/// @note Uses sysconf(_SC_PAGESIZE), sysconf(_SC_PHYS_PAGES), and
+/// sysconf(_SC_AVPHYS_PAGES).
 
 #include <syscape/detail/config.hpp>
 
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <system_error>
 #include <unistd.h>
 
 #include <syscape/detail/memory/common.hpp>
@@ -25,45 +27,85 @@ namespace memory_backend {
 
 inline result<std::uint64_t> page_size_bytes() {
 #if defined(_SC_PAGESIZE)
+    errno = 0;
     const long page_size = ::sysconf(_SC_PAGESIZE);
     if (page_size > 0) {
         return static_cast<std::uint64_t>(page_size);
     }
+    if (page_size == 0) {
+        return fail(errc::malformed_data);
+    }
+    const int error = errno;
+    if (error != 0 && error != EINVAL) {
+        return fail(std::error_code(error, std::generic_category()));
+    }
 #elif defined(_SC_PAGE_SIZE)
+    errno = 0;
     const long page_size = ::sysconf(_SC_PAGE_SIZE);
     if (page_size > 0) {
         return static_cast<std::uint64_t>(page_size);
+    }
+    if (page_size == 0) {
+        return fail(errc::malformed_data);
+    }
+    const int error = errno;
+    if (error != 0 && error != EINVAL) {
+        return fail(std::error_code(error, std::generic_category()));
     }
 #endif
     return fail(errc::not_supported);
 }
 
 inline result<std::uint64_t> physical_memory_bytes() {
-#if defined(SYSCAPE_LYNXOS_TOTAL_HEAP_SIZE)
-    static_assert(SYSCAPE_LYNXOS_TOTAL_HEAP_SIZE > 0,
-                  "SYSCAPE_LYNXOS_TOTAL_HEAP_SIZE must be positive");
-    return static_cast<std::uint64_t>(SYSCAPE_LYNXOS_TOTAL_HEAP_SIZE);
-#elif defined(LYNXOS_TOTAL_HEAP_SIZE)
-    static_assert(LYNXOS_TOTAL_HEAP_SIZE > 0,
-                  "LYNXOS_TOTAL_HEAP_SIZE must be positive");
-    return static_cast<std::uint64_t>(LYNXOS_TOTAL_HEAP_SIZE);
-#else
-    return fail(errc::not_supported);
+#if defined(_SC_PHYS_PAGES)
+    const auto page = page_size_bytes();
+    if (!page) {
+        return fail(page.error());
+    }
+    errno = 0;
+    const long pages = ::sysconf(_SC_PHYS_PAGES);
+    if (pages > 0) {
+        if (static_cast<std::uint64_t>(pages) >
+            (std::numeric_limits<std::uint64_t>::max)() / *page) {
+            return fail(errc::value_too_large);
+        }
+        return static_cast<std::uint64_t>(pages) * *page;
+    }
+    if (pages == 0) {
+        return fail(errc::malformed_data);
+    }
+    const int error = errno;
+    if (error != 0 && error != EINVAL) {
+        return fail(std::error_code(error, std::generic_category()));
+    }
 #endif
+    return fail(errc::not_supported);
 }
 
 inline result<std::uint64_t> available_memory_bytes() {
-#if defined(SYSCAPE_LYNXOS_FREE_HEAP_SIZE)
-    static_assert(SYSCAPE_LYNXOS_FREE_HEAP_SIZE >= 0,
-                  "SYSCAPE_LYNXOS_FREE_HEAP_SIZE must not be negative");
-    return static_cast<std::uint64_t>(SYSCAPE_LYNXOS_FREE_HEAP_SIZE);
-#elif defined(LYNXOS_FREE_HEAP_SIZE)
-    static_assert(LYNXOS_FREE_HEAP_SIZE >= 0,
-                  "LYNXOS_FREE_HEAP_SIZE must not be negative");
-    return static_cast<std::uint64_t>(LYNXOS_FREE_HEAP_SIZE);
-#else
-    return fail(errc::not_supported);
+#if defined(_SC_AVPHYS_PAGES)
+    const auto page = page_size_bytes();
+    if (!page) {
+        return fail(page.error());
+    }
+    errno = 0;
+    const long pages = ::sysconf(_SC_AVPHYS_PAGES);
+    if (pages > 0) {
+        if (static_cast<std::uint64_t>(pages) >
+            (std::numeric_limits<std::uint64_t>::max)() / *page) {
+            return fail(errc::value_too_large);
+        }
+        return static_cast<std::uint64_t>(pages) * *page;
+    }
+    if (pages == 0) {
+        return fail(errc::malformed_data);
+    }
+    const int error = errno;
+    if (error != 0 && error != EINVAL) {
+        return fail(std::error_code(error, std::generic_category()));
+    }
 #endif
+    return fail(errc::not_supported);
 }
 
 inline result<memory_common::swap_usage> swap_status() {
