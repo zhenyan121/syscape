@@ -96,7 +96,7 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
     !defined(SYSCAPE_TARGET_KAIOS) && !defined(SYSCAPE_TARGET_RTTHREAD) &&     \
     !defined(SYSCAPE_TARGET_CMSIS_RTOS) && !defined(SYSCAPE_TARGET_TI_RTOS) && \
     !defined(SYSCAPE_TARGET_NUCLEUS) && !defined(SYSCAPE_TARGET_ECOS) &&       \
-    !defined(SYSCAPE_TARGET_PIKEOS) &&                                         \
+    !defined(SYSCAPE_TARGET_PIKEOS) && !defined(SYSCAPE_TARGET_LYNXOS) &&      \
     !defined(SYSCAPE_TARGET_WASM_BROWSER) &&                                   \
     !defined(SYSCAPE_TARGET_WASM_EMBEDDED)
 #include <syscape/detail/environment/linux.hpp>
@@ -220,6 +220,8 @@ inline bool operator!=(const environment_variable& lhs, const environment_variab
 #include <syscape/detail/environment/ecos.hpp>
 #elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_PIKEOS)
 #include <syscape/detail/environment/pikeos.hpp>
+#elif !defined(SYSCAPE_FORCE_GENERIC_BACKEND) && defined(SYSCAPE_TARGET_LYNXOS)
+#include <syscape/detail/environment/lynxos.hpp>
 #else
 #include <syscape/detail/environment/generic.hpp>
 #endif

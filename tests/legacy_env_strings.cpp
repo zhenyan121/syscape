@@ -51,5 +51,8 @@ int main() {
     assert(std::strcmp(syscape::operating_system_name(
                            syscape::operating_system::pikeos),
                        "pikeos") == 0);
+    assert(std::strcmp(syscape::operating_system_name(
+                           syscape::operating_system::lynxos),
+                       "lynxos") == 0);
     return 0;
 }
