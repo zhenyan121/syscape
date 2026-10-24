@@ -2771,6 +2771,143 @@ if(CMAKE_SYSTEM_NAME STREQUAL "PIKEOS" OR PIKEOS)
     target_include_directories(pikeos_header_detection PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/compat/pikeos)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "LYNXOS" OR LYNXOS)
+    set(LYNXOS_TEST_TARGETS
+        os_lynxos
+        cpu_lynxos
+        memory_lynxos
+        process_lynxos
+        user_lynxos
+        filesystem_lynxos
+        network_lynxos
+        locale_lynxos
+        environment_lynxos
+        resource_lynxos
+        virtualization_lynxos
+        hardware_lynxos
+        power_lynxos
+        sensor_lynxos
+        security_lynxos
+        numa_lynxos
+        process_list_lynxos
+        printer_lynxos
+        audio_lynxos
+        software_lynxos
+        storage_lynxos
+        ipc_lynxos
+        connection_lynxos
+        gpu_lynxos
+        display_lynxos
+        input_lynxos
+        camera_lynxos
+        bluetooth_lynxos
+        wifi_lynxos)
+    foreach(lynxos_target IN LISTS LYNXOS_TEST_TARGETS)
+        syscape_add_test(${lynxos_target} 17 syscape::hosted ${lynxos_target}.cpp)
+        target_compile_definitions(${lynxos_target} PRIVATE __Lynx__=1 LYNXOS=1)
+    endforeach()
+
+    foreach(lynxos_domain IN ITEMS
+            os cpu memory process user filesystem network locale environment
+            resource virtualization hardware power sensor security numa
+            process_list printer audio software storage ipc connection
+            gpu display input camera bluetooth wifi)
+        set(lynxos_header_target "header_${lynxos_domain}_lynxos")
+        syscape_add_test(
+            ${lynxos_header_target}
+            17
+            syscape::hosted
+            header_${lynxos_domain}.cpp)
+        target_compile_definitions(${lynxos_header_target} PRIVATE __Lynx__=1 LYNXOS=1)
+    endforeach()
+
+    syscape_add_test(
+        lynxos_odr
+        17
+        syscape::hosted
+        odr_main.cpp
+        odr_other.cpp)
+    target_compile_definitions(lynxos_odr PRIVATE __Lynx__=1 LYNXOS=1)
+
+    syscape_add_test(os_lynxos_override 17 syscape::hosted os_lynxos.cpp)
+    target_compile_definitions(os_lynxos_override PRIVATE __Lynx__=1 LYNXOS=1 SYSCAPE_LYNXOS_VERSION_STRING="LynxOS 7.0")
+
+    syscape_add_test(os_lynxos_version 17 syscape::hosted os_lynxos.cpp)
+    target_compile_definitions(os_lynxos_version PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_VERSION_STRING="7.0.0")
+
+    syscape_add_test(os_lynxos_numeric_version 17 syscape::hosted os_lynxos.cpp)
+    target_compile_definitions(os_lynxos_numeric_version PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_VERSION=7)
+
+    syscape_add_test(os_lynxos_version_one 17 syscape::hosted os_lynxos.cpp)
+    target_compile_definitions(os_lynxos_version_one PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_VERSION=1)
+
+    syscape_add_test(os_lynxos_invalid_version 17 syscape::hosted os_lynxos.cpp)
+    target_compile_definitions(os_lynxos_invalid_version PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_VERSION=0 SYSCAPE_TEST_LYNXOS_VERSION_INVALID=1)
+
+    syscape_add_test(os_lynxos_underscore_version 17 syscape::hosted os_lynxos.cpp)
+    target_compile_definitions(os_lynxos_underscore_version PRIVATE __Lynx__=1 LYNXOS=1 _LYNXOS_VERSION=5)
+
+    syscape_add_test(os_lynxos_builtin_version 17 syscape::hosted os_lynxos.cpp)
+    target_compile_definitions(os_lynxos_builtin_version PRIVATE __Lynx__=1 LYNXOS=1 __LYNXOS_VERSION__=4)
+
+    syscape_add_test(os_lynxos_178 17 syscape::hosted os_lynxos.cpp)
+    target_compile_definitions(os_lynxos_178 PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_178=1)
+
+    syscape_add_test(os_lynxos_standalone_detection 17 syscape::hosted os_lynxos.cpp)
+    target_compile_definitions(os_lynxos_standalone_detection PRIVATE SYSCAPE_TARGET_LYNXOS=1)
+
+    syscape_add_test(process_lynxos_priority 17 syscape::hosted process_lynxos.cpp)
+    target_compile_definitions(process_lynxos_priority PRIVATE __Lynx__=1 LYNXOS=1 SYSCAPE_LYNXOS_PRIORITY=15)
+
+    syscape_add_test(process_lynxos_legacy_priority 17 syscape::hosted process_lynxos.cpp)
+    target_compile_definitions(process_lynxos_legacy_priority PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_PRIORITY=10)
+
+    syscape_add_test(process_lynxos_overrides 17 syscape::hosted process_lynxos.cpp)
+    target_compile_definitions(process_lynxos_overrides PRIVATE __Lynx__=1 LYNXOS=1 SYSCAPE_LYNXOS_PID=1234 SYSCAPE_LYNXOS_PPID=1)
+
+    syscape_add_test(process_lynxos_legacy_ids 17 syscape::hosted process_lynxos.cpp)
+    target_compile_definitions(process_lynxos_legacy_ids PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_PID=4321 LYNXOS_PPID=2)
+
+    syscape_add_test(cpu_lynxos_configured 17 syscape::hosted cpu_lynxos.cpp)
+    target_compile_definitions(cpu_lynxos_configured PRIVATE __Lynx__=1 LYNXOS=1 SYSCAPE_LYNXOS_CPU_COUNT=4)
+
+    syscape_add_test(cpu_lynxos_legacy 17 syscape::hosted cpu_lynxos.cpp)
+    target_compile_definitions(cpu_lynxos_legacy PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_CPU_COUNT=2)
+
+    syscape_add_test(resource_lynxos_configured 17 syscape::hosted resource_lynxos.cpp)
+    target_compile_definitions(resource_lynxos_configured PRIVATE __Lynx__=1 LYNXOS=1 SYSCAPE_LYNXOS_THREAD_COUNT=32 SYSCAPE_LYNXOS_PROCESS_COUNT=8)
+
+    syscape_add_test(resource_lynxos_task_count 17 syscape::hosted resource_lynxos.cpp)
+    target_compile_definitions(resource_lynxos_task_count PRIVATE __Lynx__=1 LYNXOS=1 SYSCAPE_LYNXOS_TASK_COUNT=64)
+
+    syscape_add_test(resource_lynxos_legacy_task_count 17 syscape::hosted resource_lynxos.cpp)
+    target_compile_definitions(resource_lynxos_legacy_task_count PRIVATE __Lynx__=1 LYNXOS=1 LYNXOS_TASK_COUNT=16)
+
+    syscape_add_test(lynxos_detection 11 syscape::syscape lynxos_detection.cpp)
+    target_compile_definitions(lynxos_detection PRIVATE __Lynx__=1)
+
+    syscape_add_test(lynxos_caps_detection 11 syscape::syscape lynxos_detection.cpp)
+    target_compile_definitions(lynxos_caps_detection PRIVATE __LYNX__=1)
+
+    syscape_add_test(lynxos_os_caps_detection 11 syscape::syscape lynxos_detection.cpp)
+    target_compile_definitions(lynxos_os_caps_detection PRIVATE __LYNXOS__=1)
+
+    syscape_add_test(lynxos_lowercase_detection 11 syscape::syscape lynxos_detection.cpp)
+    target_compile_definitions(lynxos_lowercase_detection PRIVATE __lynx__=1)
+
+    syscape_add_test(lynxos_macro_detection 11 syscape::syscape lynxos_detection.cpp)
+    target_compile_definitions(lynxos_macro_detection PRIVATE LYNXOS=1)
+
+    syscape_add_test(lynxos_underscore_macro_detection 11 syscape::syscape lynxos_detection.cpp)
+    target_compile_definitions(lynxos_underscore_macro_detection PRIVATE _LYNXOS=1)
+
+    syscape_add_test(lynxos_standalone_detection 11 syscape::syscape lynxos_detection.cpp)
+    target_compile_definitions(lynxos_standalone_detection PRIVATE SYSCAPE_TARGET_LYNXOS=1)
+
+    syscape_add_test(lynxos_freertos_priority 11 syscape::syscape lynxos_coexistence.cpp)
+    target_compile_definitions(lynxos_freertos_priority PRIVATE FREERTOS=1 __Lynx__=1)
+endif()
+
 # Compatibility environments and variants (Tier 3)
 syscape_add_test(cygwin_detection 11 syscape::syscape cygwin_detection.cpp)
 target_compile_definitions(cygwin_detection PRIVATE __CYGWIN__=1)
